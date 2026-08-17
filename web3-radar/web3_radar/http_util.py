@@ -1,15 +1,15 @@
 from __future__ import annotations
 
+import ssl
 from typing import Any
 
 import httpx
 
 try:
     import certifi
-
-    _CA = certifi.where()
+    _VERIFY: ssl.SSLContext | bool = ssl.create_default_context(cafile=certifi.where())
 except Exception:
-    _CA = True
+    _VERIFY = True
 
 DEFAULT_HEADERS = {
     "User-Agent": "Mozilla/5.0 ChainRadar/1.0",
@@ -22,7 +22,7 @@ def client(timeout: float = 25.0) -> httpx.AsyncClient:
         timeout=timeout,
         follow_redirects=True,
         headers=DEFAULT_HEADERS,
-        verify=_CA,
+        verify=_VERIFY,
     )
 
 
