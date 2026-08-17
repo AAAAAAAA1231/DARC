@@ -154,8 +154,11 @@ async def scan_airdrops(min_funding_usd: float = 20_000_000) -> dict[str, Any]:
 
 
 async def _scan_llama(min_funding_usd: float, errors: list[str]) -> list[dict[str, Any]]:
-    async with httpx.AsyncClient(timeout=40.0, headers={"User-Agent": "ChainRadar/1.0"}) as client:
+    async with httpx.AsyncClient(timeout=12.0, headers={"User-Agent": "ChainRadar/1.0"}) as client:
         raises_resp = await client.get(LLAMA_RAISES)
+        if raises_resp.status_code in {401, 402, 403}:
+            errors.append("DefiLlama raises 需付费/受限，已改用公开源与观察池")
+            return []
         if raises_resp.status_code >= 400:
             raise RuntimeError(f"HTTP {raises_resp.status_code}")
         raises = raises_resp.json()

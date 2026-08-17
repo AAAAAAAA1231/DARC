@@ -1,9 +1,9 @@
 const views = {
   contracts: ["合约分析", "市值前 100 · TD13/谐波等 · 每标的 100 万次权重模拟。未拟合前不要把「观望」当成信号。"],
   meme: ["妖币监控", "只保留池子≥$20k、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
-  copytrade: ["自动跟单", "跟随妖币「可跟」信号。默认模拟盘，带止盈止损和最大持仓限制。"],
-  ambassador: ["大使招募", "Twitter / 镜像检索一周内大使计划，并支持申请与参与成功标记"],
-  launch: ["打新监测", "关键词：打新、新平台、launch、presale、IDO 等"],
+  copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
+  ambassador: ["大使招募", "无 Twitter Token 时显示观察池；可手动添加。支持申请与参与成功标记。"],
+  launch: ["打新监测", "优先 OKX 上新公告；链上新池仅供参考。关键词：打新、launch、presale。"],
   airdrop: ["空投雷达", "知名机构投资、融资 > $2000 万、优先未发币，可标记交互状态"],
   wallet: ["钱包执行", "连接 OKX 等钱包，将空投 / 打新 / 妖币 / 合约加入确认队列"],
   settings: ["设置", "权重模拟次数、阈值、API Token 与自动参加上限"],
@@ -17,6 +17,7 @@ const tagClass = (d) => d === "涨" ? "up" : d === "跌" ? "down" : "wait";
 
 let currentView = "contracts";
 let analyzeJob = null;
+let analyzeStarting = false;
 let settingsCache = {};
 
 document.querySelectorAll("nav button").forEach((btn) => {
@@ -36,6 +37,7 @@ $("airdropStatusFilter").addEventListener("change", () => loadView("airdrop"));
 $("autoParticipate").addEventListener("change", persistWalletFlags);
 $("autoMaxSpend").addEventListener("change", persistWalletFlags);
 if ($("copySave")) $("copySave").addEventListener("click", saveCopytrade);
+if ($("ambAdd")) $("ambAdd").addEventListener("click", addAmbassador);
 
 function showView(name) {
   currentView = name;
@@ -72,6 +74,18 @@ async function loadView(name, refresh) {
     if (name === "contracts") {
       setStatus("检查权重拟合状态…");
       const last = await api("/api/contracts/status");
+      if (last.running && last.job_id) {
+        analyzeJob = last.job_id;
+        $("analyzeProgress").classList.remove("hidden");
+        if (last.results && last.results.length) {
+          last.results.forEach((r) => { store.contracts[r.symbol] = r; });
+          $("contractRows").innerHTML = last.results.map(contractRow).join("");
+        }
+        if ($("simBadge")) $("simBadge").textContent = last.fitted_note;
+        setStatus(last.fitted_note);
+        pollAnalyze();
+        return;
+      }
       if (last.fitted && last.results && last.results.length) {
         last.results.forEach((r) => { store.contracts[r.symbol] = r; });
         $("contractRows").innerHTML = last.results.map(contractRow).join("");
@@ -96,7 +110,7 @@ async function loadView(name, refresh) {
       if (!analyzeJob && uni.items.length) startAnalyze();
     } else if (name === "meme") {
       setStatus("正在拉取妖币（可能需要十几秒）…");
-      if ($("memeRows")) $("memeRows").innerHTML = emptyRow(9, "加载中…");
+      if ($("memeRows")) $("memeRows").innerHTML = emptyRow(10, "加载中…");
       const data = await api("/api/meme" + q);
       store.meme = {};
       $("memeRows").innerHTML = (data.items || []).map((m) => {
@@ -115,7 +129,7 @@ async function loadView(name, refresh) {
       $("ambassadorCards").innerHTML = items.map((a) => {
         store.ambassador[a.key] = a;
         return ambassadorCard(a);
-      }).join("") || "<p class='muted'>未检索到帖文。国内访问 Twitter 常失败，已尽量给出观察池。</p>";
+      }).join("") || "<p class='muted'>未检索到帖文。国内访问 Twitter 常失败，已尽量给出观察池，也可手动添加。</p>";
       setStatus(`招募信息 ${items.length} 条` + ((data.note && " · " + data.note) || ""));
     } else if (name === "launch") {
       setStatus("正在监测打新…");
@@ -126,7 +140,8 @@ async function loadView(name, refresh) {
         store.launch[a.key] = a;
         return launchCard(a);
       }).join("") || "<p class='muted'>暂无打新信息</p>";
-      setStatus(`打新 ${data.count} 条`);
+      if ($("launchMsg")) $("launchMsg").textContent = data.note || "";
+      setStatus(`打新 ${data.count} 条` + (data.okx_count ? ` · OKX 上新 ${data.okx_count}` : "") + (data.social_skipped ? " · 未检索 Twitter" : ""));
     } else if (name === "airdrop") {
       setStatus("正在扫描高融资未发币项目…");
       $("airdropRows").innerHTML = emptyRow(8, "加载中…");
@@ -197,37 +212,85 @@ function showDetail(id) {
 }
 
 async function startAnalyze() {
+  if (analyzeStarting) return;
+  analyzeStarting = true;
   const interval = $("klineInterval").value;
   setStatus("启动分析任务…");
   $("analyzeProgress").classList.remove("hidden");
-  const job = await api("/api/contracts/analyze", { method: "POST", body: { interval } });
-  analyzeJob = job.job_id;
-  pollAnalyze();
+  try {
+    const job = await api("/api/contracts/analyze", { method: "POST", body: { interval } });
+    analyzeJob = job.job_id;
+    if (job.reused) setStatus(`已有拟合任务在跑 ${job.done || 0}/${job.total || 0}，继续等待…`);
+    pollAnalyze();
+  } catch (err) {
+    setStatus("无法启动分析：" + err.message);
+  } finally {
+    analyzeStarting = false;
+  }
 }
 
 async function pollAnalyze() {
   if (!analyzeJob) return;
-  const data = await api("/api/contracts/analyze/" + analyzeJob);
-  const pct = data.total ? (data.done / data.total) * 100 : 0;
-  $("analyzeProgress").querySelector("div").style.width = pct + "%";
-  (data.results || []).forEach((r) => { store.contracts[r.symbol] = r; });
-  $("contractRows").innerHTML = (data.results || []).map(contractRow).join("");
-  const doneSims = (data.results || []).find((r) => r.n_sims);
-  if (doneSims && $("simBadge")) {
-    $("simBadge").textContent = (doneSims.sim_note || `已完成 ${Number(doneSims.n_sims).toLocaleString()} 次模拟并修正权重`);
+  try {
+    const data = await api("/api/contracts/analyze/" + analyzeJob);
+    const pct = data.total ? (data.done / data.total) * 100 : 0;
+    $("analyzeProgress").querySelector("div").style.width = pct + "%";
+    (data.results || []).forEach((r) => { store.contracts[r.symbol] = r; });
+    $("contractRows").innerHTML = (data.results || []).map(contractRow).join("");
+    const doneSims = (data.results || []).find((r) => r.n_sims);
+    if (doneSims && $("simBadge")) {
+      $("simBadge").textContent = (doneSims.sim_note || `已完成 ${Number(doneSims.n_sims).toLocaleString()} 次模拟并修正权重`);
+    }
+    setStatus(`分析进度 ${data.done}/${data.total} · ${data.status}` + (data.status === "done" ? " · 权重已按模拟结果修正" : ""));
+    if (data.status === "running") setTimeout(pollAnalyze, 1200);
+    else if (data.status === "error") setStatus("拟合失败：" + (data.error || "").slice(0, 180));
+  } catch (err) {
+    setStatus("分析任务查询失败：" + err.message);
   }
-  setStatus(`分析进度 ${data.done}/${data.total} · ${data.status}` + (data.status === "done" ? " · 权重已按模拟结果修正" : ""));
-  if (data.status === "running") setTimeout(pollAnalyze, 1200);
+}
+
+async function addAmbassador() {
+  const project = ($("ambProject") && $("ambProject").value || "").trim();
+  if (!project) {
+    setStatus("请填写项目名再加入观察");
+    return;
+  }
+  await api("/api/ambassadors", { method: "POST", body: {
+    project,
+    url: ($("ambUrl") && $("ambUrl").value || "").trim(),
+  }});
+  $("ambProject").value = "";
+  if ($("ambUrl")) $("ambUrl").value = "";
+  await loadView("ambassador", true);
+  setStatus("已加入观察：" + project);
+}
+
+function ageLabel(m) {
+  const mins = m.age_minutes;
+  if (mins == null || mins === "") return "";
+  const n = Number(mins);
+  if (Number.isNaN(n)) return "";
+  if (n < 60) return `池龄 ${n.toFixed(0)} 分钟`;
+  if (n < 60 * 24) return `池龄 ${(n / 60).toFixed(1)} 小时`;
+  return `池龄 ${(n / 60 / 24).toFixed(1)} 天`;
+}
+
+function sourceBadge(item) {
+  const kind = item.source_kind || (item.fallback ? "seed" : "live");
+  const label = kind === "manual" ? "手动" : kind === "live" ? "实时" : "观察池";
+  const cls = kind === "live" ? "live" : "seed";
+  return `<span class="tag ${cls}">${label}</span>`;
 }
 
 function memeRow(m) {
   const id = encodeURIComponent(m.key);
   const g = m.grade || "观察";
   const cls = g === "可跟" ? "up" : g === "避开" ? "down" : "wait";
+  const extra = [ageLabel(m)].concat(m.score_reasons || []).concat(m.reject_reasons || []).slice(0, 3).join(" · ");
   return `<tr>
     <td><span class="tag ${cls}">${escapeHtml(g)}</span></td>
     <td>${escapeHtml(m.chain)}</td>
-    <td><strong>${escapeHtml(m.symbol)}</strong><div class="muted">${escapeHtml((m.score_reasons||[]).slice(0,2).join(" · "))}</div></td>
+    <td><strong>${escapeHtml(m.symbol)}</strong><div class="muted">${escapeHtml(extra)}</div></td>
     <td>${fmtUsd(m.price_usd)}</td>
     <td>${fmtUsd(m.liquidity_usd)}</td>
     <td>${m.buy_sell_ratio ?? "-"}</td>
@@ -244,7 +307,7 @@ function memeRow(m) {
 function ambassadorCard(a) {
   const id = encodeURIComponent(a.key);
   return `<article class="card">
-    <h3>${escapeHtml(a.project || a.username || "项目")}</h3>
+    <h3>${sourceBadge(a)} ${escapeHtml(a.project || a.username || "项目")}</h3>
     <p>${escapeHtml((a.text || "").slice(0, 220))}</p>
     <p>优先级：<strong>${escapeHtml(a.priority)}</strong> · 期限：${escapeHtml(a.deadline)}</p>
     <p>状态：${markSelect("ambassador", a.key, a.mark_status)}</p>
@@ -259,8 +322,8 @@ function ambassadorCard(a) {
 function launchCard(a) {
   const id = encodeURIComponent(a.key);
   return `<article class="card">
-    <h3>${escapeHtml(a.name)}</h3>
-    <p>${escapeHtml(a.kind)} · ${escapeHtml(a.chain || "")}</p>
+    <h3>${sourceBadge(a)} ${escapeHtml(a.name)}</h3>
+    <p>${escapeHtml(a.kind)} · ${escapeHtml(a.chain || "")} · ${escapeHtml(a.source || "")}</p>
     <p>${escapeHtml((a.text || "").slice(0, 200))}</p>
     <p>${a.price_usd != null ? "价格 " + fmtUsd(a.price_usd) : ""}</p>
     <p>标记：${markSelect("launch", a.key, a.mark_status)}</p>
@@ -328,7 +391,7 @@ async function loadCopytrade() {
   $("copyOpenN").textContent = c.open_count;
   $("copyActions").textContent = c.note || "";
   const rows = (c.open || []).concat(c.closed || []).slice(0, 40);
-  $("copyPosRows").innerHTML = rows.map((p) => `<tr>
+    $("copyPosRows").innerHTML = rows.map((p) => `<tr>
     <td>${escapeHtml(p.symbol)}</td>
     <td>${escapeHtml(p.chain)}</td>
     <td>${fmtPx(p.entry)}</td>
@@ -337,7 +400,7 @@ async function loadCopytrade() {
     <td>${fmtPx(p.tp)}</td>
     <td>${fmtUsd(p.status === "open" ? p.unrealized_pnl : p.pnl_usd)}</td>
     <td>${escapeHtml(p.status)}${p.close_reason ? " · " + escapeHtml(p.close_reason) : ""}</td>
-  </tr>`).join("") || emptyRow(8, "暂无持仓。打开妖币监控后会按「可跟」自动开模拟仓。");
+  </tr>`).join("") || emptyRow(8, "暂无持仓。点「刷新当前模块」或保存跟单规则后，会按「可跟」开模拟仓。");
   setStatus(`跟单 ${c.mode} · 持仓 ${c.open_count}`);
 }
 

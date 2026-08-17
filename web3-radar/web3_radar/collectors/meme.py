@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 from typing import Any
 
 from web3_radar.engine.meme_score import select_watchlist
+from web3_radar.http_util import get_json as _get_json_util
 
 DEXSCREENER = "https://api.dexscreener.com"
 PUMPFUN = "https://frontend-api-v3.pump.fun"

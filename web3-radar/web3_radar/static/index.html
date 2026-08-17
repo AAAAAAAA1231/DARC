@@ -92,7 +92,7 @@
       <div class="grid-2">
         <div class="panel">
           <h3>跟单规则（针对妖币「可跟」）</h3>
-          <p class="muted">默认模拟盘：热度≥65、风险≤45、池子≥20k、不追 1h 涨幅过大的币。止损 18%、止盈 40%，最多 5 笔。实盘只推到钱包确认队列。</p>
+          <p class="muted">默认模拟盘：热度≥65、风险≤45、池子≥20k、不追涨幅过大的币。缓存刷新只盯市；点「刷新」才开新仓。止损 18%、止盈 40%；浮盈 25% 保本、50% 追踪。同币冷却 60 分钟，单笔不超过权益 5%。实盘只推到钱包确认队列。</p>
           <label class="check"><input type="checkbox" id="copyEnabled" checked /> 启用跟单</label>
           <label>模式
             <select id="copyMode">
@@ -123,7 +123,7 @@
     <section id="view-ambassador" class="view hidden">
       <div class="toolbar">
         <span class="pill">窗口：7 天内</span>
-        <span class="pill">关键词：大使 / ambassador</span>
+        <span class="pill">无 Twitter Token 时只显示观察池</span>
         <select id="ambStatusFilter">
           <option value="">全部标记</option>
           <option value="none">未标记</option>
@@ -132,14 +132,19 @@
           <option value="accepted">已参与成功</option>
           <option value="rejected">未通过</option>
         </select>
+        <input id="ambProject" placeholder="手动添加项目名" />
+        <input id="ambUrl" placeholder="申请链接（可选）" />
+        <button class="btn" id="ambAdd">加入观察</button>
       </div>
       <div class="cards" id="ambassadorCards"></div>
     </section>
 
     <section id="view-launch" class="view hidden">
       <div class="toolbar">
-        <span class="pill">打新 / 新平台 / launch / presale</span>
+        <span class="pill">OKX 上新公告优先</span>
+        <span class="pill">打新 / launch / presale</span>
       </div>
+      <p class="muted" id="launchMsg"></p>
       <div class="cards" id="launchCards"></div>
     </section>
 

@@ -147,6 +147,11 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "copy_min_heat": 65,
     "copy_max_risk": 45,
     "copy_paper_equity": 1000,
+    "copy_cooldown_minutes": 60,
+    "copy_max_size_pct": 0.05,
+    "copy_trail_arm_pct": 0.25,
+    "copy_trail_lock_pct": 0.50,
+    "copy_daily_loss_pct": 0.15,
 }
 
 

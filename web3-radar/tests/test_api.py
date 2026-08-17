@@ -12,6 +12,7 @@ def test_health_and_index():
     h = client.get("/api/health")
     assert h.status_code == 200
     assert h.json()["ok"] is True
+    assert h.json()["app"] == "链上雷达"
     page = client.get("/")
     assert page.status_code == 200
     assert "链上雷达" in page.text
@@ -53,10 +54,15 @@ def test_wallet_participate_queue():
 def test_modules_return_catalog():
     a = client.get("/api/ambassadors")
     assert a.status_code == 200
-    assert a.json()["items"]
+    body = a.json()
+    assert body["items"]
+    assert body.get("social_skipped") is True
     d = client.get("/api/airdrops")
     assert d.status_code == 200
     assert d.json()["items"]
     l = client.get("/api/launches")
     assert l.status_code == 200
     assert l.json()["items"]
+    added = client.post("/api/ambassadors", json={"project": "测试项目", "url": "https://example.com"})
+    assert added.status_code == 200
+    assert added.json()["source"] == "手动"

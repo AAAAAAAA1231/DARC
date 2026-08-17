@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from web3_radar import db
@@ -11,6 +11,83 @@ from web3_radar.wallet import enqueue_participate
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _parse_dt(value: Any) -> datetime | None:
+    if not value:
+        return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    try:
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def token_id(item: dict[str, Any]) -> str:
+    addr = str(item.get("token_address") or "").strip().lower()
+    chain = str(item.get("chain_id") or item.get("chain") or "").strip().lower()
+    if addr:
+        return f"{chain}:{addr}"
+    return str(item.get("item_key") or item.get("key") or "").strip().lower()
+
+
+def position_size_usd(s: dict[str, Any]) -> float:
+    equity = max(float(s.get("copy_paper_equity") or 1000), 1.0)
+    wanted = float(s.get("copy_size_usd") or 30)
+    cap = equity * float(s.get("copy_max_size_pct") or 0.05)
+    return round(max(0.0, min(wanted, cap)), 2)
+
+
+def trail_stop(entry: float, current_sl: float, price: float, arm_pct: float = 0.25, lock_pct: float = 0.50) -> float | None:
+    """After +arm, lock breakeven; after +lock, trail SL to keep half of open profit."""
+    if entry <= 0 or price <= 0:
+        return None
+    ret = (price - entry) / entry
+    new_sl = current_sl
+    if ret >= arm_pct:
+        new_sl = max(new_sl, entry)
+    if ret >= lock_pct:
+        new_sl = max(new_sl, entry + (price - entry) * 0.5)
+    if new_sl > current_sl + 1e-12:
+        return round(new_sl, 10)
+    return None
+
+
+def recently_closed(closed: list[dict[str, Any]], tid: str, minutes: int, now: datetime | None = None) -> bool:
+    if minutes <= 0 or not tid:
+        return False
+    now = now or datetime.now(timezone.utc)
+    cutoff = now - timedelta(minutes=minutes)
+    for pos in closed:
+        if token_id(pos) != tid and str(pos.get("item_key") or "").lower() != tid:
+            continue
+        closed_at = _parse_dt(pos.get("closed_at"))
+        if closed_at and closed_at >= cutoff:
+            return True
+    return False
+
+
+def halt_new_entries(s: dict[str, Any], positions: list[dict[str, Any]], now: datetime | None = None) -> str | None:
+    now = now or datetime.now(timezone.utc)
+    today = now.date()
+    day_pnl = 0.0
+    for pos in positions:
+        if pos.get("status") != "closed":
+            continue
+        closed_at = _parse_dt(pos.get("closed_at"))
+        if closed_at and closed_at.date() == today:
+            day_pnl += float(pos.get("pnl_usd") or 0)
+    unreal = sum(float(p.get("unrealized_pnl") or 0) for p in positions if p.get("status") == "open")
+    equity = float(s.get("copy_paper_equity") or 1000)
+    start_eq = max(equity - day_pnl, 1.0)
+    limit = float(s.get("copy_daily_loss_pct") or 0.15)
+    if day_pnl + unreal <= -abs(start_eq) * limit:
+        return f"当日回撤超过 {limit:.0%}，停止新开仓"
+    return None
 
 
 def _settings() -> dict[str, Any]:
@@ -25,6 +102,11 @@ def _settings() -> dict[str, Any]:
     s.setdefault("copy_min_heat", 65)
     s.setdefault("copy_max_risk", 45)
     s.setdefault("copy_paper_equity", 1000)
+    s.setdefault("copy_cooldown_minutes", 60)
+    s.setdefault("copy_max_size_pct", 0.05)
+    s.setdefault("copy_trail_arm_pct", 0.25)
+    s.setdefault("copy_trail_lock_pct", 0.50)
+    s.setdefault("copy_daily_loss_pct", 0.15)
     return s
 
 
@@ -40,19 +122,24 @@ async def snapshot() -> dict[str, Any]:
         "enabled": bool(s.get("copy_enabled")),
         "mode": s.get("copy_mode") or "paper",
         "equity": float(s.get("copy_paper_equity") or 1000),
-        "size_usd": float(s.get("copy_size_usd") or 30),
+        "size_usd": position_size_usd(s),
         "max_positions": int(s.get("copy_max_positions") or 5),
         "sl_pct": float(s.get("copy_sl_pct") or 0.18),
         "tp_pct": float(s.get("copy_tp_pct") or 0.40),
         "min_heat": float(s.get("copy_min_heat") or 65),
         "max_risk": float(s.get("copy_max_risk") or 45),
+        "cooldown_minutes": int(s.get("copy_cooldown_minutes") or 60),
         "open": open_pos,
         "closed": closed[:40],
         "open_count": len(open_pos),
         "realized_pnl": round(realized, 2),
         "unrealized_pnl": round(unreal, 2),
         "win_rate": round(len(wins) / len(closed), 3) if closed else 0,
-        "note": "默认模拟跟单：按妖币「可跟」信号开仓，止损 18%、止盈 40%。实盘只进钱包确认队列，不代签私钥。",
+        "note": (
+            "默认模拟跟单：只在刷新妖币时开新仓；缓存刷新只做盯市与平仓。"
+            "止损 18%、止盈 40%，浮盈 25% 保本、50% 追踪锁一半利润。"
+            "同币冷却 60 分钟，单笔不超过权益 5%。实盘只进钱包确认队列，不代签私钥。"
+        ),
     }
 
 
@@ -69,6 +156,11 @@ async def update_settings(fields: dict[str, Any]) -> dict[str, Any]:
         "copy_min_heat",
         "copy_max_risk",
         "copy_paper_equity",
+        "copy_cooldown_minutes",
+        "copy_max_size_pct",
+        "copy_trail_arm_pct",
+        "copy_trail_lock_pct",
+        "copy_daily_loss_pct",
     }
     for k, v in fields.items():
         if k in allowed:
@@ -94,15 +186,34 @@ def _should_enter(item: dict[str, Any], s: dict[str, Any]) -> tuple[bool, str]:
     return True, "可跟：多人买入+持币增加+池子够深+涨幅未失控"
 
 
-async def evaluate_memes(items: list[dict[str, Any]]) -> dict[str, Any]:
+async def evaluate_memes(items: list[dict[str, Any]], open_new: bool = True) -> dict[str, Any]:
     s = _settings()
     actions: list[str] = []
     prices = {it.get("key"): float(it.get("price_usd") or 0) for it in items if it.get("key")}
+    # also index by token id so MTM still works if source key changed
+    for it in items:
+        tid = token_id(it)
+        px = float(it.get("price_usd") or 0)
+        if tid and px > 0:
+            prices.setdefault(tid, px)
     open_pos = await db.list_copy_positions("open")
 
     for pos in open_pos:
-        px = prices.get(pos["item_key"]) or float(pos.get("last_price") or pos["entry"])
+        px = prices.get(pos["item_key"]) or prices.get(token_id(pos)) or float(pos.get("last_price") or pos["entry"])
         await db.update_copy_position(pos["id"], last_price=px, unrealized_pnl=_pnl(pos, px))
+        pos["last_price"] = px
+        pos["unrealized_pnl"] = _pnl(pos, px)
+        new_sl = trail_stop(
+            float(pos.get("entry") or 0),
+            float(pos.get("sl") or 0),
+            px,
+            float(s.get("copy_trail_arm_pct") or 0.25),
+            float(s.get("copy_trail_lock_pct") or 0.50),
+        )
+        if new_sl is not None:
+            await db.update_copy_position(pos["id"], sl=new_sl)
+            pos["sl"] = new_sl
+            actions.append(f"追踪止损 {pos['symbol']} → {new_sl}")
         hit = _exit_reason(pos, px, s)
         if hit:
             pnl = _pnl(pos, px)
@@ -122,12 +233,36 @@ async def evaluate_memes(items: list[dict[str, Any]]) -> dict[str, Any]:
     if not s.get("copy_enabled"):
         snap = await snapshot()
         snap["actions"] = actions + ["跟单未开启"]
+        snap["opened_new"] = False
+        return snap
+
+    if not open_new:
+        snap = await snapshot()
+        snap["actions"] = actions + ["缓存刷新：只盯市/平仓，不开新仓"]
+        snap["opened_new"] = False
+        return snap
+
+    all_pos = await db.list_copy_positions()
+    halt = halt_new_entries(s, all_pos)
+    if halt:
+        snap = await snapshot()
+        snap["actions"] = actions + [halt]
+        snap["opened_new"] = False
         return snap
 
     open_pos = await db.list_copy_positions("open")
-    open_keys = {p["item_key"] for p in open_pos}
+    closed = [p for p in all_pos if p.get("status") == "closed"]
+    open_keys = {str(p["item_key"]).lower() for p in open_pos}
+    open_tids = {token_id(p) for p in open_pos}
     max_n = int(s.get("copy_max_positions") or 5)
-    size = float(s.get("copy_size_usd") or 30)
+    size = position_size_usd(s)
+    cooldown = int(s.get("copy_cooldown_minutes") or 60)
+
+    if size < 5:
+        snap = await snapshot()
+        snap["actions"] = actions + ["权益过低，单笔不足 $5，停止开仓"]
+        snap["opened_new"] = False
+        return snap
 
     candidates = []
     for it in items:
@@ -136,12 +271,17 @@ async def evaluate_memes(items: list[dict[str, Any]]) -> dict[str, Any]:
             candidates.append((it, why))
     candidates.sort(key=lambda x: float(x[0].get("heat") or 0) - float(x[0].get("risk") or 0), reverse=True)
 
+    opened = 0
     for it, why in candidates:
         if len(open_pos) >= max_n:
             actions.append("已达最大持仓数")
             break
         key = str(it.get("key"))
-        if key in open_keys:
+        tid = token_id(it)
+        if key.lower() in open_keys or tid in open_tids:
+            continue
+        if recently_closed(closed, tid, cooldown) or recently_closed(closed, key.lower(), cooldown):
+            actions.append(f"冷却中，跳过 {it.get('symbol')}")
             continue
         px = float(it.get("price_usd") or 0)
         sl = px * (1 - float(s.get("copy_sl_pct") or 0.18))
@@ -162,16 +302,20 @@ async def evaluate_memes(items: list[dict[str, Any]]) -> dict[str, Any]:
                 "mode": s.get("copy_mode") or "paper",
                 "heat": it.get("heat"),
                 "risk": it.get("risk"),
+                "token_address": it.get("token_address") or "",
             }
         )
         open_pos.append(pos)
-        open_keys.add(key)
+        open_keys.add(key.lower())
+        open_tids.add(tid)
+        opened += 1
         actions.append(f"开仓 {pos['symbol']} {pos['chain']} @ {px} 仓位 ${size}")
         if (s.get("copy_mode") or "paper") == "live_queue":
             await enqueue_participate("meme", it, auto=False)
 
     snap = await snapshot()
     snap["actions"] = actions
+    snap["opened_new"] = opened > 0
     return snap
 
 
@@ -185,6 +329,8 @@ def _exit_reason(pos: dict[str, Any], price: float, s: dict[str, Any]) -> str | 
     sl = float(pos.get("sl") or 0)
     tp = float(pos.get("tp") or 0)
     if sl and price <= sl:
+        if price >= float(pos.get("entry") or 0):
+            return "追踪止盈"
         return "止损"
     if tp and price >= tp:
         return "止盈"

@@ -24,8 +24,12 @@ def merge_items(live: list[dict[str, Any]], seed: list[dict[str, Any]]) -> list[
     seen = {str(x.get("key")) for x in live}
     out = list(live)
     for row in seed:
-        if str(row.get("key")) not in seen:
-            item = dict(row)
-            item.setdefault("fallback", True)
-            out.append(item)
+        if str(row.get("key")) in seen:
+            continue
+        item = dict(row)
+        item.setdefault("fallback", True)
+        item.setdefault("source_kind", "seed")
+        if not item.get("source") or item.get("source") in {"seed", "观察池"}:
+            item["source"] = "观察池"
+        out.append(item)
     return out

@@ -185,14 +185,13 @@ def extract_deadline(text: str) -> str:
 
 
 async def collect_social(queries: list[str], bearer: str, lookback_days: int) -> list[dict[str, Any]]:
+    """Search recent posts. Without a Bearer token, skip Nitter — it is usually dead in CN and burns 10s+."""
+    if not (bearer or "").strip():
+        return []
     seen: set[str] = set()
     items: list[dict[str, Any]] = []
     for q in queries:
-        tweets = []
-        if bearer:
-            tweets = await twitter_recent_search(bearer, q)
-        if not tweets:
-            tweets = await nitter_search(q)
+        tweets = await twitter_recent_search(bearer, q)
         for tw in tweets:
             created = parse_time(tw.get("created_at"))
             if not _within_days(created, lookback_days):

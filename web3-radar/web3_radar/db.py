@@ -404,16 +404,42 @@ async def latest_analysis_run() -> dict[str, Any] | None:
             data["results"] = json.loads(data.pop("payload") or "{}").get("results") or []
         except json.JSONDecodeError:
             data["results"] = []
-        valid = [r for r in data["results"] if not r.get("error") and r.get("n_sims")]
-        fitted = bool(valid) and all(int(r.get("n_sims") or 0) >= 1_000_000 for r in valid)
+        fitted, ok_n, total_n = analysis_is_fitted(data["results"])
         data["fitted"] = fitted
+        data["fitted_ok"] = ok_n
+        data["fitted_total"] = total_n
         if fitted:
             data["fitted_note"] = (
-                f"已完成拟合 {str(data['created_at'])[:19]} · 每标的 {int(data['n_sims'] or 0):,} 次模拟并修正权重 · "
+                f"已完成拟合 {str(data['created_at'])[:19]} · {ok_n}/{total_n} 标的达到 100 万次模拟并修正权重 · "
                 f"涨{data['up_count']} / 跌{data['down_count']} / 观望{data['wait_count']}"
             )
         else:
             data["fitted_note"] = "尚未完成 100 万次权重拟合。当前合约页若全是观望，说明还没跑完模拟。"
         return data
+    finally:
+        await conn.close()
+
+
+def analysis_is_fitted(
+    results: list[dict[str, Any]],
+    n_sims_required: int = 1_000_000,
+    min_ratio: float = 0.8,
+) -> tuple[bool, int, int]:
+    """Treat a run as fitted when enough symbols actually finished 1M sims.
+
+    A handful of venue/kline failures should not block the whole board.
+    """
+    total = len(results or [])
+    ok = sum(1 for r in results or [] if int(r.get("n_sims") or 0) >= n_sims_required and not r.get("error"))
+    if total <= 0:
+        return False, 0, 0
+    return (ok / total) >= min_ratio and ok > 0, ok, total
+
+
+async def cache_delete(key: str) -> None:
+    conn = await connect()
+    try:
+        await conn.execute("DELETE FROM cache WHERE cache_key=?", (key,))
+        await conn.commit()
     finally:
         await conn.close()

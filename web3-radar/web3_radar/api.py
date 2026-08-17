@@ -74,7 +74,7 @@ async def wallet_page() -> FileResponse:
 
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
-    return {"ok": True, "app": "链上雷达"}
+    return {"ok": True, "app": "链上雷达", "version": "1.1.0"}
 
 
 @app.get("/api/settings")
@@ -127,13 +127,31 @@ async def _attach_marks(category: str, items: list[dict[str, Any]]) -> list[dict
     return out
 
 
+def _running_analyze_job() -> tuple[str, dict[str, Any]] | tuple[None, None]:
+    for jid, job in _jobs.items():
+        if job.get("status") == "running":
+            return jid, job
+    return None, None
+
+
 @app.post("/api/contracts/analyze")
 async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
     settings = load_settings()
     interval = body.interval or settings.get("kline_interval") or "4h"
     n_sims = int(body.n_sims or settings.get("monte_carlo_sims") or 1_000_000)
+    running_id, running = _running_analyze_job()
+    if running_id and running:
+        return {"job_id": running_id, "reused": True, "done": running.get("done"), "total": running.get("total")}
     job_id = f"job-{int(asyncio.get_event_loop().time()*1000)}"
-    _jobs[job_id] = {"status": "running", "done": 0, "total": 0, "results": [], "error": ""}
+    _jobs[job_id] = {
+        "status": "running",
+        "done": 0,
+        "total": 0,
+        "results": [],
+        "error": "",
+        "interval": interval,
+        "n_sims": n_sims,
+    }
 
     async def runner() -> None:
         client = BinanceClient()
@@ -199,10 +217,22 @@ async def analyze_status(job_id: str) -> dict[str, Any]:
 
 @app.get("/api/contracts/status")
 async def contracts_fit_status() -> dict[str, Any]:
+    running_id, running = _running_analyze_job()
+    if running_id and running:
+        return {
+            "fitted": False,
+            "running": True,
+            "job_id": running_id,
+            "done": running.get("done") or 0,
+            "total": running.get("total") or 0,
+            "fitted_note": f"正在拟合 {running.get('done') or 0}/{running.get('total') or 0} …",
+            "results": await _attach_marks("contract", running.get("results") or []),
+        }
     last = await db.latest_analysis_run()
     if not last:
-        return {"fitted": False, "fitted_note": "尚未完成 100 万次权重拟合。", "results": []}
+        return {"fitted": False, "running": False, "fitted_note": "尚未完成 100 万次权重拟合。", "results": []}
     last["results"] = await _attach_marks("contract", last.get("results") or [])
+    last["running"] = False
     return last
 
 
@@ -244,7 +274,10 @@ async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
         ),
     )
     try:
-        data["copytrade"] = await copytrade.evaluate_memes(data.get("items") or [])
+        data["copytrade"] = await copytrade.evaluate_memes(
+            data.get("items") or [],
+            open_new=not data.get("cached"),
+        )
     except Exception as exc:
         data.setdefault("errors", []).append(f"copytrade: {exc}")
     return data
@@ -328,8 +361,47 @@ async def update_task(task_id: int, body: TaskUpdateBody) -> dict[str, Any]:
     return {"ok": True}
 
 
+class AmbassadorAddBody(BaseModel):
+    project: str
+    text: str = ""
+    url: str = ""
+    deadline: str = ""
+
+
 class CopySettingsBody(BaseModel):
     settings: dict[str, Any] = Field(default_factory=dict)
+
+
+@app.post("/api/ambassadors")
+async def add_ambassador(body: AmbassadorAddBody) -> dict[str, Any]:
+    project = (body.project or "").strip()
+    if not project:
+        raise HTTPException(400, "请填写项目名")
+    from datetime import datetime, timezone
+
+    item = {
+        "key": f"manual:{project.lower()}:{int(datetime.now(timezone.utc).timestamp())}",
+        "project": project,
+        "username": "",
+        "title": project,
+        "text": body.text.strip() or f"手动加入观察：{project}",
+        "url": body.url.strip(),
+        "deadline": body.deadline.strip() or "一周内（手动）",
+        "priority": "中",
+        "priority_detail": "中 · 手动添加",
+        "score": 50,
+        "source": "手动",
+        "source_kind": "manual",
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    manual = await db.cache_get("manual_ambassadors") or []
+    if not isinstance(manual, list):
+        manual = []
+    manual.insert(0, item)
+    await db.cache_set("manual_ambassadors", manual, 365 * 24 * 3600)
+    await db.cache_delete("ambassadors")
+    await db.upsert_mark("ambassador", item["key"], "watching", "手动添加", item)
+    return item
 
 
 @app.get("/api/copytrade")
