@@ -34,6 +34,42 @@ CREATE TABLE IF NOT EXISTS wallet_tasks (
     updated_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS copy_positions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    item_key TEXT NOT NULL,
+    symbol TEXT NOT NULL,
+    chain TEXT NOT NULL DEFAULT '',
+    url TEXT NOT NULL DEFAULT '',
+    entry REAL NOT NULL,
+    qty REAL NOT NULL,
+    sl REAL NOT NULL,
+    tp REAL NOT NULL,
+    last_price REAL NOT NULL DEFAULT 0,
+    unrealized_pnl REAL NOT NULL DEFAULT 0,
+    pnl_usd REAL NOT NULL DEFAULT 0,
+    exit_price REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'open',
+    reason TEXT NOT NULL DEFAULT '',
+    close_reason TEXT NOT NULL DEFAULT '',
+    mode TEXT NOT NULL DEFAULT 'paper',
+    heat REAL,
+    risk REAL,
+    opened_at TEXT NOT NULL,
+    closed_at TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS analysis_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT NOT NULL,
+    status TEXT NOT NULL,
+    n_sims INTEGER NOT NULL,
+    total INTEGER NOT NULL,
+    up_count INTEGER NOT NULL DEFAULT 0,
+    down_count INTEGER NOT NULL DEFAULT 0,
+    wait_count INTEGER NOT NULL DEFAULT 0,
+    payload TEXT NOT NULL DEFAULT '{}'
+);
+
 CREATE TABLE IF NOT EXISTS cache (
     cache_key TEXT PRIMARY KEY,
     payload TEXT NOT NULL,
@@ -239,5 +275,145 @@ async def cache_set(key: str, payload: Any, ttl_seconds: int) -> None:
             (key, json.dumps(payload, ensure_ascii=False), expires),
         )
         await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def add_copy_position(row: dict[str, Any]) -> dict[str, Any]:
+    now = _now()
+    conn = await connect()
+    try:
+        cur = await conn.execute(
+            """
+            INSERT INTO copy_positions
+            (item_key, symbol, chain, url, entry, qty, sl, tp, last_price, status, reason, mode, heat, risk, opened_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?)
+            """,
+            (
+                row["item_key"],
+                row.get("symbol") or "?",
+                row.get("chain") or "",
+                row.get("url") or "",
+                float(row["entry"]),
+                float(row["qty"]),
+                float(row["sl"]),
+                float(row["tp"]),
+                float(row.get("last_price") or row["entry"]),
+                row.get("reason") or "",
+                row.get("mode") or "paper",
+                row.get("heat"),
+                row.get("risk"),
+                now,
+            ),
+        )
+        await conn.commit()
+        pid = cur.lastrowid
+    finally:
+        await conn.close()
+    return {**row, "id": pid, "status": "open", "opened_at": now, "unrealized_pnl": 0}
+
+
+async def list_copy_positions(status: str | None = None) -> list[dict[str, Any]]:
+    conn = await connect()
+    try:
+        if status:
+            cur = await conn.execute("SELECT * FROM copy_positions WHERE status=? ORDER BY id DESC", (status,))
+        else:
+            cur = await conn.execute("SELECT * FROM copy_positions ORDER BY id DESC LIMIT 200")
+        rows = await cur.fetchall()
+        return [dict(r) for r in rows]
+    finally:
+        await conn.close()
+
+
+async def update_copy_position(pid: int, **fields: Any) -> None:
+    if not fields:
+        return
+    sets = [f"{k}=?" for k in fields]
+    values = list(fields.values()) + [pid]
+    conn = await connect()
+    try:
+        await conn.execute(f"UPDATE copy_positions SET {', '.join(sets)} WHERE id=?", values)
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def save_analysis_run(payload: dict[str, Any]) -> None:
+    results = payload.get("results") or []
+    slim = []
+    for r in results:
+        slim.append(
+            {
+                "symbol": r.get("symbol"),
+                "name": r.get("name"),
+                "decision": r.get("decision"),
+                "score": r.get("score"),
+                "price": r.get("price"),
+                "entry": r.get("entry"),
+                "stop_loss": r.get("stop_loss"),
+                "take_profit": r.get("take_profit"),
+                "n_sims": r.get("n_sims"),
+                "weights_adjusted": r.get("weights_adjusted"),
+                "sim_note": r.get("sim_note"),
+                "market_cap_rank": r.get("market_cap_rank"),
+                "venue": r.get("venue"),
+                "indicators": r.get("indicators") or [],
+            }
+        )
+    up = sum(1 for r in slim if r.get("decision") == "涨")
+    down = sum(1 for r in slim if r.get("decision") == "跌")
+    wait = sum(1 for r in slim if r.get("decision") == "观望")
+    n_sims = 0
+    for r in slim:
+        if r.get("n_sims"):
+            n_sims = int(r["n_sims"])
+            break
+    conn = await connect()
+    try:
+        await conn.execute(
+            """
+            INSERT INTO analysis_runs (created_at, status, n_sims, total, up_count, down_count, wait_count, payload)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                _now(),
+                payload.get("status") or "done",
+                n_sims,
+                len(slim),
+                up,
+                down,
+                wait,
+                json.dumps({"results": slim}, ensure_ascii=False),
+            ),
+        )
+        await conn.commit()
+    finally:
+        await conn.close()
+
+
+async def latest_analysis_run() -> dict[str, Any] | None:
+    conn = await connect()
+    try:
+        cur = await conn.execute("SELECT * FROM analysis_runs ORDER BY id DESC LIMIT 1")
+        row = await cur.fetchone()
+        if not row:
+            return None
+        data = dict(row)
+        try:
+            data["results"] = json.loads(data.pop("payload") or "{}").get("results") or []
+        except json.JSONDecodeError:
+            data["results"] = []
+        valid = [r for r in data["results"] if not r.get("error") and r.get("n_sims")]
+        fitted = bool(valid) and all(int(r.get("n_sims") or 0) >= 1_000_000 for r in valid)
+        data["fitted"] = fitted
+        if fitted:
+            data["fitted_note"] = (
+                f"已完成拟合 {str(data['created_at'])[:19]} · 每标的 {int(data['n_sims'] or 0):,} 次模拟并修正权重 · "
+                f"涨{data['up_count']} / 跌{data['down_count']} / 观望{data['wait_count']}"
+            )
+        else:
+            data["fitted_note"] = "尚未完成 100 万次权重拟合。当前合约页若全是观望，说明还没跑完模拟。"
+        return data
     finally:
         await conn.close()

@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from web3_radar import copytrade
 from web3_radar import db
 from web3_radar.collectors.airdrop import scan_airdrops
 from web3_radar.collectors.ambassador import scan_ambassadors
@@ -177,6 +178,8 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
                     _jobs[job_id]["results"].append({"symbol": "?", "decision": "观望", "error": str(exc)})
                 _jobs[job_id]["done"] += 1
             _jobs[job_id]["status"] = "done"
+            _jobs[job_id]["n_sims"] = n_sims
+            await db.save_analysis_run(_jobs[job_id])
         except Exception as exc:
             _jobs[job_id]["status"] = "error"
             _jobs[job_id]["error"] = f"{exc}\n{traceback.format_exc()}"
@@ -192,6 +195,15 @@ async def analyze_status(job_id: str) -> dict[str, Any]:
         raise HTTPException(404, "job not found")
     results = await _attach_marks("contract", job.get("results") or [])
     return {**job, "results": results}
+
+
+@app.get("/api/contracts/status")
+async def contracts_fit_status() -> dict[str, Any]:
+    last = await db.latest_analysis_run()
+    if not last:
+        return {"fitted": False, "fitted_note": "尚未完成 100 万次权重拟合。", "results": []}
+    last["results"] = await _attach_marks("contract", last.get("results") or [])
+    return last
 
 
 async def _scan_or_cache(cache_key: str, category: str, ttl: int, refresh: bool, producer):
@@ -220,10 +232,10 @@ async def _scan_or_cache(cache_key: str, category: str, ttl: int, refresh: bool,
 @app.get("/api/meme")
 async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
-    return await _scan_or_cache(
+    data = await _scan_or_cache(
         "meme",
         "meme",
-        120,
+        90,
         refresh,
         lambda: scan_meme_coins(
             min_liquidity_usd=float(settings.get("meme_min_liquidity_usd") or 20_000),
@@ -231,6 +243,11 @@ async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
             min_holder_growth=int(settings.get("meme_min_holder_growth") or 5),
         ),
     )
+    try:
+        data["copytrade"] = await copytrade.evaluate_memes(data.get("items") or [])
+    except Exception as exc:
+        data.setdefault("errors", []).append(f"copytrade: {exc}")
+    return data
 
 
 @app.get("/api/ambassadors")
@@ -309,5 +326,25 @@ async def participate(body: ParticipateBody) -> dict[str, Any]:
 async def update_task(task_id: int, body: TaskUpdateBody) -> dict[str, Any]:
     await db.update_wallet_task(task_id, status=body.status, tx_hash=body.tx_hash, error=body.error)
     return {"ok": True}
+
+
+class CopySettingsBody(BaseModel):
+    settings: dict[str, Any] = Field(default_factory=dict)
+
+
+@app.get("/api/copytrade")
+async def get_copytrade() -> dict[str, Any]:
+    return await copytrade.snapshot()
+
+
+@app.post("/api/copytrade/settings")
+async def post_copytrade(body: CopySettingsBody) -> dict[str, Any]:
+    return await copytrade.update_settings(body.settings)
+
+
+@app.post("/api/copytrade/tick")
+async def tick_copytrade() -> dict[str, Any]:
+    data = await meme(refresh=False)
+    return data.get("copytrade") or await copytrade.snapshot()
 
 

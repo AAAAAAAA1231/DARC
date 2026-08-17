@@ -137,6 +137,16 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "auto_require_confirm": True,
     "wallet_address": "",
     "wallet_chain": "ethereum",
+    "copy_enabled": True,
+    "copy_mode": "paper",
+    "copy_max_positions": 5,
+    "copy_size_usd": 30,
+    "copy_sl_pct": 0.18,
+    "copy_tp_pct": 0.40,
+    "copy_max_1h_change": 80,
+    "copy_min_heat": 65,
+    "copy_max_risk": 45,
+    "copy_paper_equity": 1000,
 }
 
 

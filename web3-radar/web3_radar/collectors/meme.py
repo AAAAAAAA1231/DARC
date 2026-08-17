@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from web3_radar.http_util import get_json as _get_json_util
+from web3_radar.engine.meme_score import select_watchlist
 
 DEXSCREENER = "https://api.dexscreener.com"
 PUMPFUN = "https://frontend-api-v3.pump.fun"
@@ -44,11 +44,15 @@ def _pair_to_item(pair: dict[str, Any], source: str) -> dict[str, Any] | None:
     txns = pair.get("txns") or {}
     m5 = txns.get("m5") or {}
     h1 = txns.get("h1") or {}
-    buys = int(_num(m5.get("buys")) + _num(h1.get("buys")))
-    sells = int(_num(m5.get("sells")) + _num(h1.get("sells")))
-    buyers = int(_num((pair.get("makers") or {}).get("h1")) or _num(h1.get("buys")))
+    buys_m5 = int(_num(m5.get("buys")))
+    sells_m5 = int(_num(m5.get("sells")))
+    buys = buys_m5 + int(_num(h1.get("buys")))
+    sells = sells_m5 + int(_num(h1.get("sells")))
+    buyers = int(_num((pair.get("makers") or {}).get("h1")) or buys_m5 or _num(h1.get("buys")))
     volume_h1 = _num((pair.get("volume") or {}).get("h1"))
+    volume_m5 = _num((pair.get("volume") or {}).get("m5"))
     price_change = _num((pair.get("priceChange") or {}).get("h1"))
+    price_change_m5 = _num((pair.get("priceChange") or {}).get("m5"))
     holders = int(_num(pair.get("holders") or (pair.get("info") or {}).get("holders")))
     chain = pair.get("chainId") or pair.get("chain") or "unknown"
     token = pair.get("baseToken") or {}
@@ -67,10 +71,14 @@ def _pair_to_item(pair: dict[str, Any], source: str) -> dict[str, Any] | None:
         "volume_h1": volume_h1,
         "buys": buys,
         "sells": sells,
-        "unique_buyers_est": max(buyers, buys),
+        "buys_m5": buys_m5,
+        "sells_m5": sells_m5,
+        "unique_buyers_est": max(buyers, buys_m5, int(buys * 0.4)),
         "holders": holders,
-        "holder_growth_est": max(0, int(buys * 0.35)),
+        "holder_growth_est": max(0, buys_m5, int(buys * 0.2)),
         "price_change_h1": price_change,
+        "price_change_m5": price_change_m5,
+        "volume_m5": volume_m5,
         "fdv": _num(pair.get("fdv") or pair.get("marketCap")),
         "url": pair.get("url") or "",
         "created_at": created,
@@ -266,6 +274,56 @@ async def fetch_geckoterminal() -> list[dict[str, Any]]:
     return items
 
 
+async def fetch_geckoterminal_new() -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for network, label in (("solana", "Solana"), ("bsc", "BSC"), ("base", "Base")):
+        try:
+            payload = await _get_json(f"{GECKO_TERMINAL}/networks/{network}/new_pools")
+        except Exception:
+            continue
+        for row in (payload.get("data") or [])[:20]:
+            attrs = row.get("attributes") or {}
+            liq = _num(attrs.get("reserve_in_usd"))
+            txs = attrs.get("transactions") or {}
+            h1 = txs.get("h1") if isinstance(txs, dict) else {}
+            m5 = txs.get("m5") if isinstance(txs, dict) else {}
+            buys = int(_num((m5 or {}).get("buys") or (h1 or {}).get("buys")))
+            sells = int(_num((m5 or {}).get("sells") or (h1 or {}).get("sells")))
+            addr = attrs.get("address") or row.get("id") or ""
+            vol = attrs.get("volume_usd") if isinstance(attrs.get("volume_usd"), dict) else {}
+            chg = attrs.get("price_change_percentage") if isinstance(attrs.get("price_change_percentage"), dict) else {}
+            items.append(
+                {
+                    "key": f"{network}:{addr}",
+                    "source": "geckoterminal-new",
+                    "chain": label,
+                    "chain_id": network,
+                    "symbol": (attrs.get("name") or "?").split(" / ")[0][:16],
+                    "name": attrs.get("name") or "",
+                    "token_address": str(addr),
+                    "pair_address": attrs.get("address") or "",
+                    "price_usd": _num(attrs.get("base_token_price_usd")),
+                    "liquidity_usd": liq,
+                    "volume_h1": _num(vol.get("h1")),
+                    "volume_m5": _num(vol.get("m5")),
+                    "buys": buys,
+                    "sells": sells,
+                    "buys_m5": int(_num((m5 or {}).get("buys"))),
+                    "sells_m5": int(_num((m5 or {}).get("sells"))),
+                    "unique_buyers_est": buys,
+                    "holders": 0,
+                    "holder_growth_est": max(0, buys // 2),
+                    "price_change_h1": _num(chg.get("h1")),
+                    "price_change_m5": _num(chg.get("m5")),
+                    "fdv": _num(attrs.get("fdv_usd") or attrs.get("market_cap_usd")),
+                    "url": f"https://www.geckoterminal.com/{network}/pools/{attrs.get('address') or ''}",
+                    "created_at": attrs.get("pool_created_at"),
+                    "hot": True,
+                }
+            )
+    return items
+
+
 async def scan_meme_coins(
     min_liquidity_usd: float = 20_000,
     min_unique_buyers: int = 8,
@@ -275,12 +333,12 @@ async def scan_meme_coins(
     collected: list[dict[str, Any]] = []
     fetchers = [
         ("dexscreener_boosted", fetch_dexscreener_boosted()),
-        ("dexscreener_sol", fetch_dexscreener_search("SOL")),
         ("pumpfun", fetch_pumpfun()),
         ("gmgn_sol", fetch_gmgn(GMGN_SOL_TRENDING, "Solana")),
         ("gmgn_eth", fetch_gmgn(GMGN_ETH_TRENDING, "Ethereum")),
         ("gmgn_bsc", fetch_gmgn(GMGN_BSC_TRENDING, "BSC")),
         ("geckoterminal", fetch_geckoterminal()),
+        ("geckoterminal_new", fetch_geckoterminal_new()),
     ]
     import asyncio
 
@@ -306,16 +364,14 @@ async def scan_meme_coins(
             merged[key]["unique_buyers_est"] = max(merged[key]["unique_buyers_est"], item["unique_buyers_est"])
             merged[key]["holders"] = max(merged[key]["holders"], item["holders"])
 
-    filtered = [
-        it
-        for it in merged.values()
-        if _passes_meme_filter(it, min_liquidity_usd, min_unique_buyers, min_holder_growth)
-    ]
-    filtered.sort(key=lambda x: (x["unique_buyers_est"] + x["holder_growth_est"], x["liquidity_usd"]), reverse=True)
+    ranked = select_watchlist(list(merged.values()), min_liquidity_usd)
+    followable = [x for x in ranked if x.get("followable")]
     return {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "min_liquidity_usd": min_liquidity_usd,
-        "count": len(filtered),
-        "items": filtered[:80],
+        "count": len(ranked),
+        "followable_count": len(followable),
+        "items": ranked,
         "errors": errors,
+        "method": "短期买压 + 持币增长 + 池子≥20k + 热度/风险评分，过滤接盘与过新狙击盘",
     }

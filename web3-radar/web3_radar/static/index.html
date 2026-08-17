@@ -18,6 +18,7 @@
     <nav>
       <button data-view="contracts" class="active">合约分析</button>
       <button data-view="meme">妖币监控</button>
+      <button data-view="copytrade">自动跟单</button>
       <button data-view="ambassador">大使招募</button>
       <button data-view="launch">打新监测</button>
       <button data-view="airdrop">空投雷达</button>
@@ -68,20 +69,53 @@
 
     <section id="view-meme" class="view hidden">
       <div class="toolbar">
-        <span class="pill">池子深度 ≥ $20k</span>
-        <span class="pill">短期多人买入 + 持币地址增加</span>
-        <input id="memeFilter" placeholder="筛选链 / 币种" />
+        <span class="pill">池子 ≥ $20k</span>
+        <span class="pill">5 分钟买压 + 持币增长</span>
+        <span class="pill">过滤接盘 / 过新狙击盘</span>
+        <input id="memeFilter" placeholder="筛选 可跟/观察/链" />
       </div>
       <p class="muted" id="memeMsg"></p>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>链</th><th>币种</th><th>价格</th><th>流动性</th><th>买入/地址</th>
-              <th>持币增长</th><th>来源</th><th>标记</th><th>操作</th>
+              <th>评级</th><th>链</th><th>币种</th><th>价格</th><th>流动性</th>
+              <th>买卖比</th><th>热度</th><th>风险</th><th>来源</th><th>操作</th>
             </tr>
           </thead>
           <tbody id="memeRows"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="view-copytrade" class="view hidden">
+      <div class="grid-2">
+        <div class="panel">
+          <h3>跟单规则（针对妖币「可跟」）</h3>
+          <p class="muted">默认模拟盘：热度≥65、风险≤45、池子≥20k、不追 1h 涨幅过大的币。止损 18%、止盈 40%，最多 5 笔。实盘只推到钱包确认队列。</p>
+          <label class="check"><input type="checkbox" id="copyEnabled" checked /> 启用跟单</label>
+          <label>模式
+            <select id="copyMode">
+              <option value="paper">模拟跟单</option>
+              <option value="live_queue">实盘队列（需钱包确认）</option>
+            </select>
+          </label>
+          <label>单笔 USD <input type="number" id="copySize" min="5" value="30" /></label>
+          <button class="btn primary" id="copySave">保存规则并扫描</button>
+        </div>
+        <div class="panel">
+          <h3>账户</h3>
+          <p>权益：<strong id="copyEquity">-</strong></p>
+          <p>已实现盈亏：<strong id="copyRealized">-</strong> · 浮动：<strong id="copyUnreal">-</strong></p>
+          <p>胜率：<span id="copyWin">-</span> · 持仓 <span id="copyOpenN">0</span></p>
+          <p class="muted" id="copyActions"></p>
+        </div>
+      </div>
+      <h3>持仓</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>币</th><th>链</th><th>入场</th><th>现价</th><th>止损</th><th>止盈</th><th>盈亏</th><th>状态</th></tr></thead>
+          <tbody id="copyPosRows"></tbody>
         </table>
       </div>
     </section>

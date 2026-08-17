@@ -1,6 +1,7 @@
 const views = {
-  contracts: ["合约分析", "币安市值前 100 永续合约 · TD13 / 谐波 / 30 项指标 · 100 万次权重模拟"],
-  meme: ["妖币监控", "GMGN / Pump.fun / DexScreener · 短期多人买入且持币地址增加 · 池子 ≥ $20k"],
+  contracts: ["合约分析", "市值前 100 · TD13/谐波等 · 每标的 100 万次权重模拟。未拟合前不要把「观望」当成信号。"],
+  meme: ["妖币监控", "只保留池子≥$20k、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
+  copytrade: ["自动跟单", "跟随妖币「可跟」信号。默认模拟盘，带止盈止损和最大持仓限制。"],
   ambassador: ["大使招募", "Twitter / 镜像检索一周内大使计划，并支持申请与参与成功标记"],
   launch: ["打新监测", "关键词：打新、新平台、launch、presale、IDO 等"],
   airdrop: ["空投雷达", "知名机构投资、融资 > $2000 万、优先未发币，可标记交互状态"],
@@ -34,6 +35,7 @@ $("ambStatusFilter").addEventListener("change", () => loadView("ambassador"));
 $("airdropStatusFilter").addEventListener("change", () => loadView("airdrop"));
 $("autoParticipate").addEventListener("change", persistWalletFlags);
 $("autoMaxSpend").addEventListener("change", persistWalletFlags);
+if ($("copySave")) $("copySave").addEventListener("click", saveCopytrade);
 
 function showView(name) {
   currentView = name;
@@ -68,7 +70,16 @@ async function loadView(name, refresh) {
   const q = refresh ? "?refresh=true" : "";
   try {
     if (name === "contracts") {
-      setStatus("加载市值前 100 合约标的…");
+      setStatus("检查权重拟合状态…");
+      const last = await api("/api/contracts/status");
+      if (last.fitted && last.results && last.results.length) {
+        last.results.forEach((r) => { store.contracts[r.symbol] = r; });
+        $("contractRows").innerHTML = last.results.map(contractRow).join("");
+        if ($("simBadge")) $("simBadge").textContent = last.fitted_note;
+        setStatus(last.fitted_note);
+        return;
+      }
+      if ($("simBadge")) $("simBadge").textContent = last.fitted_note || "尚未拟合";
       const uni = await api("/api/contracts/universe");
       if (!$("contractRows").children.length) {
         $("contractRows").innerHTML = uni.items.map((u) => {
@@ -81,7 +92,7 @@ async function loadView(name, refresh) {
           return contractRow(row);
         }).join("");
       }
-      setStatus(`标的 ${uni.items.length} 个。请点击「开始 100 万次模拟」才会计算涨跌和止盈止损。` + (uni.cached ? "（名单缓存）" : ""));
+      setStatus(`标的 ${uni.items.length} 个。模型未拟合，正在启动 100 万次模拟…`);
       if (!analyzeJob && uni.items.length) startAnalyze();
     } else if (name === "meme") {
       setStatus("正在拉取妖币（可能需要十几秒）…");
@@ -91,9 +102,9 @@ async function loadView(name, refresh) {
       $("memeRows").innerHTML = (data.items || []).map((m) => {
         store.meme[m.key] = m;
         return memeRow(m);
-      }).join("") || emptyRow(9, "暂无符合条件的妖币（外网源可能被墙，可点右上角刷新）");
-      if ($("memeMsg")) $("memeMsg").textContent = (data.errors || []).join("；");
-      setStatus(`命中 ${data.count} · 流动性门槛 ${fmtUsd(data.min_liquidity_usd)}`);
+      }).join("") || emptyRow(10, "暂无过线妖币（需要池子≥20k且短期买压）");
+      if ($("memeMsg")) $("memeMsg").textContent = (data.method || "") + ((data.errors || []).length ? "；部分源失败：" + data.errors.slice(0,2).join("；") : "");
+      setStatus(`监控 ${data.count} · 可跟 ${data.followable_count || 0}`);
     } else if (name === "ambassador") {
       setStatus("正在加载大使计划…");
       $("ambassadorCards").innerHTML = "<p class='muted'>加载中…</p>";
@@ -128,6 +139,8 @@ async function loadView(name, refresh) {
         return airdropRow(a);
       }).join("") || emptyRow(8, "暂无命中项目");
       setStatus(`空投候选 ${items.length}` + ((data.errors && data.errors.length) ? " · 部分数据源失败已用观察池补齐" : ""));
+    } else if (name === "copytrade") {
+      await loadCopytrade();
     } else if (name === "wallet") {
       await loadWallet();
     } else if (name === "settings") {
@@ -209,18 +222,21 @@ async function pollAnalyze() {
 
 function memeRow(m) {
   const id = encodeURIComponent(m.key);
+  const g = m.grade || "观察";
+  const cls = g === "可跟" ? "up" : g === "避开" ? "down" : "wait";
   return `<tr>
+    <td><span class="tag ${cls}">${escapeHtml(g)}</span></td>
     <td>${escapeHtml(m.chain)}</td>
-    <td><strong>${escapeHtml(m.symbol)}</strong><div class="muted">${escapeHtml(m.name)}<br>${escapeHtml((m.token_address||"").slice(0,12))}…</div></td>
+    <td><strong>${escapeHtml(m.symbol)}</strong><div class="muted">${escapeHtml((m.score_reasons||[]).slice(0,2).join(" · "))}</div></td>
     <td>${fmtUsd(m.price_usd)}</td>
     <td>${fmtUsd(m.liquidity_usd)}</td>
-    <td>${m.unique_buyers_est} / 买 ${m.buys}</td>
-    <td>+${m.holder_growth_est}（持仓 ${m.holders}）</td>
+    <td>${m.buy_sell_ratio ?? "-"}</td>
+    <td>${m.heat ?? "-"}</td>
+    <td>${m.risk ?? "-"}</td>
     <td>${escapeHtml(m.source)}</td>
-    <td>${markSelect("meme", m.key, m.mark_status)}</td>
     <td class="row-actions">
       ${m.url ? `<a class="btn" href="${escapeHtml(m.url)}" target="_blank">打开</a>` : ""}
-      <button class="btn" onclick="participate('meme','${id}')">自动买入队列</button>
+      <button class="btn" onclick="participate('meme','${id}')">手动队列</button>
     </td>
   </tr>`;
 }
@@ -298,6 +314,42 @@ async function participate(category, key) {
   const task = await api("/api/wallet/participate", { method: "POST", body: { category, item, auto: false } });
   setStatus("已加入队列 #" + task.id + "，请到钱包页确认");
   showView("wallet");
+}
+
+async function loadCopytrade() {
+  const c = await api("/api/copytrade");
+  $("copyEnabled").checked = !!c.enabled;
+  $("copyMode").value = c.mode || "paper";
+  $("copySize").value = c.size_usd;
+  $("copyEquity").textContent = fmtUsd(c.equity);
+  $("copyRealized").textContent = fmtUsd(c.realized_pnl);
+  $("copyUnreal").textContent = fmtUsd(c.unrealized_pnl);
+  $("copyWin").textContent = ((c.win_rate || 0) * 100).toFixed(1) + "%";
+  $("copyOpenN").textContent = c.open_count;
+  $("copyActions").textContent = c.note || "";
+  const rows = (c.open || []).concat(c.closed || []).slice(0, 40);
+  $("copyPosRows").innerHTML = rows.map((p) => `<tr>
+    <td>${escapeHtml(p.symbol)}</td>
+    <td>${escapeHtml(p.chain)}</td>
+    <td>${fmtPx(p.entry)}</td>
+    <td>${fmtPx(p.last_price)}</td>
+    <td>${fmtPx(p.sl)}</td>
+    <td>${fmtPx(p.tp)}</td>
+    <td>${fmtUsd(p.status === "open" ? p.unrealized_pnl : p.pnl_usd)}</td>
+    <td>${escapeHtml(p.status)}${p.close_reason ? " · " + escapeHtml(p.close_reason) : ""}</td>
+  </tr>`).join("") || emptyRow(8, "暂无持仓。打开妖币监控后会按「可跟」自动开模拟仓。");
+  setStatus(`跟单 ${c.mode} · 持仓 ${c.open_count}`);
+}
+
+async function saveCopytrade() {
+  await api("/api/copytrade/settings", { method: "POST", body: { settings: {
+    copy_enabled: $("copyEnabled").checked,
+    copy_mode: $("copyMode").value,
+    copy_size_usd: Number($("copySize").value || 30),
+  }}});
+  await api("/api/meme?refresh=true");
+  await loadCopytrade();
+  setStatus("跟单规则已保存，并按最新妖币信号扫描");
 }
 
 async function loadWallet() {
