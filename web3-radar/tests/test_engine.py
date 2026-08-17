@@ -9,7 +9,7 @@ from web3_radar.collectors.meme import _passes_meme_filter
 from web3_radar.collectors.social import extract_deadline, score_ambassador
 from web3_radar.engine.indicators import compute_all_indicators, rsi, td_sequential
 from web3_radar.engine.monte_carlo import decision_from_score, monte_carlo_reweight
-from web3_radar.engine.signals import analyze_klines
+from web3_radar.engine.signals import analyze_klines, average_weights_from_results, fit_global_weights, pool_expectancies
 
 
 def _ohlcv(n: int = 180, trend: float = 0.002, seed: int = 1) -> pd.DataFrame:
@@ -66,11 +66,43 @@ def test_analyze_klines_prices():
     assert out["stop_loss"] > 0
     assert out["take_profit"] > 0
     assert out["n_sims"] == 8_000
+    assert out["mode"] == "fit"
     assert out["weights_adjusted"] is True
     if out["decision"] == "涨":
         assert out["stop_loss"] < out["entry"] < out["take_profit"]
     if out["decision"] == "跌":
         assert out["take_profit"] < out["entry"] < out["stop_loss"]
+
+
+def test_infer_uses_fitted_weights_without_resampling():
+    df = _ohlcv(trend=0.004)
+    fitted = {i.name: 1.0 for i in compute_all_indicators(df)}
+    fitted["td13"] = 40
+    out = analyze_klines(df, "ETHUSDT", n_sims=1_000_000, fitted_weights=fitted)
+    assert out["mode"] == "infer"
+    assert "套用" in out["sim_note"]
+    assert out["n_sims"] == 1_000_000
+    assert out["weights_adjusted"] is True
+    again = analyze_klines(df, "ETHUSDT", n_sims=1_000_000, fitted_weights=fitted)
+    assert again["decision"] == out["decision"]
+    assert again["score"] == out["score"]
+
+
+def test_pool_and_global_fit():
+    names = ["a", "b"]
+    maps = [{"a": 0.05, "b": -0.02}, {"a": 0.04, "b": -0.03}]
+    pooled = pool_expectancies(maps, names)
+    assert pooled["a"] > pooled["b"]
+    w = fit_global_weights(maps, names, {"a": 10, "b": 10}, n_sims=8_000, top_pct=5, rng=np.random.default_rng(0))
+    assert pytest.approx(sum(w.values()), rel=1e-6) == 1
+    assert w["a"] > w["b"]
+    avg = average_weights_from_results(
+        [
+            {"indicators": [{"name": "td13", "weight_optimized": 0.3}, {"name": "rsi", "weight_optimized": 0.1}]},
+            {"indicators": [{"name": "td13", "weight_optimized": 0.5}, {"name": "rsi", "weight_optimized": 0.1}]},
+        ]
+    )
+    assert avg["td13"] > avg["rsi"]
 
 
 def test_meme_liquidity_filter():

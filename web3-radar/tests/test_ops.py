@@ -55,6 +55,11 @@ def test_fitted_allows_twenty_percent_failures():
     assert total == 100
     fitted2, _, _ = analysis_is_fitted(ok[:50] + bad)
     assert fitted2 is False
+    infer = [{"mode": "infer", "weights_adjusted": True} for _ in range(90)] + [{"error": "x"} for _ in range(10)]
+    fitted3, n3, total3 = analysis_is_fitted(infer)
+    assert fitted3 is True
+    assert n3 == 90
+    assert total3 == 100
 
 
 def test_okx_listing_parser_and_seed_badge():

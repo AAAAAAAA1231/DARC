@@ -152,6 +152,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "copy_trail_arm_pct": 0.25,
     "copy_trail_lock_pct": 0.50,
     "copy_daily_loss_pct": 0.15,
+    "weight_refit_days": 7,
 }
 
 

@@ -6,7 +6,7 @@ from typing import Any
 
 import aiosqlite
 
-from web3_radar.config import DB_PATH, ensure_dirs
+from web3_radar.config import DB_PATH, DATA_DIR, ensure_dirs
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS marks (
@@ -353,6 +353,7 @@ async def save_analysis_run(payload: dict[str, Any]) -> None:
                 "entry": r.get("entry"),
                 "stop_loss": r.get("stop_loss"),
                 "take_profit": r.get("take_profit"),
+                "mode": r.get("mode") or "",
                 "n_sims": r.get("n_sims"),
                 "weights_adjusted": r.get("weights_adjusted"),
                 "sim_note": r.get("sim_note"),
@@ -410,11 +411,11 @@ async def latest_analysis_run() -> dict[str, Any] | None:
         data["fitted_total"] = total_n
         if fitted:
             data["fitted_note"] = (
-                f"已完成拟合 {str(data['created_at'])[:19]} · {ok_n}/{total_n} 标的达到 100 万次模拟并修正权重 · "
+                f"已完成拟合 {str(data['created_at'])[:19]} · {ok_n}/{total_n} 标的已有校准权重 · "
                 f"涨{data['up_count']} / 跌{data['down_count']} / 观望{data['wait_count']}"
             )
         else:
-            data["fitted_note"] = "尚未完成 100 万次权重拟合。当前合约页若全是观望，说明还没跑完模拟。"
+            data["fitted_note"] = "尚未完成权重拟合。拟合只需一次 100 万次模拟；之后刷新只套用模型出信号。"
         return data
     finally:
         await conn.close()
@@ -425,15 +426,42 @@ def analysis_is_fitted(
     n_sims_required: int = 1_000_000,
     min_ratio: float = 0.8,
 ) -> tuple[bool, int, int]:
-    """Treat a run as fitted when enough symbols actually finished 1M sims.
-
-    A handful of venue/kline failures should not block the whole board.
-    """
+    """A board is fitted when enough rows carry 1M-calibrated (or infer-mode) weights."""
     total = len(results or [])
-    ok = sum(1 for r in results or [] if int(r.get("n_sims") or 0) >= n_sims_required and not r.get("error"))
+    ok = 0
+    for r in results or []:
+        if r.get("error"):
+            continue
+        if (r.get("mode") == "infer" and r.get("weights_adjusted")) or int(r.get("n_sims") or 0) >= n_sims_required:
+            ok += 1
     if total <= 0:
         return False, 0, 0
     return (ok / total) >= min_ratio and ok > 0, ok, total
+
+
+MODEL_PATH = DATA_DIR / "fitted_model.json"
+
+
+async def save_fitted_model(model: dict[str, Any]) -> dict[str, Any]:
+    ensure_dirs()
+    MODEL_PATH.write_text(json.dumps(model, ensure_ascii=False, indent=2), encoding="utf-8")
+    await cache_set("fitted_model", model, 365 * 24 * 3600)
+    return model
+
+
+async def load_fitted_model() -> dict[str, Any] | None:
+    cached = await cache_get("fitted_model")
+    if isinstance(cached, dict) and cached.get("weights"):
+        return cached
+    if MODEL_PATH.exists():
+        try:
+            model = json.loads(MODEL_PATH.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            model = None
+        if isinstance(model, dict) and model.get("weights"):
+            await cache_set("fitted_model", model, 365 * 24 * 3600)
+            return model
+    return None
 
 
 async def cache_delete(key: str) -> None:

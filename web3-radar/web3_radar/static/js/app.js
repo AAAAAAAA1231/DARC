@@ -1,5 +1,5 @@
 const views = {
-  contracts: ["合约分析", "市值前 100 · TD13/谐波等 · 每标的 100 万次权重模拟。未拟合前不要把「观望」当成信号。"],
+  contracts: ["合约分析", "100 万次只用于校准指标权重。校准完成后，刷新信号会直接套用模型告诉你涨/跌/观望。"],
   meme: ["妖币监控", "只保留池子≥$20k、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
   copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
   ambassador: ["大使招募", "无 Twitter Token 时显示观察池；可手动添加。支持申请与参与成功标记。"],
@@ -24,7 +24,8 @@ document.querySelectorAll("nav button").forEach((btn) => {
   btn.addEventListener("click", () => showView(btn.dataset.view));
 });
 $("refreshBtn").addEventListener("click", () => loadView(currentView, true));
-$("analyzeAll").addEventListener("click", startAnalyze);
+$("analyzeAll").addEventListener("click", () => startAnalyze("infer"));
+if ($("refitWeights")) $("refitWeights").addEventListener("click", () => startAnalyze("fit"));
 $("saveSettings").addEventListener("click", saveSettings);
 $("disconnectWallet").addEventListener("click", async () => {
   await api("/api/wallet/disconnect", { method: "POST" });
@@ -86,11 +87,14 @@ async function loadView(name, refresh) {
         pollAnalyze();
         return;
       }
-      if (last.fitted && last.results && last.results.length) {
+      if (last.results && last.results.length) {
         last.results.forEach((r) => { store.contracts[r.symbol] = r; });
         $("contractRows").innerHTML = last.results.map(contractRow).join("");
         if ($("simBadge")) $("simBadge").textContent = last.fitted_note;
         setStatus(last.fitted_note);
+        if (refresh && last.fitted) {
+          startAnalyze("infer");
+        }
         return;
       }
       if ($("simBadge")) $("simBadge").textContent = last.fitted_note || "尚未拟合";
@@ -100,14 +104,19 @@ async function loadView(name, refresh) {
           const row = {
             key: u.binance_symbol, symbol: u.binance_symbol, name: u.name, venue: u.venue,
             market_cap_rank: u.market_cap_rank, decision: "观望", score: 0,
-            price: u.price, entry: u.price, stop_loss: "", take_profit: "", n_sims: 0,
+            price: u.price, entry: u.price, stop_loss: "", take_profit: "", n_sims: 0, mode: "",
           };
           store.contracts[row.symbol] = row;
           return contractRow(row);
         }).join("");
       }
-      setStatus(`标的 ${uni.items.length} 个。模型未拟合，正在启动 100 万次模拟…`);
-      if (!analyzeJob && uni.items.length) startAnalyze();
+      if (last.fitted) {
+        setStatus(`标的 ${uni.items.length} 个。权重已校准，正在套用模型出信号…`);
+        if (!analyzeJob && uni.items.length) startAnalyze("infer");
+      } else {
+        setStatus(`标的 ${uni.items.length} 个。首次需要校准指标权重（100 万次，只需一次）…`);
+        if (!analyzeJob && uni.items.length) startAnalyze("fit");
+      }
     } else if (name === "meme") {
       setStatus("正在拉取妖币（可能需要十几秒）…");
       if ($("memeRows")) $("memeRows").innerHTML = emptyRow(10, "加载中…");
@@ -181,7 +190,7 @@ function contractRow(r) {
     <td>${fmtPx(r.entry)}</td>
     <td>${fmtPx(r.stop_loss)}</td>
     <td>${fmtPx(r.take_profit)}</td>
-    <td>${r.n_sims ? Number(r.n_sims).toLocaleString() : "未模拟"}</td>
+    <td>${r.mode === "infer" ? "套用模型" : (r.n_sims ? ("校准 " + Number(r.n_sims).toLocaleString() + " 次") : "未校准")}</td>
     <td class="row-actions">
       <button class="btn" onclick="showDetail('${id}')">指标</button>
       <button class="btn" onclick="participate('contract','${id}')">加入队列</button>
@@ -195,7 +204,7 @@ function showDetail(id) {
   const inds = r.indicators || [];
   $("contractDetail").innerHTML = `
     <div class="panel">
-      <h3>${r.symbol} 指标权重（初始份额 → ${Number(r.n_sims||0).toLocaleString()} 次模拟后）</h3>
+      <h3>${r.symbol} 指标权重（${r.mode === "infer" ? "套用已拟合模型" : "本次校准"} · 校准 ${Number(r.n_sims||0).toLocaleString()} 次）</h3>
       <div class="table-wrap"><table>
         <thead><tr><th>指标</th><th>信号</th><th>强度</th><th>期望</th><th>初始权重</th><th>优化权重</th><th>说明</th></tr></thead>
         <tbody>
@@ -211,16 +220,17 @@ function showDetail(id) {
     </div>`;
 }
 
-async function startAnalyze() {
+async function startAnalyze(mode) {
   if (analyzeStarting) return;
   analyzeStarting = true;
   const interval = $("klineInterval").value;
-  setStatus("启动分析任务…");
+  const kind = mode === "fit" ? "fit" : "infer";
+  setStatus(kind === "fit" ? "开始校准指标权重（100 万次，只需偶尔做）…" : "套用已拟合模型出信号…");
   $("analyzeProgress").classList.remove("hidden");
   try {
-    const job = await api("/api/contracts/analyze", { method: "POST", body: { interval } });
+    const job = await api("/api/contracts/analyze", { method: "POST", body: { interval, mode: kind } });
     analyzeJob = job.job_id;
-    if (job.reused) setStatus(`已有拟合任务在跑 ${job.done || 0}/${job.total || 0}，继续等待…`);
+    if (job.reused) setStatus(`已有任务在跑 ${job.done || 0}/${job.total || 0}，继续等待…`);
     pollAnalyze();
   } catch (err) {
     setStatus("无法启动分析：" + err.message);
@@ -235,15 +245,17 @@ async function pollAnalyze() {
     const data = await api("/api/contracts/analyze/" + analyzeJob);
     const pct = data.total ? (data.done / data.total) * 100 : 0;
     $("analyzeProgress").querySelector("div").style.width = pct + "%";
-    (data.results || []).forEach((r) => { store.contracts[r.symbol] = r; });
-    $("contractRows").innerHTML = (data.results || []).map(contractRow).join("");
-    const doneSims = (data.results || []).find((r) => r.n_sims);
-    if (doneSims && $("simBadge")) {
-      $("simBadge").textContent = (doneSims.sim_note || `已完成 ${Number(doneSims.n_sims).toLocaleString()} 次模拟并修正权重`);
-    }
-    setStatus(`分析进度 ${data.done}/${data.total} · ${data.status}` + (data.status === "done" ? " · 权重已按模拟结果修正" : ""));
+    (data.results || []).forEach((r) => { if (r.symbol) store.contracts[r.symbol] = r; });
+    const rows = (data.results || []).filter((r) => r.symbol && r.symbol !== "?");
+    if (rows.length) $("contractRows").innerHTML = rows.map(contractRow).join("");
+    const note = (data.results || []).find((r) => r.sim_note);
+    if (note && $("simBadge")) $("simBadge").textContent = note.sim_note;
+    const phase = data.phase ? " · " + data.phase : "";
+    const kindLabel = data.kind === "fit" ? "校准权重" : "套用模型";
+    setStatus(`${kindLabel} ${data.done}/${data.total} · ${data.status}${phase}` + (data.status === "done" ? " · 完成" : ""));
     if (data.status === "running") setTimeout(pollAnalyze, 1200);
-    else if (data.status === "error") setStatus("拟合失败：" + (data.error || "").slice(0, 180));
+    else if (data.status === "error") setStatus("任务失败：" + (data.error || "").slice(0, 180));
+    else if (data.status === "done" && $("simBadge") && note) $("simBadge").textContent = note.sim_note;
   } catch (err) {
     setStatus("分析任务查询失败：" + err.message);
   }

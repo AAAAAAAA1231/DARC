@@ -16,8 +16,9 @@ from web3_radar.collectors.ambassador import scan_ambassadors
 from web3_radar.collectors.binance import BinanceClient
 from web3_radar.collectors.launch import scan_launches
 from web3_radar.collectors.meme import scan_meme_coins
-from web3_radar.config import STATIC_DIR, load_settings, save_settings
-from web3_radar.engine.signals import analyze_klines
+from web3_radar.config import INITIAL_INDICATOR_SHARES, STATIC_DIR, load_settings, save_settings
+from web3_radar.engine.indicators import historical_expectancy
+from web3_radar.engine.signals import analyze_klines, average_weights_from_results, fit_global_weights
 from web3_radar.wallet import enqueue_participate, wallet_status
 
 app = FastAPI(title="链上雷达", version="1.0.0")
@@ -43,6 +44,7 @@ class AnalyzeBody(BaseModel):
     symbols: list[str] | None = None
     interval: str | None = None
     n_sims: int | None = None
+    mode: str = "auto"  # auto | fit | infer
 
 
 class ParticipateBody(BaseModel):
@@ -74,7 +76,7 @@ async def wallet_page() -> FileResponse:
 
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
-    return {"ok": True, "app": "链上雷达", "version": "1.1.0"}
+    return {"ok": True, "app": "链上雷达", "version": "1.2.0"}
 
 
 @app.get("/api/settings")
@@ -127,11 +129,45 @@ async def _attach_marks(category: str, items: list[dict[str, Any]]) -> list[dict
     return out
 
 
-def _running_analyze_job() -> tuple[str, dict[str, Any]] | tuple[None, None]:
+def _running_analyze_job(kind: str | None = None) -> tuple[str, dict[str, Any]] | tuple[None, None]:
     for jid, job in _jobs.items():
-        if job.get("status") == "running":
-            return jid, job
+        if job.get("status") != "running":
+            continue
+        if kind and job.get("kind") != kind:
+            continue
+        return jid, job
     return None, None
+
+
+async def _ensure_fitted_model() -> dict[str, Any] | None:
+    model = await db.load_fitted_model()
+    if model and model.get("weights") and int(model.get("n_sims") or 0) >= 1_000_000:
+        return model
+    last = await db.latest_analysis_run()
+    if not last:
+        return model
+    weights = average_weights_from_results(last.get("results") or [])
+    n_sims = int(last.get("n_sims") or 0)
+    if weights and n_sims >= 1_000_000:
+        model = {
+            "weights": weights,
+            "n_sims": n_sims,
+            "fitted_at": last.get("created_at"),
+            "interval": "",
+            "source": "migrated_from_last_run",
+            "sample_count": len(last.get("results") or []),
+        }
+        await db.save_fitted_model(model)
+        return model
+    return model
+
+
+def _model_note(model: dict[str, Any] | None) -> str:
+    if not model or not model.get("weights"):
+        return "尚未完成权重拟合。先做一次 100 万次校准，之后刷新只套用模型出涨跌。"
+    when = str(model.get("fitted_at") or "")[:19]
+    n = int(model.get("n_sims") or 0)
+    return f"权重已于 {when} 用 {n:,} 次模拟校准。日常刷新只套用模型，不必再跑 100 万次。"
 
 
 @app.post("/api/contracts/analyze")
@@ -139,18 +175,38 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
     settings = load_settings()
     interval = body.interval or settings.get("kline_interval") or "4h"
     n_sims = int(body.n_sims or settings.get("monte_carlo_sims") or 1_000_000)
+    requested = (body.mode or "auto").strip().lower()
+    model = await _ensure_fitted_model()
+    has_model = bool(model and model.get("weights") and int(model.get("n_sims") or 0) >= 1_000_000)
+    if requested == "auto":
+        kind = "infer" if has_model else "fit"
+    elif requested == "infer":
+        kind = "infer" if has_model else "fit"
+    else:
+        kind = "fit"
+
     running_id, running = _running_analyze_job()
     if running_id and running:
-        return {"job_id": running_id, "reused": True, "done": running.get("done"), "total": running.get("total")}
+        # Never start a second full-universe job; prefer the in-flight one.
+        return {
+            "job_id": running_id,
+            "reused": True,
+            "kind": running.get("kind") or kind,
+            "done": running.get("done"),
+            "total": running.get("total"),
+        }
+
     job_id = f"job-{int(asyncio.get_event_loop().time()*1000)}"
     _jobs[job_id] = {
         "status": "running",
+        "kind": kind,
         "done": 0,
         "total": 0,
         "results": [],
         "error": "",
         "interval": interval,
         "n_sims": n_sims,
+        "phase": "收集K线" if kind == "fit" else "套用模型",
     }
 
     async def runner() -> None:
@@ -161,40 +217,103 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
                 uni = await contract_universe()
                 universe = uni["items"]
             symbols = body.symbols or [u["binance_symbol"] for u in universe]
-            _jobs[job_id]["total"] = len(symbols)
+            _jobs[job_id]["total"] = max(len(symbols) * 2, 1)
             meta = {u["binance_symbol"]: u for u in universe}
             sem = asyncio.Semaphore(6)
+            threshold = float(settings.get("signal_threshold") or 0.18)
+            sl_m = float(settings.get("atr_sl_mult") or 1.5)
+            tp_m = float(settings.get("atr_tp_mult") or 2.5)
+            top_pct = float(settings.get("monte_carlo_top_pct") or 1.0)
+            klimit = int(settings.get("kline_limit") or 500)
 
-            async def one(sym: str):
+            async def fetch_one(sym: str):
                 async with sem:
-                    df = await client.klines(sym, interval=interval, limit=int(settings.get("kline_limit") or 500))
-                    result = await asyncio.to_thread(
-                        analyze_klines,
-                        df,
-                        sym,
-                        n_sims,
-                        float(settings.get("signal_threshold") or 0.18),
-                        float(settings.get("atr_sl_mult") or 1.5),
-                        float(settings.get("atr_tp_mult") or 2.5),
-                        None,
-                        float(settings.get("monte_carlo_top_pct") or 1.0),
-                    )
-                    extra = meta.get(sym, {})
-                    result["name"] = extra.get("name") or sym
-                    result["market_cap"] = extra.get("market_cap")
-                    result["market_cap_rank"] = extra.get("market_cap_rank")
-                    result["venue"] = extra.get("venue") or ""
-                    result["key"] = sym
-                    return result
+                    df = await client.klines(sym, interval=interval, limit=klimit)
+                    return sym, df
 
-            tasks = [asyncio.create_task(one(s)) for s in symbols]
-            for fut in asyncio.as_completed(tasks):
+            frames: dict[str, Any] = {}
+            fetch_tasks = [asyncio.create_task(fetch_one(s)) for s in symbols]
+            for fut in asyncio.as_completed(fetch_tasks):
+                try:
+                    sym, df = await fut
+                    frames[sym] = df
+                except Exception as exc:
+                    _jobs[job_id]["results"].append({"symbol": "?", "decision": "观望", "error": str(exc)})
+                _jobs[job_id]["done"] += 1
+                _jobs[job_id]["phase"] = f"已取K线 {_jobs[job_id]['done']}/{len(symbols)}"
+
+            weights = None
+            if kind == "fit":
+                _jobs[job_id]["phase"] = "100万次权重校准"
+                expect_maps = []
+                names: list[str] = list(INITIAL_INDICATOR_SHARES)
+                # Median across top names is enough; walking every coin's history is too slow for a global model.
+                for _sym, df in list(frames.items())[:25]:
+                    try:
+                        emap = await asyncio.to_thread(historical_expectancy, df)
+                        if emap:
+                            expect_maps.append(emap)
+                            names = list(emap.keys())
+                    except Exception:
+                        continue
+                weights = await asyncio.to_thread(
+                    fit_global_weights,
+                    expect_maps,
+                    names,
+                    None,
+                    n_sims,
+                    top_pct,
+                    None,
+                )
+                from datetime import datetime, timezone
+
+                model_out = {
+                    "weights": weights,
+                    "n_sims": n_sims,
+                    "fitted_at": datetime.now(timezone.utc).isoformat(),
+                    "interval": interval,
+                    "source": "global_monte_carlo",
+                    "sample_count": len(expect_maps),
+                    "expectancies": {},
+                }
+                await db.save_fitted_model(model_out)
+                _jobs[job_id]["model"] = {"n_sims": n_sims, "fitted_at": model_out["fitted_at"], "sample_count": len(expect_maps)}
+            else:
+                weights = (model or {}).get("weights") or {}
+
+            _jobs[job_id]["phase"] = "套用模型出信号"
+            _jobs[job_id]["results"] = [r for r in _jobs[job_id]["results"] if r.get("error")]
+
+            async def score_one(sym: str, df):
+                result = await asyncio.to_thread(
+                    analyze_klines,
+                    df,
+                    sym,
+                    n_sims,
+                    threshold,
+                    sl_m,
+                    tp_m,
+                    None,
+                    top_pct,
+                    weights,
+                )
+                extra = meta.get(sym, {})
+                result["name"] = extra.get("name") or sym
+                result["market_cap"] = extra.get("market_cap")
+                result["market_cap_rank"] = extra.get("market_cap_rank")
+                result["venue"] = extra.get("venue") or ""
+                result["key"] = sym
+                return result
+
+            score_tasks = [asyncio.create_task(score_one(sym, df)) for sym, df in frames.items()]
+            for fut in asyncio.as_completed(score_tasks):
                 try:
                     res = await fut
                     _jobs[job_id]["results"].append(res)
                 except Exception as exc:
                     _jobs[job_id]["results"].append({"symbol": "?", "decision": "观望", "error": str(exc)})
                 _jobs[job_id]["done"] += 1
+
             _jobs[job_id]["status"] = "done"
             _jobs[job_id]["n_sims"] = n_sims
             await db.save_analysis_run(_jobs[job_id])
@@ -203,7 +322,7 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
             _jobs[job_id]["error"] = f"{exc}\n{traceback.format_exc()}"
 
     asyncio.create_task(runner())
-    return {"job_id": job_id}
+    return {"job_id": job_id, "kind": kind, "reused": False}
 
 
 @app.get("/api/contracts/analyze/{job_id}")
@@ -218,22 +337,50 @@ async def analyze_status(job_id: str) -> dict[str, Any]:
 @app.get("/api/contracts/status")
 async def contracts_fit_status() -> dict[str, Any]:
     running_id, running = _running_analyze_job()
+    model = await _ensure_fitted_model()
+    fitted = bool(model and model.get("weights") and int(model.get("n_sims") or 0) >= 1_000_000)
+    model_pub = None
+    if model:
+        model_pub = {k: model.get(k) for k in ("n_sims", "fitted_at", "source", "sample_count", "interval")}
     if running_id and running:
+        kind = running.get("kind") or "fit"
         return {
-            "fitted": False,
+            "fitted": fitted,
             "running": True,
             "job_id": running_id,
+            "kind": kind,
             "done": running.get("done") or 0,
             "total": running.get("total") or 0,
-            "fitted_note": f"正在拟合 {running.get('done') or 0}/{running.get('total') or 0} …",
+            "phase": running.get("phase") or "",
+            "model": model_pub,
+            "fitted_note": (
+                f"{'正在校准权重' if kind == 'fit' else '正在套用模型'} "
+                f"{running.get('done') or 0}/{running.get('total') or 0}"
+                + (f" · {running.get('phase')}" if running.get("phase") else "")
+            ),
             "results": await _attach_marks("contract", running.get("results") or []),
         }
     last = await db.latest_analysis_run()
-    if not last:
-        return {"fitted": False, "running": False, "fitted_note": "尚未完成 100 万次权重拟合。", "results": []}
-    last["results"] = await _attach_marks("contract", last.get("results") or [])
-    last["running"] = False
-    return last
+    results = await _attach_marks("contract", (last or {}).get("results") or [])
+    payload = {
+        "fitted": fitted,
+        "running": False,
+        "kind": "infer" if fitted else "",
+        "model": model_pub,
+        "fitted_note": _model_note(model),
+        "results": results,
+    }
+    if last:
+        payload.update(
+            {
+                "created_at": last.get("created_at"),
+                "up_count": last.get("up_count"),
+                "down_count": last.get("down_count"),
+                "wait_count": last.get("wait_count"),
+                "n_sims": last.get("n_sims"),
+            }
+        )
+    return payload
 
 
 async def _scan_or_cache(cache_key: str, category: str, ttl: int, refresh: bool, producer):
