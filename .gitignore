@@ -24,7 +24,8 @@ darc-js/dist
 web3-radar/.venv
 web3-radar/data/*.db
 web3-radar/data/*.json
-web3-radar/dist
+web3-radar/dist/*
+!web3-radar/dist/ChainRadar.exe
 web3-radar/build
 web3-radar/*.spec.bak
 __pycache__/
