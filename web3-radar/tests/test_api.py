@@ -56,7 +56,7 @@ def test_modules_return_catalog():
     assert a.status_code == 200
     body = a.json()
     assert body["items"]
-    assert body.get("social_skipped") is True
+    assert not any("OKX" in str(x.get("project") or x.get("name") or "") and x.get("source") == "观察池" for x in body["items"])
     d = client.get("/api/airdrops")
     assert d.status_code == 200
     assert d.json()["items"]

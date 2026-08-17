@@ -3,36 +3,114 @@ from __future__ import annotations
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
-from urllib.parse import quote_plus
 
 import httpx
 
 TWITTER_SEARCH = "https://api.twitter.com/2/tweets/search/recent"
 NITTER_INSTANCES = [
-    "https://nitter.net",
+    "https://nitter.tiekoetter.com",
     "https://nitter.privacydev.net",
     "https://nitter.poast.org",
 ]
 
+# New-project ambassador hunts — not CEX campus programs.
 AMBASSADOR_QUERIES = [
-    "web3 ambassador program",
-    "crypto ambassador recruitment",
-    "招募大使 web3",
-    "大使计划 crypto",
-    "community ambassador blockchain apply",
-    "we are hiring ambassadors web3",
+    "\"ambassador program\" apply web3 -binance -okx -bybit",
+    "\"we're looking for ambassadors\" crypto",
+    "\"regional ambassador\" web3 apply",
+    "招募社区大使 报名 web3",
+    "\"community ambassador\" (testnet OR TGE OR whitelist) apply",
+    "\"content creator program\" web3 ambassador",
 ]
 
+# New project launches / TGE / whitelist — not CEX listings.
 LAUNCH_QUERIES = [
-    "打新",
-    "新平台 launch",
-    "crypto presale",
-    "IDO launchpad",
-    "IEO launch",
-    "token launch tomorrow",
-    "presale live",
-    "fair launch mint",
+    "presale live (token OR crypto) -binance -okx",
+    "whitelist open (TGE OR token) web3",
+    "\"fair launch\" (today OR tomorrow) crypto",
+    "IDO starts (token OR launchpad) -binance",
+    "\"public sale\" (crypto OR web3) whitelist",
+    "白名单 开启 (TGE OR 公售 OR 新项目)",
+    "\"testnet is live\" (points OR ambassador OR mint)",
 ]
+
+MEGA_BRANDS = (
+    "okx",
+    "binance",
+    "bybit",
+    "coinbase",
+    "kraken",
+    "kucoin",
+    "mexc",
+    "bitget",
+    "gate.io",
+    "gateio",
+    "upbit",
+    "coinlist",
+)
+MEGA_USERNAMES = {
+    "okx",
+    "binance",
+    "binancezh",
+    "bybit_official",
+    "coinbase",
+    "solana",
+    "solanalabs",
+    "ethereum",
+}
+
+CEX_LISTING_HINTS = (
+    "will list",
+    "to list",
+    "now listed",
+    "listing on",
+    "/usdt",
+    "/usd",
+    "launchpool",
+    "jumpstart",
+    "hodler airdrop",
+    "launchpad认购",
+    "上线现货",
+    "现货交易",
+    "永续合约",
+    "will launch",
+    "spot trading",
+)
+
+LAUNCH_HINTS = (
+    "presale",
+    "pre-sale",
+    "whitelist",
+    "allowlist",
+    "ido",
+    "fair launch",
+    "token generation",
+    "tge",
+    "public sale",
+    "community round",
+    "seed round live",
+    "mint is live",
+    "testnet live",
+    "testnet is live",
+    "points program",
+    "genesis nft",
+    "白名单",
+    "公售",
+    "新项目",
+    "测试网上线",
+)
+
+AMBASSADOR_HINTS = (
+    "ambassador",
+    "ambassadors",
+    "招募大使",
+    "社区大使",
+    "campus ambassador",
+    "regional ambassador",
+    "content creator program",
+    "kol program",
+    "moderator program",
+)
 
 
 def _now() -> datetime:
@@ -66,6 +144,51 @@ def parse_time(value: Any) -> datetime | None:
         return datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _norm(text: str) -> str:
+    return (text or "").lower()
+
+
+def is_mega_brand(text: str, username: str = "") -> bool:
+    blob = f"{_norm(text)} {_norm(username)}"
+    if _norm(username) in MEGA_USERNAMES:
+        return True
+    return any(re.search(rf"\b{re.escape(b)}\b", blob) for b in MEGA_BRANDS)
+
+
+def looks_like_cex_listing(text: str) -> bool:
+    t = _norm(text)
+    if any(h in t for h in CEX_LISTING_HINTS):
+        return True
+    if re.search(r"\b[a-z0-9]{2,12}/usdt\b", t):
+        return True
+    return False
+
+
+def looks_like_project_launch(text: str) -> bool:
+    t = _norm(text)
+    if looks_like_cex_listing(t):
+        return False
+    return any(h in t for h in LAUNCH_HINTS)
+
+
+def looks_like_ambassador_post(text: str, username: str = "") -> bool:
+    t = _norm(text)
+    if not any(h in t for h in AMBASSADOR_HINTS):
+        return False
+    if is_mega_brand(t, username) and not any(k in t for k in ("ecosystem", "built on", "on solana", "on base")):
+        # Official CEX/L1 campus programs — not the hunt target.
+        if any(b in f"{t} {_norm(username)}" for b in ("okx", "binance", "bybit", "coinbase")):
+            return False
+    return True
+
+
+def twitter_url(handle: str | None) -> str:
+    h = (handle or "").strip().lstrip("@")
+    if not h:
+        return ""
+    return f"https://x.com/{h}"
 
 
 async def twitter_recent_search(bearer: str, query: str, max_results: int = 20) -> list[dict[str, Any]]:
@@ -103,9 +226,8 @@ async def twitter_recent_search(bearer: str, query: str, max_results: int = 20) 
 
 
 async def nitter_search(query: str) -> list[dict[str, Any]]:
-    """Best-effort public HTML search; silently skip dead instances."""
-    encoded = quote_plus(query)
-    async with httpx.AsyncClient(timeout=12.0, follow_redirects=True, headers={"User-Agent": "ChainRadar/1.0"}) as client:
+    """Best-effort public HTML search; give up fast — most mirrors are dead or bot-walled."""
+    async with httpx.AsyncClient(timeout=4.0, follow_redirects=True, headers={"User-Agent": "ChainRadar/1.0"}) as client:
         for base in NITTER_INSTANCES:
             try:
                 resp = await client.get(f"{base}/search", params={"f": "tweets", "q": query})
@@ -140,7 +262,7 @@ async def nitter_search(query: str) -> list[dict[str, Any]]:
     return []
 
 
-def score_ambassador(text: str, created: datetime | None) -> tuple[int, str]:
+def score_ambassador(text: str, created: datetime | None, username: str = "") -> tuple[int, str]:
     t = text.lower()
     score = 40
     reasons = []
@@ -150,16 +272,19 @@ def score_ambassador(text: str, created: datetime | None) -> tuple[int, str]:
     if any(k in t for k in ("paid", "stipend", "salary", "grant", "奖励", "薪资", "usdt")):
         score += 20
         reasons.append("含报酬")
-    if any(k in t for k in ("apply", "application", "form", "报名", "申请", "typeform", "google form")):
+    if any(k in t for k in ("apply", "application", "form", "报名", "申请", "typeform", "google form", "zealy", "galxe")):
         score += 15
         reasons.append("含申请入口")
-    if any(k in t for k in ("tier-1", "binance", "okx", "coinbase", "l2", "mainnet")):
-        score += 10
-        reasons.append("头部生态")
+    if any(k in t for k in ("testnet", "tge", "pre-tge", "whitelist", "points", "新项目", "mainnet soon")):
+        score += 12
+        reasons.append("新项目阶段")
+    if is_mega_brand(t, username):
+        score -= 25
+        reasons.append("偏头部品牌，降权")
     if created and created >= _now() - timedelta(days=2):
         score += 10
         reasons.append("48h 内发布")
-    score = min(100, score)
+    score = max(0, min(100, score))
     if score >= 75:
         priority = "高"
     elif score >= 55:
@@ -185,13 +310,17 @@ def extract_deadline(text: str) -> str:
 
 
 async def collect_social(queries: list[str], bearer: str, lookback_days: int) -> list[dict[str, Any]]:
-    """Search recent posts. Without a Bearer token, skip Nitter — it is usually dead in CN and burns 10s+."""
-    if not (bearer or "").strip():
-        return []
+    """Search recent posts. Bearer uses official X API; otherwise a short Nitter attempt."""
     seen: set[str] = set()
     items: list[dict[str, Any]] = []
-    for q in queries:
-        tweets = await twitter_recent_search(bearer, q)
+    use_nitter = not bool((bearer or "").strip())
+    qlist = queries[:3] if use_nitter else queries
+    for q in qlist:
+        tweets: list[dict[str, Any]] = []
+        if bearer:
+            tweets = await twitter_recent_search(bearer, q)
+        if not tweets:
+            tweets = await nitter_search(q)
         for tw in tweets:
             created = parse_time(tw.get("created_at"))
             if not _within_days(created, lookback_days):

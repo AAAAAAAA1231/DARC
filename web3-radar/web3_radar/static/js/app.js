@@ -2,8 +2,8 @@ const views = {
   contracts: ["合约分析", "100 万次只用于校准指标权重。校准完成后，刷新信号会直接套用模型告诉你涨/跌/观望。"],
   meme: ["妖币监控", "只保留池子≥$20k、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
   copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
-  ambassador: ["大使招募", "无 Twitter Token 时显示观察池；可手动添加。支持申请与参与成功标记。"],
-  launch: ["打新监测", "优先 OKX 上新公告；链上新池仅供参考。关键词：打新、launch、presale。"],
+  ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
+  launch: ["打新监测", "新项目白名单 / Presale / TGE / 新协议上线，不是交易所上新。"],
   airdrop: ["空投雷达", "知名机构投资、融资 > $2000 万、优先未发币，可标记交互状态"],
   wallet: ["钱包执行", "连接 OKX 等钱包，将空投 / 打新 / 妖币 / 合约加入确认队列"],
   settings: ["设置", "权重模拟次数、阈值、API Token 与自动参加上限"],
@@ -138,7 +138,7 @@ async function loadView(name, refresh) {
       $("ambassadorCards").innerHTML = items.map((a) => {
         store.ambassador[a.key] = a;
         return ambassadorCard(a);
-      }).join("") || "<p class='muted'>未检索到帖文。国内访问 Twitter 常失败，已尽量给出观察池，也可手动添加。</p>";
+      }).join("") || "<p class='muted'>暂无新项目大使。可填 Twitter Bearer 拉 X 动态，或手动添加。</p>";
       setStatus(`招募信息 ${items.length} 条` + ((data.note && " · " + data.note) || ""));
     } else if (name === "launch") {
       setStatus("正在监测打新…");
@@ -150,7 +150,7 @@ async function loadView(name, refresh) {
         return launchCard(a);
       }).join("") || "<p class='muted'>暂无打新信息</p>";
       if ($("launchMsg")) $("launchMsg").textContent = data.note || "";
-      setStatus(`打新 ${data.count} 条` + (data.okx_count ? ` · OKX 上新 ${data.okx_count}` : "") + (data.social_skipped ? " · 未检索 Twitter" : ""));
+      setStatus(`新项目打新 ${data.count} 条` + (data.live_count ? ` · 实时 ${data.live_count}` : "") + (data.social_skipped ? " · 未配置 X Token" : ""));
     } else if (name === "airdrop") {
       setStatus("正在扫描高融资未发币项目…");
       $("airdropRows").innerHTML = emptyRow(8, "加载中…");
@@ -324,6 +324,7 @@ function ambassadorCard(a) {
     <p>优先级：<strong>${escapeHtml(a.priority)}</strong> · 期限：${escapeHtml(a.deadline)}</p>
     <p>状态：${markSelect("ambassador", a.key, a.mark_status)}</p>
     <div class="card-actions">
+      ${a.twitter ? `<a class="btn" href="${escapeHtml(a.twitter)}" target="_blank">X</a>` : ""}
       ${a.url ? `<a class="btn" href="${escapeHtml(a.url)}" target="_blank">来源</a>` : ""}
       <button class="btn" onclick="mark('ambassador','${id}','applied')">标记已申请</button>
       <button class="btn primary" onclick="mark('ambassador','${id}','accepted')">标记已成功</button>
@@ -340,6 +341,7 @@ function launchCard(a) {
     <p>${a.price_usd != null ? "价格 " + fmtUsd(a.price_usd) : ""}</p>
     <p>标记：${markSelect("launch", a.key, a.mark_status)}</p>
     <div class="card-actions">
+      ${a.twitter ? `<a class="btn" href="${escapeHtml(a.twitter)}" target="_blank">X</a>` : ""}
       ${a.url ? `<a class="btn" href="${escapeHtml(a.url)}" target="_blank">打开</a>` : ""}
       <button class="btn" onclick="participate('launch','${id}')">加入打新队列</button>
     </div>

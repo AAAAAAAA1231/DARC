@@ -1,7 +1,11 @@
 from datetime import datetime, timedelta, timezone
 
-from web3_radar.collectors.launch import parse_okx_listing
-from web3_radar.collectors.social import collect_social
+from web3_radar.collectors.social import (
+    collect_social,
+    looks_like_ambassador_post,
+    looks_like_cex_listing,
+    looks_like_project_launch,
+)
 from web3_radar.copytrade import halt_new_entries, position_size_usd, recently_closed, token_id, trail_stop, _exit_reason
 from web3_radar.db import analysis_is_fitted
 from web3_radar.fallback import merge_items
@@ -62,20 +66,22 @@ def test_fitted_allows_twenty_percent_failures():
     assert total3 == 100
 
 
-def test_okx_listing_parser_and_seed_badge():
-    row = {
-        "title": "OKX to list GRVT/USDT (Grvt) for spot trading",
-        "url": "https://www.okx.com/help/x",
-        "pTime": "1785380409432",
-    }
-    item = parse_okx_listing(row)
-    assert item["extra"]["base"] == "GRVT"
-    assert item["source_kind"] == "live"
-    merged = merge_items([item], [{"key": "seed-1", "name": "观察", "source": "观察池"}])
+def test_project_launch_not_cex_listing():
+    assert looks_like_cex_listing("OKX to list GRVT/USDT for spot trading")
+    assert looks_like_cex_listing("Binance will list ABCUSDT Launchpool")
+    assert not looks_like_project_launch("OKX to list GRVT/USDT for spot trading")
+    assert looks_like_project_launch("Whitelist is open for our TGE, presale live this week")
+    assert looks_like_ambassador_post("We're hiring regional ambassadors, apply via the form")
+    assert not looks_like_ambassador_post("Join the Binance campus ambassador program", "binance")
+    merged = merge_items(
+        [{"key": "live-1", "name": "新项目", "source_kind": "live"}],
+        [{"key": "seed-1", "name": "观察", "source": "观察池"}],
+    )
     assert merged[-1]["source_kind"] == "seed"
     assert merged[-1]["fallback"] is True
 
 
-def test_collect_social_skips_without_bearer():
+def test_collect_social_without_bearer_does_not_crash():
     import asyncio
-    assert asyncio.run(collect_social(["ambassador"], "", 7)) == []
+    rows = asyncio.run(collect_social(["ambassador"], "", 7))
+    assert isinstance(rows, list)

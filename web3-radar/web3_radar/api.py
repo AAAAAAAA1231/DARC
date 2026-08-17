@@ -434,7 +434,7 @@ async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
 async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "ambassadors",
+        "ambassadors_v2",
         "ambassador",
         300,
         refresh,
@@ -449,11 +449,11 @@ async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
 async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "launches",
+        "launches_v2",
         "launch",
         180,
         refresh,
-        lambda: scan_launches(twitter_bearer=str(settings.get("twitter_bearer_token") or ""), lookback_days=5),
+        lambda: scan_launches(twitter_bearer=str(settings.get("twitter_bearer_token") or ""), lookback_days=7),
     )
 
 
@@ -546,7 +546,7 @@ async def add_ambassador(body: AmbassadorAddBody) -> dict[str, Any]:
         manual = []
     manual.insert(0, item)
     await db.cache_set("manual_ambassadors", manual, 365 * 24 * 3600)
-    await db.cache_delete("ambassadors")
+    await db.cache_delete("ambassadors_v2")
     await db.upsert_mark("ambassador", item["key"], "watching", "手动添加", item)
     return item
 
