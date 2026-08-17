@@ -1,7 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
-datas = [("web3_radar/static", "web3_radar/static")]
+datas = [("web3_radar/static", "web3_radar/static"), ("web3_radar/resources", "web3_radar/resources")]
 binaries = []
 hiddenimports = collect_submodules("web3_radar") + [
     "uvicorn",
@@ -26,6 +26,7 @@ hiddenimports = collect_submodules("web3_radar") + [
     "numpy",
     "pandas",
     "httpx",
+    "certifi",
     "aiosqlite",
 ]
 

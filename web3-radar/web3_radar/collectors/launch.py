@@ -4,7 +4,8 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Any
 
-from web3_radar.collectors.meme import fetch_dexscreener_search, fetch_pumpfun
+from web3_radar.fallback import load_fallback, merge_items
+from web3_radar.collectors.meme import fetch_dexscreener_search, fetch_geckoterminal, fetch_pumpfun
 from web3_radar.collectors.social import LAUNCH_QUERIES, collect_social
 
 KEYWORDS = ("打新", "新平台", "launch", "presale", "ido", "ieo", "launchpad", "fair launch", "mint")
@@ -16,10 +17,11 @@ def _is_launch_text(text: str) -> bool:
 
 
 async def scan_launches(twitter_bearer: str = "", lookback_days: int = 5) -> dict[str, Any]:
-    tweets_task = collect_social(LAUNCH_QUERIES, twitter_bearer, lookback_days)
+    tweets_task = asyncio.wait_for(collect_social(LAUNCH_QUERIES, twitter_bearer, lookback_days), timeout=12)
     dex_task = fetch_dexscreener_search("presale")
     pump_task = fetch_pumpfun(30)
-    tweets, dex, pump = await asyncio.gather(tweets_task, dex_task, pump_task, return_exceptions=True)
+    gecko_task = fetch_geckoterminal()
+    tweets, dex, pump, gecko = await asyncio.gather(tweets_task, dex_task, pump_task, gecko_task, return_exceptions=True)
     items: list[dict[str, Any]] = []
     errors: list[str] = []
 
@@ -32,6 +34,9 @@ async def scan_launches(twitter_bearer: str = "", lookback_days: int = 5) -> dic
     if isinstance(pump, Exception):
         errors.append(f"pump: {pump}")
         pump = []
+    if isinstance(gecko, Exception):
+        errors.append(f"gecko: {gecko}")
+        gecko = []
 
     for tw in tweets:
         text = tw.get("text") or ""
@@ -84,6 +89,23 @@ async def scan_launches(twitter_bearer: str = "", lookback_days: int = 5) -> dic
             }
         )
 
+    for coin in gecko[:30]:
+        items.append(
+            {
+                "key": f"gt:{coin.get('key')}",
+                "name": f"{coin.get('symbol')} / {coin.get('name')}",
+                "kind": "热门新池",
+                "chain": coin.get("chain"),
+                "text": f"流动性 ${coin.get('liquidity_usd', 0):,.0f} · 价格 {coin.get('price_usd')}",
+                "url": coin.get("url"),
+                "created_at": coin.get("created_at"),
+                "source": "geckoterminal",
+                "price_usd": coin.get("price_usd"),
+                "extra": coin,
+            }
+        )
+
+    items = merge_items(items, load_fallback().get("launches") or [])
     return {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "lookback_days": lookback_days,

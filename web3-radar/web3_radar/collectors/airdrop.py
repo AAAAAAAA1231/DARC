@@ -8,6 +8,7 @@ from typing import Any
 import httpx
 
 from web3_radar.config import FAMOUS_VCS
+from web3_radar.fallback import load_fallback, merge_items
 
 LLAMA_RAISES = "https://api.llama.fi/raises"
 LLAMA_PROTOCOLS = "https://api.llama.fi/protocols"
@@ -141,6 +142,8 @@ async def scan_airdrops(min_funding_usd: float = 20_000_000) -> dict[str, Any]:
         except Exception as exc:
             errors.append(f"cryptorank: {exc}")
     items.sort(key=lambda x: (x["score"], x["total_funding_usd"], x["famous_count"]), reverse=True)
+    items = merge_items(items, load_fallback().get("airdrops") or [])
+    items.sort(key=lambda x: (x.get("score") or 0, x.get("total_funding_usd") or 0), reverse=True)
     return {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "min_funding_usd": min_funding_usd,

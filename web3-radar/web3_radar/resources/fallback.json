@@ -1,0 +1,154 @@
+{
+  "ambassadors": [
+    {
+      "key": "seed-okx-wallet-amb",
+      "project": "OKX Wallet",
+      "username": "okx",
+      "title": "OKX Wallet 区域社区大使（持续招募）",
+      "text": "OKX Wallet 面向中文区招募社区/内容大使，需有 Web3 社群运营或内容产出经验。请以官网/官方推特当期表单为准。",
+      "url": "https://www.okx.com/zh-hans/web3",
+      "deadline": "一周内窗口，以官方截止为准",
+      "priority": "高",
+      "priority_detail": "高 · 头部钱包生态",
+      "score": 82,
+      "source": "观察池"
+    },
+    {
+      "key": "seed-binance-wn",
+      "project": "Binance Wallet / Web3",
+      "username": "binance",
+      "title": "币安 Web3 钱包校园/区域大使",
+      "text": "关注币安官方公告中的 Wallet / Web3 大使或校园计划，通常含申请表与一周左右截止。",
+      "url": "https://www.binance.com/zh-CN/web3wallet",
+      "deadline": "一周内窗口，以官方截止为准",
+      "priority": "高",
+      "priority_detail": "高 · 头部交易所",
+      "score": 80,
+      "source": "观察池"
+    },
+    {
+      "key": "seed-base-amb",
+      "project": "Base",
+      "username": "base",
+      "title": "Base 生态社区贡献者 / Ambassador",
+      "text": "Base 及周边应用常在一周内滚动招募区域大使，关键词：ambassador、贡献者、社区经理。",
+      "url": "https://www.base.org/",
+      "deadline": "一周内窗口",
+      "priority": "中",
+      "priority_detail": "中 · L2 生态",
+      "score": 68,
+      "source": "观察池"
+    },
+    {
+      "key": "seed-solana-colosseum",
+      "project": "Solana / Colosseum",
+      "username": "solana",
+      "title": "Solana 生态黑客松/社区大使",
+      "text": "Solana 与 Colosseum 活动常配套招募校园与区域大使，关注一周内报名截止。",
+      "url": "https://solana.com/",
+      "deadline": "一周内窗口",
+      "priority": "中",
+      "priority_detail": "中 · 公链生态",
+      "score": 66,
+      "source": "观察池"
+    }
+  ],
+  "launches": [
+    {
+      "key": "seed-okx-jumpstart",
+      "name": "OKX Jumpstart / 新币上市",
+      "kind": "交易所打新",
+      "chain": "多链",
+      "text": "监测 OKX 上新与 Jumpstart。打开公告列表核对近几天是否有认购。",
+      "url": "https://www.okx.com/zh-hans/help/section/announcements-new-listings",
+      "source": "观察池",
+      "price_usd": null
+    },
+    {
+      "key": "seed-binance-hodler",
+      "name": "Binance HODLer Airdrops / Launchpool",
+      "kind": "交易所打新",
+      "chain": "多链",
+      "text": "币安 Launchpool / HODLer 空投几乎每周都有新项目，适合作为打新主通道。",
+      "url": "https://www.binance.com/zh-CN/support/announcement/c-48",
+      "source": "观察池",
+      "price_usd": null
+    },
+    {
+      "key": "seed-bybit-launchpad",
+      "name": "Bybit Launchpad",
+      "kind": "交易所打新",
+      "chain": "多链",
+      "text": "Bybit Launchpad 近期项目请以官网为准，注意认购窗口通常只有 1–3 天。",
+      "url": "https://www.bybit.com/zh-MY/trade/spot/launchpad",
+      "source": "观察池",
+      "price_usd": null
+    }
+  ],
+  "airdrops": [
+    {
+      "key": "seed-megaeth",
+      "name": "MegaETH",
+      "total_funding_usd": 450000000,
+      "latest_round": "Strategic",
+      "latest_date": "",
+      "sector": "L2 / 高性能链",
+      "chains": ["Ethereum"],
+      "famous_investors": ["Vitalik Buterin", "Dragonfly", "Robot Ventures"],
+      "famous_count": 3,
+      "investor_count": 8,
+      "token_status": "未发币（待核验）",
+      "token_expect": "未发币，空投预期较高 · 内置观察池，请核验官网",
+      "score": 88,
+      "source": "https://megaeth.com/"
+    },
+    {
+      "key": "seed-monad",
+      "name": "Monad",
+      "total_funding_usd": 225000000,
+      "latest_round": "Series A",
+      "latest_date": "",
+      "sector": "L1",
+      "chains": ["Monad"],
+      "famous_investors": ["Paradigm", "Electric Capital"],
+      "famous_count": 2,
+      "investor_count": 10,
+      "token_status": "未发币（待核验）",
+      "token_expect": "未发币，空投预期较高 · 内置观察池，请核验官网",
+      "score": 86,
+      "source": "https://www.monad.xyz/"
+    },
+    {
+      "key": "seed-plasma",
+      "name": "Plasma",
+      "total_funding_usd": 500000000,
+      "latest_round": "Strategic",
+      "latest_date": "",
+      "sector": "稳定币链 / Payments",
+      "chains": ["Plasma"],
+      "famous_investors": ["Framework", "Bitfinex", "Founders Fund"],
+      "famous_count": 3,
+      "investor_count": 12,
+      "token_status": "未发币（待核验）",
+      "token_expect": "未发币，空投预期较高 · 内置观察池，请核验官网",
+      "score": 90,
+      "source": "https://www.plasma.to/"
+    },
+    {
+      "key": "seed-initia",
+      "name": "Initia",
+      "total_funding_usd": 24000000,
+      "latest_round": "Series A",
+      "latest_date": "",
+      "sector": "模块化 / Interwoven",
+      "chains": ["Initia"],
+      "famous_investors": ["Delphi", "Hack VC"],
+      "famous_count": 2,
+      "investor_count": 8,
+      "token_status": "疑似已发币",
+      "token_expect": "可能已有代币，空投不确定 · 内置观察池",
+      "score": 62,
+      "source": "https://initia.xyz/"
+    }
+  ]
+}

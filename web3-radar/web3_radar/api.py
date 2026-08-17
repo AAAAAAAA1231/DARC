@@ -4,7 +4,7 @@ import asyncio
 import traceback
 from typing import Any
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
@@ -194,68 +194,82 @@ async def analyze_status(job_id: str) -> dict[str, Any]:
     return {**job, "results": results}
 
 
-@app.get("/api/meme")
-async def meme() -> dict[str, Any]:
-    settings = load_settings()
-    cached = await db.cache_get("meme")
-    if cached:
-        cached["items"] = await _attach_marks("meme", cached.get("items") or [])
-        cached["cached"] = True
-        return cached
-    data = await scan_meme_coins(
-        min_liquidity_usd=float(settings.get("meme_min_liquidity_usd") or 20_000),
-        min_unique_buyers=int(settings.get("meme_min_unique_buyers") or 8),
-        min_holder_growth=int(settings.get("meme_min_holder_growth") or 5),
-    )
-    await db.cache_set("meme", data, 120)
-    data["items"] = await _attach_marks("meme", data.get("items") or [])
+async def _scan_or_cache(cache_key: str, category: str, ttl: int, refresh: bool, producer):
+    if not refresh:
+        cached = await db.cache_get(cache_key)
+        if cached and cached.get("items"):
+            cached["items"] = await _attach_marks(category, cached.get("items") or [])
+            cached["cached"] = True
+            return cached
+    try:
+        data = await asyncio.wait_for(producer(), timeout=55)
+    except Exception as exc:
+        data = {"items": [], "count": 0, "errors": [str(exc)]}
+    data.setdefault("errors", [])
+    data.setdefault("items", [])
+    data["count"] = len(data.get("items") or [])
+    if data["items"]:
+        payload = dict(data)
+        payload["items"] = [ {k: v for k, v in it.items() if k not in ("mark_status", "mark_note")} for it in payload["items"] ]
+        await db.cache_set(cache_key, payload, ttl)
+    data["items"] = await _attach_marks(category, data.get("items") or [])
     data["cached"] = False
     return data
 
 
-@app.get("/api/ambassadors")
-async def ambassadors() -> dict[str, Any]:
+@app.get("/api/meme")
+async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
-    cached = await db.cache_get("ambassadors")
-    if cached:
-        cached["items"] = await _attach_marks("ambassador", cached.get("items") or [])
-        cached["cached"] = True
-        return cached
-    data = await scan_ambassadors(
-        twitter_bearer=str(settings.get("twitter_bearer_token") or ""),
-        lookback_days=int(settings.get("ambassador_lookback_days") or 7),
+    return await _scan_or_cache(
+        "meme",
+        "meme",
+        120,
+        refresh,
+        lambda: scan_meme_coins(
+            min_liquidity_usd=float(settings.get("meme_min_liquidity_usd") or 20_000),
+            min_unique_buyers=int(settings.get("meme_min_unique_buyers") or 8),
+            min_holder_growth=int(settings.get("meme_min_holder_growth") or 5),
+        ),
     )
-    await db.cache_set("ambassadors", data, 300)
-    data["items"] = await _attach_marks("ambassador", data.get("items") or [])
-    return data
+
+
+@app.get("/api/ambassadors")
+async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
+    settings = load_settings()
+    return await _scan_or_cache(
+        "ambassadors",
+        "ambassador",
+        300,
+        refresh,
+        lambda: scan_ambassadors(
+            twitter_bearer=str(settings.get("twitter_bearer_token") or ""),
+            lookback_days=int(settings.get("ambassador_lookback_days") or 7),
+        ),
+    )
 
 
 @app.get("/api/launches")
-async def launches() -> dict[str, Any]:
+async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
-    cached = await db.cache_get("launches")
-    if cached:
-        cached["items"] = await _attach_marks("launch", cached.get("items") or [])
-        cached["cached"] = True
-        return cached
-    data = await scan_launches(twitter_bearer=str(settings.get("twitter_bearer_token") or ""), lookback_days=5)
-    await db.cache_set("launches", data, 180)
-    data["items"] = await _attach_marks("launch", data.get("items") or [])
-    return data
+    return await _scan_or_cache(
+        "launches",
+        "launch",
+        180,
+        refresh,
+        lambda: scan_launches(twitter_bearer=str(settings.get("twitter_bearer_token") or ""), lookback_days=5),
+    )
 
 
 @app.get("/api/airdrops")
-async def airdrops() -> dict[str, Any]:
+async def airdrops(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
-    cached = await db.cache_get("airdrops")
-    if cached:
-        cached["items"] = await _attach_marks("airdrop", cached.get("items") or [])
-        cached["cached"] = True
-        return cached
-    data = await scan_airdrops(min_funding_usd=float(settings.get("airdrop_min_funding_usd") or 20_000_000))
-    await db.cache_set("airdrops", data, 3600)
-    data["items"] = await _attach_marks("airdrop", data.get("items") or [])
-    return data
+    return await _scan_or_cache(
+        "airdrops",
+        "airdrop",
+        3600,
+        refresh,
+        lambda: scan_airdrops(min_funding_usd=float(settings.get("airdrop_min_funding_usd") or 20_000_000)),
+    )
 
 
 @app.get("/api/wallet")

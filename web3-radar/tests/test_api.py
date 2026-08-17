@@ -32,6 +32,13 @@ def test_settings_and_marks_roundtrip():
 
 
 def test_wallet_participate_queue():
+    from web3_radar.fallback import load_fallback, merge_items
+    data = load_fallback()
+    assert data["ambassadors"]
+    assert data["airdrops"]
+    assert data["launches"]
+    merged = merge_items([], data["airdrops"])
+    assert len(merged) == len(data["airdrops"])
     r = client.post(
         "/api/wallet/participate",
         json={"category": "airdrop", "item": {"key": "demo", "name": "Demo", "url": "https://example.com"}, "auto": False},
@@ -41,3 +48,15 @@ def test_wallet_participate_queue():
     w = client.get("/api/wallet")
     assert w.status_code == 200
     assert any(t["item_key"] == "demo" for t in w.json()["tasks"])
+
+
+def test_modules_return_catalog():
+    a = client.get("/api/ambassadors")
+    assert a.status_code == 200
+    assert a.json()["items"]
+    d = client.get("/api/airdrops")
+    assert d.status_code == 200
+    assert d.json()["items"]
+    l = client.get("/api/launches")
+    assert l.status_code == 200
+    assert l.json()["items"]

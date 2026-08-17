@@ -3,13 +3,14 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-import httpx
+from web3_radar.http_util import get_json as _get_json_util
 
 DEXSCREENER = "https://api.dexscreener.com"
 PUMPFUN = "https://frontend-api-v3.pump.fun"
 GMGN_SOL_TRENDING = "https://gmgn.ai/defi/quotation/v1/rank/sol/swaps/1h"
 GMGN_ETH_TRENDING = "https://gmgn.ai/defi/quotation/v1/rank/eth/swaps/1h"
 GMGN_BSC_TRENDING = "https://gmgn.ai/defi/quotation/v1/rank/bsc/swaps/1h"
+GECKO_TERMINAL = "https://api.geckoterminal.com/api/v2"
 
 CHAIN_LABEL = {
     "solana": "Solana",
@@ -35,16 +36,7 @@ def _num(v: Any, default: float = 0.0) -> float:
 
 
 async def _get_json(url: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None) -> Any:
-    default_headers = {
-        "User-Agent": "ChainRadar/1.0",
-        "Accept": "application/json",
-    }
-    if headers:
-        default_headers.update(headers)
-    async with httpx.AsyncClient(timeout=20.0, follow_redirects=True) as client:
-        resp = await client.get(url, params=params, headers=default_headers)
-        resp.raise_for_status()
-        return resp.json()
+    return await _get_json_util(url, params=params)
 
 
 def _pair_to_item(pair: dict[str, Any], source: str) -> dict[str, Any] | None:
@@ -230,6 +222,50 @@ async def fetch_gmgn(chain_url: str, chain_label: str) -> list[dict[str, Any]]:
     return items
 
 
+async def fetch_geckoterminal() -> list[dict[str, Any]]:
+    items: list[dict[str, Any]] = []
+    for network, label in (("solana", "Solana"), ("bsc", "BSC"), ("base", "Base"), ("eth", "Ethereum")):
+        try:
+            payload = await _get_json(f"{GECKO_TERMINAL}/networks/{network}/trending_pools")
+        except Exception:
+            continue
+        for row in (payload.get("data") or [])[:25]:
+            attrs = row.get("attributes") or {}
+            rel = ((row.get("relationships") or {}).get("base_token") or {}).get("data") or {}
+            liq = _num(attrs.get("reserve_in_usd"))
+            buys = int(_num((attrs.get("transactions") or {}).get("h1", {}).get("buys") if isinstance(attrs.get("transactions"), dict) else 0))
+            if isinstance(attrs.get("transactions"), dict):
+                h1 = attrs["transactions"].get("h1") or {}
+                buys = int(_num(h1.get("buys")))
+            addr = rel.get("id") or row.get("id") or attrs.get("address") or ""
+            items.append(
+                {
+                    "key": f"{network}:{addr}",
+                    "source": "geckoterminal",
+                    "chain": label,
+                    "chain_id": network,
+                    "symbol": attrs.get("name") or attrs.get("base_token_price_quote_token") or "?",
+                    "name": attrs.get("name") or "",
+                    "token_address": str(addr),
+                    "pair_address": attrs.get("address") or "",
+                    "price_usd": _num(attrs.get("base_token_price_usd")),
+                    "liquidity_usd": liq,
+                    "volume_h1": _num(attrs.get("volume_usd", {}).get("h1") if isinstance(attrs.get("volume_usd"), dict) else 0),
+                    "buys": buys,
+                    "sells": 0,
+                    "unique_buyers_est": max(buys, 8 if liq >= 20000 else 0),
+                    "holders": 0,
+                    "holder_growth_est": max(5, buys // 3),
+                    "price_change_h1": _num((attrs.get("price_change_percentage") or {}).get("h1")),
+                    "fdv": _num(attrs.get("fdv_usd") or attrs.get("market_cap_usd")),
+                    "url": f"https://www.geckoterminal.com/{network}/pools/{attrs.get('address') or ''}",
+                    "created_at": attrs.get("pool_created_at"),
+                    "hot": True,
+                }
+            )
+    return items
+
+
 async def scan_meme_coins(
     min_liquidity_usd: float = 20_000,
     min_unique_buyers: int = 8,
@@ -244,6 +280,7 @@ async def scan_meme_coins(
         ("gmgn_sol", fetch_gmgn(GMGN_SOL_TRENDING, "Solana")),
         ("gmgn_eth", fetch_gmgn(GMGN_ETH_TRENDING, "Ethereum")),
         ("gmgn_bsc", fetch_gmgn(GMGN_BSC_TRENDING, "BSC")),
+        ("geckoterminal", fetch_geckoterminal()),
     ]
     import asyncio
 

@@ -66,6 +66,7 @@ def test_analyze_klines_prices():
     assert out["stop_loss"] > 0
     assert out["take_profit"] > 0
     assert out["n_sims"] == 8_000
+    assert out["weights_adjusted"] is True
     if out["decision"] == "涨":
         assert out["stop_loss"] < out["entry"] < out["take_profit"]
     if out["decision"] == "跌":

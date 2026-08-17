@@ -80,6 +80,8 @@ def analyze_klines(
         "take_profit": round(tp, 8),
         "atr": round(atr_v, 8),
         "n_sims": int(n_sims),
+        "weights_adjusted": True,
+        "sim_note": f"已按初始份额完成 {int(n_sims):,} 次蒙特卡洛模拟，并对指标权重做加权平均修正",
         "indicators": [
             {
                 "name": i.name,

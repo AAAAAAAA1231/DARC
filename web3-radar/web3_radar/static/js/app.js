@@ -41,7 +41,7 @@ function showView(name) {
   document.querySelectorAll(".view").forEach((el) => el.classList.toggle("hidden", el.id !== "view-" + name));
   $("viewTitle").textContent = views[name][0];
   $("viewSub").textContent = views[name][1];
-  loadView(name);
+  loadView(name, false);
 }
 
 async function api(path, opts = {}) {
@@ -64,7 +64,8 @@ function filterTable(tbodyId, q) {
   });
 }
 
-async function loadView(name) {
+async function loadView(name, refresh) {
+  const q = refresh ? "?refresh=true" : "";
   try {
     if (name === "contracts") {
       setStatus("加载市值前 100 合约标的…");
@@ -72,38 +73,43 @@ async function loadView(name) {
       if (!$("contractRows").children.length) {
         $("contractRows").innerHTML = uni.items.map((u) => {
           const row = {
-            key: u.binance_symbol, symbol: u.binance_symbol, name: u.name,
+            key: u.binance_symbol, symbol: u.binance_symbol, name: u.name, venue: u.venue,
             market_cap_rank: u.market_cap_rank, decision: "观望", score: 0,
-            price: u.price, entry: u.price, stop_loss: "", take_profit: "", confidence: 0,
+            price: u.price, entry: u.price, stop_loss: "", take_profit: "", n_sims: 0,
           };
           store.contracts[row.symbol] = row;
           return contractRow(row);
         }).join("");
       }
-      setStatus(`标的 ${uni.items.length} 个` + (uni.cached ? "（缓存）" : ""));
+      setStatus(`标的 ${uni.items.length} 个。请点击「开始 100 万次模拟」才会计算涨跌和止盈止损。` + (uni.cached ? "（名单缓存）" : ""));
+      if (!analyzeJob && uni.items.length) startAnalyze();
     } else if (name === "meme") {
-      setStatus("扫描 GMGN / Pump / DexScreener…");
-      const data = await api("/api/meme");
+      setStatus("正在拉取妖币（可能需要十几秒）…");
+      if ($("memeRows")) $("memeRows").innerHTML = emptyRow(9, "加载中…");
+      const data = await api("/api/meme" + q);
       store.meme = {};
       $("memeRows").innerHTML = (data.items || []).map((m) => {
         store.meme[m.key] = m;
         return memeRow(m);
-      }).join("") || emptyRow(9, "暂无符合条件的妖币");
+      }).join("") || emptyRow(9, "暂无符合条件的妖币（外网源可能被墙，可点右上角刷新）");
+      if ($("memeMsg")) $("memeMsg").textContent = (data.errors || []).join("；");
       setStatus(`命中 ${data.count} · 流动性门槛 ${fmtUsd(data.min_liquidity_usd)}`);
     } else if (name === "ambassador") {
-      setStatus("检索一周内大使计划…");
-      const data = await api("/api/ambassadors");
+      setStatus("正在加载大使计划…");
+      $("ambassadorCards").innerHTML = "<p class='muted'>加载中…</p>";
+      const data = await api("/api/ambassadors" + q);
       const want = $("ambStatusFilter").value;
       const items = (data.items || []).filter((x) => !want || (x.mark_status || "none") === want);
       store.ambassador = {};
       $("ambassadorCards").innerHTML = items.map((a) => {
         store.ambassador[a.key] = a;
         return ambassadorCard(a);
-      }).join("") || "<p class='muted'>未检索到帖文。可在设置中填写 Twitter Bearer Token。</p>";
-      setStatus(`招募信息 ${items.length} 条`);
+      }).join("") || "<p class='muted'>未检索到帖文。国内访问 Twitter 常失败，已尽量给出观察池。</p>";
+      setStatus(`招募信息 ${items.length} 条` + ((data.note && " · " + data.note) || ""));
     } else if (name === "launch") {
-      setStatus("监测打新…");
-      const data = await api("/api/launches");
+      setStatus("正在监测打新…");
+      $("launchCards").innerHTML = "<p class='muted'>加载中…</p>";
+      const data = await api("/api/launches" + q);
       store.launch = {};
       $("launchCards").innerHTML = (data.items || []).map((a) => {
         store.launch[a.key] = a;
@@ -111,8 +117,9 @@ async function loadView(name) {
       }).join("") || "<p class='muted'>暂无打新信息</p>";
       setStatus(`打新 ${data.count} 条`);
     } else if (name === "airdrop") {
-      setStatus("扫描高融资未发币项目…");
-      const data = await api("/api/airdrops");
+      setStatus("正在扫描高融资未发币项目…");
+      $("airdropRows").innerHTML = emptyRow(8, "加载中…");
+      const data = await api("/api/airdrops" + q);
       const want = $("airdropStatusFilter").value;
       const items = (data.items || []).filter((x) => !want || x.mark_status === want);
       store.airdrop = {};
@@ -120,7 +127,7 @@ async function loadView(name) {
         store.airdrop[a.key] = a;
         return airdropRow(a);
       }).join("") || emptyRow(8, "暂无命中项目");
-      setStatus(`空投候选 ${items.length}`);
+      setStatus(`空投候选 ${items.length}` + ((data.errors && data.errors.length) ? " · 部分数据源失败已用观察池补齐" : ""));
     } else if (name === "wallet") {
       await loadWallet();
     } else if (name === "settings") {
@@ -146,7 +153,7 @@ function contractRow(r) {
     <td>${fmtPx(r.entry)}</td>
     <td>${fmtPx(r.stop_loss)}</td>
     <td>${fmtPx(r.take_profit)}</td>
-    <td>${r.confidence ?? "-"}</td>
+    <td>${r.n_sims ? Number(r.n_sims).toLocaleString() : "未模拟"}</td>
     <td class="row-actions">
       <button class="btn" onclick="showDetail('${id}')">指标</button>
       <button class="btn" onclick="participate('contract','${id}')">加入队列</button>
@@ -192,7 +199,11 @@ async function pollAnalyze() {
   $("analyzeProgress").querySelector("div").style.width = pct + "%";
   (data.results || []).forEach((r) => { store.contracts[r.symbol] = r; });
   $("contractRows").innerHTML = (data.results || []).map(contractRow).join("");
-  setStatus(`分析进度 ${data.done}/${data.total} · ${data.status}`);
+  const doneSims = (data.results || []).find((r) => r.n_sims);
+  if (doneSims && $("simBadge")) {
+    $("simBadge").textContent = (doneSims.sim_note || `已完成 ${Number(doneSims.n_sims).toLocaleString()} 次模拟并修正权重`);
+  }
+  setStatus(`分析进度 ${data.done}/${data.total} · ${data.status}` + (data.status === "done" ? " · 权重已按模拟结果修正" : ""));
   if (data.status === "running") setTimeout(pollAnalyze, 1200);
 }
 
