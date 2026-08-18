@@ -27,10 +27,8 @@ jobs:
       - name: Build EXE
         run: pyinstaller --noconfirm JinDu.spec
       - name: Pack zip
-        shell: pwsh
         run: |
-          Copy-Item -Force 打开说明.txt dist/打开说明.txt
-          Compress-Archive -Force -Path dist/JinDu.exe, dist/打开说明.txt -DestinationPath dist/JinDu.zip
+          python -c "import zipfile; z=zipfile.ZipFile('dist/JinDu.zip','w',zipfile.ZIP_DEFLATED); z.write('dist/JinDu.exe','JinDu.exe'); z.write('打开说明.txt','ReadMe.txt')"
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
