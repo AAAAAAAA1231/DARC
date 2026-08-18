@@ -19,3 +19,13 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+
+anquan/.venv
+anquan/data/
+anquan/dist/*
+!anquan/dist/AnQuan.exe
+!anquan/dist/AnQuan.zip
+anquan/build
+__pycache__/
+*.pyc
+.pytest_cache
