@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>工程工作台</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>工程工作台</h1>
+      <p>清标 · 安全 · 进度 · 质量 · 成本 · 技术标　本机一个软件全部打开</p>
+    </div>
+    <div>
+      <span class="badge">离线本机</span>
+      <span class="status">127.0.0.1:8788</span>
+    </div>
+  </header>
+  <main>
+    <p class="hint">点下面一张卡片进入对应功能。每个模块左上角都可以回到本页。数据分别存在本机 data 文件夹里，不上传网络。</p>
+    <div class="cards">
+      <a class="card" href="/qingbiao/">
+        <h2>清标</h2>
+        <p>经济标限价比对、技术标雷同检查、图纸工程量。</p>
+      </a>
+      <a class="card" href="/anquan/">
+        <h2>安全</h2>
+        <p>隐患台账、整改闭环、安全纠偏。</p>
+      </a>
+      <a class="card" href="/jindu/">
+        <h2>进度</h2>
+        <p>WBS、横道图、施工日志，导出 Excel / 图片。</p>
+      </a>
+      <a class="card" href="/zhiliang/">
+        <h2>质量</h2>
+        <p>问题台账、发现-整改-复查-闭合，通病模板。</p>
+      </a>
+      <a class="card" href="/chengben/">
+        <h2>成本</h2>
+        <p>目标 / 动态 / 已发生，节超预警和纠偏。</p>
+      </a>
+      <a class="card" href="/jishubiao/">
+        <h2>技术标</h2>
+        <p>按现行规范生成施工组织设计（技术标）初稿。</p>
+      </a>
+    </div>
+  </main>
+</body>
+</html>

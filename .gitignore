@@ -19,3 +19,13 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+
+gongcheng/.venv
+gongcheng/data/
+gongcheng/dist/*
+!gongcheng/dist/GongCheng.exe
+!gongcheng/dist/GongCheng.zip
+gongcheng/build
+__pycache__/
+*.pyc
+.pytest_cache

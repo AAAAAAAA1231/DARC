@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <base href="/qingbiao/" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>清标助手</title>
+  <link rel="stylesheet" href="static/css/app.css" />
+</head>
+<body>
+<div class="gc-nav"><a href="/">工程工作台</a>　/　清标助手</div>
+
+  <header class="top">
+    <div>
+      <h1>清标助手</h1>
+      <p>本地离线运行 · 经济标 / 技术标 / 图纸工程量 · 适合中国大陆内网环境</p>
+    </div>
+    <div>
+      <span class="badge">不上互联网</span>
+      <span class="status" id="statusLine">就绪</span>
+    </div>
+  </header>
+  <main>
+    <div class="tabs">
+      <button class="active" data-tab="profile">项目概况</button>
+      <button data-tab="economic">经济标</button>
+      <button data-tab="technical">技术标</button>
+      <button data-tab="cad">图纸工程量</button>
+      <button data-tab="report">清标报告</button>
+    </div>
+
+    <section id="tab-profile" class="tab">
+      <div class="card">
+        <h2>基本概况（技术标校验会用到）</h2>
+        <p class="muted">层数、面积、结构类型为必填。结构类型用于检查技术标是否写错体系、是否漏引现行通用规范。</p>
+        <div class="grid">
+          <label>项目名称 <input id="name" /></label>
+          <label>层数 <input id="floors" placeholder="如 18 层 / 地下 2 层" /></label>
+          <label>建筑面积（㎡） <input id="area" type="number" step="0.01" /></label>
+          <label>结构类型
+            <select id="structure">
+              <option value="">请选择</option>
+              <option>框架</option>
+              <option>框剪</option>
+              <option>剪力墙</option>
+              <option>钢结构</option>
+              <option>砖混</option>
+              <option>组合结构</option>
+            </select>
+          </label>
+          <label>基础类型 <input id="foundation" placeholder="如 桩基础 / 筏板" /></label>
+          <label>抗震设防烈度 <input id="seismic" placeholder="如 7 度" /></label>
+        </div>
+        <label style="margin-top:10px">备注 <textarea id="notes" rows="2"></textarea></label>
+        <div class="row" style="margin-top:12px">
+          <label>单价相近阈值（%） <input id="similar_price_pct" type="number" step="0.1" value="0.5" /></label>
+          <label>技术标相似阈值（%） <input id="text_similar_pct" type="number" step="1" value="86" /></label>
+          <button class="btn primary" id="saveProject">保存概况</button>
+          <button class="btn danger" id="resetAll">清空本机本次清标</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-economic" class="tab hidden">
+      <div class="card hint">
+        经济标附件为 <strong>Excel</strong>（.xlsx）。先传最高投标限价，再分别上传不少于 3 家投标报价清单。
+        程序按项目编码/名称逐项对比限价，再做投标人横向比价，最后比对文件作者、修改者、公司、软件版本等属性。
+      </div>
+      <div class="card">
+        <h2>最高投标限价</h2>
+        <div class="row">
+          <input type="file" id="limitFile" accept=".xlsx,.xlsm,.xls" />
+          <button class="btn primary" id="uploadLimit">上传限价</button>
+          <span class="muted" id="limitName">尚未上传</span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>各家经济标（至少 3 家，可继续添加）</h2>
+        <div class="row">
+          <label>投标人名称 <input id="ecoName" placeholder="单位全称" /></label>
+          <input type="file" id="ecoFile" accept=".xlsx,.xlsm,.xls" />
+          <button class="btn primary" id="uploadEco">上传该家经济标</button>
+        </div>
+        <div class="list" id="ecoList"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="runEco">开始经济标清标</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>经济标清标结果</h2>
+        <div class="muted" id="ecoSummary">尚未分析</div>
+        <div class="table-wrap"><table><thead><tr>
+          <th>谁家</th><th>什么问题</th><th>程度</th><th>编码</th><th>名称</th><th>说明</th>
+        </tr></thead><tbody id="ecoRows"></tbody></table></div>
+      </div>
+    </section>
+
+    <section id="tab-technical" class="tab hidden">
+      <div class="card hint">
+        技术标请先在「项目概况」填层数、面积、结构类型。每家上传 Word（.docx）或可选中文字的 PDF。
+        先做单份验证（现行标准、错别字、与结构类型是否匹配），再做横向比对是否高度一致。
+      </div>
+      <div class="card">
+        <h2>各家技术标（至少 3 家，可继续添加）</h2>
+        <div class="row">
+          <label>投标人名称 <input id="techName" placeholder="单位全称" /></label>
+          <input type="file" id="techFile" accept=".docx,.pdf,.txt" />
+          <button class="btn primary" id="uploadTech">上传该家技术标</button>
+        </div>
+        <div class="list" id="techList"></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn primary" id="runTech">开始技术标清标</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>单份验证</h2>
+        <table><thead><tr><th>谁家</th><th>什么问题</th><th>程度</th><th>说明</th></tr></thead><tbody id="techSingleRows"></tbody></table>
+      </div>
+      <div class="card">
+        <h2>横向对比</h2>
+        <table><thead><tr><th>谁家</th><th>什么问题</th><th>程度</th><th>说明</th></tr></thead><tbody id="techCrossRows"></tbody></table>
+      </div>
+    </section>
+
+    <section id="tab-cad" class="tab hidden">
+      <div class="card hint">
+        可以根据 CAD 图纸<strong>按图层计算工程量</strong>：线长、封闭面积/填充面积、图块个数。
+        请上传 <strong>DXF</strong>。DWG 请在 AutoCAD / 中望 / 浩辰 / 天正里「另存为 DXF」。
+        天正自定义墙体请先炸开。扫描件、PDF、图片无法精确算量。厚度填了会按 长度×厚 或 面积×厚 出体积/面积。
+      </div>
+      <div class="card">
+        <h2>上传图纸</h2>
+        <div class="row">
+          <input type="file" id="cadFile" accept=".dxf,.dwg" />
+          <label>图纸单位
+            <select id="cadUnit">
+              <option value="">自动（按 INSUNITS，没有则按 mm）</option>
+              <option value="mm">毫米 mm</option>
+              <option value="cm">厘米 cm</option>
+              <option value="m">米 m</option>
+            </select>
+          </label>
+          <label class="check" style="flex-direction:row;align-items:center;gap:6px">
+            <input type="checkbox" id="cadSkip" checked /> 跳过标注/图框图层
+          </label>
+          <button class="btn primary" id="uploadCad">上传并计算</button>
+          <span class="muted" id="cadName">尚未上传</span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>计算结果</h2>
+        <div class="muted" id="cadSummary">尚未计算</div>
+        <div class="table-wrap"><table>
+          <thead><tr>
+            <th>图层</th><th>长度(m)</th><th>面积(m²)</th><th>图块个数</th>
+            <th>厚度(m)</th><th>工程量</th><th>单位</th><th>算法</th>
+          </tr></thead>
+          <tbody id="cadRows"></tbody>
+        </table></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn" id="recalcCad">按填写厚度重算</button>
+          <a class="btn primary" id="downloadCad" href="api/cad/excel">下载工程量 Excel</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-report" class="tab hidden">
+      <div class="card">
+        <h2>输出整体清标文档</h2>
+        <p class="muted">将经济标、技术标、文件属性问题汇总为一份 Word。字段包括：什么标、谁家、什么问题。</p>
+        <div class="row">
+          <button class="btn primary" id="makeReport">生成清标报告</button>
+          <a class="btn" id="downloadReport" href="api/report/download">下载 清标报告.docx</a>
+        </div>
+        <p class="muted" id="reportMsg"></p>
+      </div>
+    </section>
+  </main>
+  <script src="static/js/app.js"></script>
+</body>
+</html>

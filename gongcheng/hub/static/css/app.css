@@ -1,0 +1,28 @@
+:root {
+  --bg: #eef2f7; --panel: #fff; --line: #d7e0ea; --text: #1c2a3a;
+  --muted: #5e7186; --blue: #1b4f8a; --shadow: 0 8px 24px rgba(27,79,138,.08);
+  font-family: "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); color: var(--text); }
+.top {
+  background: linear-gradient(90deg, #12365f, #1b4f8a); color: #fff;
+  padding: 18px 24px; display: flex; justify-content: space-between; align-items: center;
+}
+.top h1 { margin: 0; font-size: 22px; }
+.top p { margin: 6px 0 0; opacity: .85; font-size: 13px; }
+.badge { border: 1px solid #7ea4d4; padding: 3px 10px; border-radius: 999px; font-size: 12px; margin-right: 8px; }
+.status { font-size: 13px; color: #dbe7f6; }
+main { max-width: 980px; margin: 0 auto; padding: 22px 16px 40px; }
+.hint {
+  background: #eef4fb; border-left: 3px solid #2b6cb0; padding: 10px 12px;
+  border-radius: 6px; font-size: 14px; margin-bottom: 16px;
+}
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 14px; }
+.card {
+  display: block; background: #fff; border: 1px solid var(--line); border-radius: 14px;
+  padding: 18px 18px 16px; text-decoration: none; color: inherit; box-shadow: var(--shadow);
+}
+.card:hover { border-color: #8fb0d4; transform: translateY(-1px); }
+.card h2 { margin: 0 0 8px; font-size: 20px; color: var(--blue); }
+.card p { margin: 0; color: var(--muted); font-size: 13px; line-height: 1.55; }
