@@ -1,0 +1,9 @@
+data/
+.venv/
+dist/*
+!dist/AnQuan.exe
+!dist/AnQuan.zip
+build/
+__pycache__/
+.pytest_cache/
+*.pyc
