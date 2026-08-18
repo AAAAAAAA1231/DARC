@@ -10,6 +10,7 @@ from pydantic import BaseModel
 
 from qingbiao import __app_name__, __version__
 from qingbiao.config import MIN_BIDDERS, STATIC_DIR
+from qingbiao.engine.cad_qty import analyze_dxf, export_qty_excel
 from qingbiao.engine.economic import compare_to_limit, cross_compare_prices, parse_excel_bid
 from qingbiao.engine.metadata import compare_file_properties, extract_file_properties
 from qingbiao.engine.report import build_report
@@ -18,6 +19,12 @@ from qingbiao.store import store
 
 app = FastAPI(title=__app_name__, version=__version__)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+
+class CadAnalyzeBody(BaseModel):
+    unit: str | None = None
+    skip_annot: bool = True
+    thicknesses: dict[str, float] | None = None
 
 
 class ProjectBody(BaseModel):
@@ -215,3 +222,52 @@ async def download_report() -> FileResponse:
     if not path or not Path(path).exists():
         raise HTTPException(400, "请先生成报告")
     return FileResponse(path, filename="清标报告.docx", media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+
+
+@app.post("/api/cad/upload")
+async def upload_cad(file: UploadFile = File(...)) -> dict[str, Any]:
+    raw = await file.read()
+    name = file.filename or "drawing.dxf"
+    path = store.save_upload("cad", name, raw)
+    store.data.setdefault("cad", {})["file"] = {"filename": name, "path": str(path)}
+    store.save()
+    return store.data["cad"]["file"]
+
+
+@app.post("/api/cad/analyze")
+async def analyze_cad(body: CadAnalyzeBody | None = None) -> dict[str, Any]:
+    body = body or CadAnalyzeBody()
+    cad = store.data.get("cad") or {}
+    info = cad.get("file")
+    if not info:
+        raise HTTPException(400, "请先上传 DXF 图纸")
+    try:
+        result = analyze_dxf(
+            Path(info["path"]),
+            unit=body.unit,
+            skip_annot=body.skip_annot,
+            thicknesses=body.thicknesses,
+        )
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(400, f"图纸解析失败：{exc}") from exc
+    store.data.setdefault("results", {})["cad"] = result
+    store.save()
+    return result
+
+
+@app.get("/api/cad/excel")
+async def download_cad_excel() -> FileResponse:
+    result = (store.data.get("results") or {}).get("cad")
+    if not result:
+        raise HTTPException(400, "请先计算图纸工程量")
+    from qingbiao.config import DATA_DIR
+
+    dest = DATA_DIR / "图纸工程量.xlsx"
+    export_qty_excel(result, dest)
+    return FileResponse(
+        dest,
+        filename="图纸工程量.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )

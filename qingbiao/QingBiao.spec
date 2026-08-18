@@ -32,13 +32,14 @@ hiddenimports = collect_submodules("qingbiao") + [
     "lxml.etree",
     "pypdf",
     "olefile",
+    "ezdxf",
     "httpx",
     "certifi",
     "python_multipart",
     "multipart",
 ]
 
-for pkg in ("uvicorn", "starlette", "fastapi", "anyio", "docx", "openpyxl", "lxml"):
+for pkg in ("uvicorn", "starlette", "fastapi", "anyio", "docx", "openpyxl", "lxml", "ezdxf"):
     try:
         d, b, h = collect_all(pkg)
         datas += d

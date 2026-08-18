@@ -23,6 +23,7 @@ def _empty() -> dict[str, Any]:
         },
         "economic": {"limit": None, "bidders": []},
         "technical": {"bidders": []},
+        "cad": {"file": None},
         "results": {},
         "settings": {"similar_price_pct": 0.5, "text_similar_pct": 86.0},
     }

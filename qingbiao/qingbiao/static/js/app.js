@@ -88,7 +88,67 @@ async function refresh() {
     renderSimple($("techSingleRows"), tech.single);
     renderSimple($("techCrossRows"), [].concat(tech.cross || [], tech.metadata || []));
   }
+  if ($("cadName")) {
+    $("cadName").textContent = (s.cad && s.cad.file && s.cad.file.filename) || "尚未上传";
+  }
+  if ((s.results || {}).cad) renderCad(s.results.cad);
 }
+
+function renderCad(result) {
+  if (!result || !$("cadRows")) return;
+  $("cadSummary").textContent =
+    `${result.filename || ""} · 单位 ${result.unit_label || "-"} · 图元 ${result.entity_count || 0}` +
+    ` · 有效图层 ${result.layer_count || 0} · 跳过 ${result.skipped || 0}。${result.note || ""}`;
+  $("cadRows").innerHTML = (result.items || []).map((it) => `
+    <tr>
+      <td>${it.layer}</td>
+      <td>${it.length_m}</td>
+      <td>${it.area_m2}</td>
+      <td>${it.count}</td>
+      <td><input data-thick="${encodeURIComponent(it.layer)}" type="number" step="0.001" value="${it.thickness_m ?? ""}" style="width:88px" /></td>
+      <td>${it.qty}</td>
+      <td>${it.unit}</td>
+      <td>${it.method || ""}</td>
+    </tr>`).join("") || `<tr><td colspan="8" class="muted">没有可统计的图层</td></tr>`;
+}
+
+function cadThicknesses() {
+  const thicknesses = {};
+  document.querySelectorAll("[data-thick]").forEach((el) => {
+    if (el.value !== "") thicknesses[decodeURIComponent(el.dataset.thick)] = Number(el.value);
+  });
+  return thicknesses;
+}
+
+$("uploadCad").onclick = async () => {
+  const f = $("cadFile").files[0];
+  if (!f) return status("请选择 DXF 图纸");
+  const fd = new FormData();
+  fd.append("file", f);
+  status("正在上传并计算工程量…");
+  try {
+    await api("/api/cad/upload", { method: "POST", body: fd });
+    const r = await api("/api/cad/analyze", {
+      method: "POST",
+      body: { unit: $("cadUnit").value || null, skip_annot: $("cadSkip").checked, thicknesses: {} },
+    });
+    renderCad(r);
+    $("cadName").textContent = f.name;
+    status(`图纸工程量完成，${r.layer_count || 0} 个图层`);
+  } catch (e) { status(e.message); }
+};
+
+$("recalcCad").onclick = async () => {
+  status("按厚度重算…");
+  try {
+    const r = await api("/api/cad/analyze", {
+      method: "POST",
+      body: { unit: $("cadUnit").value || null, skip_annot: $("cadSkip").checked, thicknesses: cadThicknesses() },
+    });
+    renderCad(r);
+    status("已按厚度重算");
+  } catch (e) { status(e.message); }
+};
 
 $("saveProject").onclick = async () => {
   try {

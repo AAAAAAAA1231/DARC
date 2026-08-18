@@ -10,7 +10,7 @@
   <header class="top">
     <div>
       <h1>清标助手</h1>
-      <p>本地离线运行 · 经济标 / 技术标分模块清标 · 适合中国大陆内网环境</p>
+      <p>本地离线运行 · 经济标 / 技术标 / 图纸工程量 · 适合中国大陆内网环境</p>
     </div>
     <div>
       <span class="badge">不上互联网</span>
@@ -22,6 +22,7 @@
       <button class="active" data-tab="profile">项目概况</button>
       <button data-tab="economic">经济标</button>
       <button data-tab="technical">技术标</button>
+      <button data-tab="cad">图纸工程量</button>
       <button data-tab="report">清标报告</button>
     </div>
 
@@ -115,6 +116,48 @@
       <div class="card">
         <h2>横向对比</h2>
         <table><thead><tr><th>谁家</th><th>什么问题</th><th>程度</th><th>说明</th></tr></thead><tbody id="techCrossRows"></tbody></table>
+      </div>
+    </section>
+
+    <section id="tab-cad" class="tab hidden">
+      <div class="card hint">
+        可以根据 CAD 图纸<strong>按图层计算工程量</strong>：线长、封闭面积/填充面积、图块个数。
+        请上传 <strong>DXF</strong>。DWG 请在 AutoCAD / 中望 / 浩辰 / 天正里「另存为 DXF」。
+        天正自定义墙体请先炸开。扫描件、PDF、图片无法精确算量。厚度填了会按 长度×厚 或 面积×厚 出体积/面积。
+      </div>
+      <div class="card">
+        <h2>上传图纸</h2>
+        <div class="row">
+          <input type="file" id="cadFile" accept=".dxf,.dwg" />
+          <label>图纸单位
+            <select id="cadUnit">
+              <option value="">自动（按 INSUNITS，没有则按 mm）</option>
+              <option value="mm">毫米 mm</option>
+              <option value="cm">厘米 cm</option>
+              <option value="m">米 m</option>
+            </select>
+          </label>
+          <label class="check" style="flex-direction:row;align-items:center;gap:6px">
+            <input type="checkbox" id="cadSkip" checked /> 跳过标注/图框图层
+          </label>
+          <button class="btn primary" id="uploadCad">上传并计算</button>
+          <span class="muted" id="cadName">尚未上传</span>
+        </div>
+      </div>
+      <div class="card">
+        <h2>计算结果</h2>
+        <div class="muted" id="cadSummary">尚未计算</div>
+        <div class="table-wrap"><table>
+          <thead><tr>
+            <th>图层</th><th>长度(m)</th><th>面积(m²)</th><th>图块个数</th>
+            <th>厚度(m)</th><th>工程量</th><th>单位</th><th>算法</th>
+          </tr></thead>
+          <tbody id="cadRows"></tbody>
+        </table></div>
+        <div class="row" style="margin-top:12px">
+          <button class="btn" id="recalcCad">按填写厚度重算</button>
+          <a class="btn primary" id="downloadCad" href="/api/cad/excel">下载工程量 Excel</a>
+        </div>
       </div>
     </section>
 
