@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <base href="/jindu/" />
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>工程进度 · 横道图</title>
+  <link rel="stylesheet" href="static/css/app.css" />
+</head>
+<body>
+<div class="gc-nav"><a href="/">工程工作台</a>　/　工程进度</div>
+
+  <header class="top">
+    <div>
+      <h1>工程进度</h1>
+      <p>日常填报 · 横道图 · 施工日志 · 本机保存</p>
+    </div>
+    <div class="top-right">
+      <span class="badge">离线本机</span>
+      <span class="status" id="statusLine">就绪</span>
+    </div>
+  </header>
+  <div class="layout">
+    <aside class="side">
+      <div class="side-head">工程</div>
+      <div id="projectList"></div>
+      <button class="btn block" id="btnEmpty">+ 空白工程</button>
+      <div class="side-head">从模板新建</div>
+      <label>模板
+        <select id="tplSelect"></select>
+      </label>
+      <label>工程名称
+        <input id="tplName" placeholder="如 ××道路改造工程" />
+      </label>
+      <label>开工日期
+        <input id="tplStart" type="date" />
+      </label>
+      <label>地点
+        <input id="tplLoc" />
+      </label>
+      <label>项目经理
+        <input id="tplMgr" />
+      </label>
+      <button class="btn primary block" id="btnTpl">按模板生成进度计划</button>
+      <p class="muted tiny">模板含房屋建筑、市政道路、装饰装修、钢结构厂房。生成后可改日期、进度和前置任务。</p>
+    </aside>
+    <main>
+      <div class="stats" id="stats"></div>
+      <div class="toolbar">
+        <button class="btn primary" id="btnSave">保存</button>
+        <button class="btn" id="btnAdd">新增工作</button>
+        <button class="btn" id="btnCascade">按 FS 重排计划</button>
+        <button class="btn" id="btnXlsx">导出 Excel 横道图</button>
+        <button class="btn" id="btnPng">导出 PNG 横道图</button>
+        <button class="btn danger" id="btnDel">删除本工程</button>
+        <span class="muted" id="scaleHint"></span>
+      </div>
+      <div class="tabs">
+        <button class="tab on" data-tab="gantt">任务与横道图</button>
+        <button class="tab" data-tab="log">施工日志</button>
+        <button class="tab" data-tab="info">工程信息</button>
+      </div>
+      <section class="panel on" id="tab-gantt">
+        <div class="hint">计划条为浅色，深色为已完进度；红线为今天；浅红行为关键线路。双击名称可改。进度填 0～100 后点保存。</div>
+        <div class="board" id="board">
+          <div class="grid-pane" id="gridPane"></div>
+          <div class="gantt-pane" id="ganttPane"></div>
+        </div>
+      </section>
+      <section class="panel" id="tab-log">
+        <div class="card">
+          <h2>今日填报</h2>
+          <div class="grid">
+            <label>日期 <input id="logDate" type="date" /></label>
+            <label>天气
+              <select id="logWeather">
+                <option>晴</option><option>多云</option><option>阴</option>
+                <option>小雨</option><option>大雨</option><option>雪</option>
+                <option>高温停工</option><option>大风</option>
+              </select>
+            </label>
+            <label>气温 <input id="logTemp" placeholder="如 18～26℃" /></label>
+            <label>现场人数 <input id="logMan" placeholder="如 86" /></label>
+            <label>记录人 <input id="logAuthor" /></label>
+          </div>
+          <label>完成工作 <textarea id="logWork" placeholder="分部分项完成情况、形象进度…"></textarea></label>
+          <label>存在问题 <textarea id="logIssues" placeholder="滞后原因、材料、工作面…"></textarea></label>
+          <label>明日计划 <textarea id="logTomorrow"></textarea></label>
+          <button class="btn primary" id="btnLog">写入日志</button>
+        </div>
+        <div id="logList"></div>
+      </section>
+      <section class="panel" id="tab-info">
+        <div class="card">
+          <h2>工程信息</h2>
+          <div class="grid">
+            <label>工程名称 <input id="infoName" /></label>
+            <label>地点 <input id="infoLoc" /></label>
+            <label>项目经理 <input id="infoMgr" /></label>
+            <label>专业 <input id="infoSpec" /></label>
+            <label>合同开工 <input id="infoStart" type="date" /></label>
+            <label>合同竣工 <input id="infoEnd" type="date" /></label>
+          </div>
+          <label>备注 <textarea id="infoNotes"></textarea></label>
+        </div>
+        <div class="card hint">数据保存在本机程序目录的 data/workspace.json。Excel 含「横道图 / 任务表 / 施工日志」三张表，可直接打印或发给监理。</div>
+      </section>
+    </main>
+  </div>
+  <script src="static/js/app.js"></script>
+</body>
+</html>
