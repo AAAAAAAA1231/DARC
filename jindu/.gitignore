@@ -2,6 +2,7 @@ data/
 .venv/
 dist/*
 !dist/JinDu.exe
+!dist/JinDu.zip
 build/
 __pycache__/
 .pytest_cache/

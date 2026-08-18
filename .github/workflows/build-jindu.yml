@@ -26,8 +26,15 @@ jobs:
         run: python -m pytest tests -q
       - name: Build EXE
         run: pyinstaller --noconfirm JinDu.spec
+      - name: Pack zip
+        shell: pwsh
+        run: |
+          Copy-Item -Force 打开说明.txt dist/打开说明.txt
+          Compress-Archive -Force -Path dist/JinDu.exe, dist/打开说明.txt -DestinationPath dist/JinDu.zip
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
           name: JinDu-windows
-          path: jindu/dist/JinDu.exe
+          path: |
+            jindu/dist/JinDu.exe
+            jindu/dist/JinDu.zip
