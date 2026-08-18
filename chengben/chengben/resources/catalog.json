@@ -1,0 +1,59 @@
+{
+  "categories": ["人工费", "材料费", "机械费", "专业分包", "措施费", "管理费及其他"],
+  "log_kinds": ["材料进场", "进度计量", "劳务结算", "机械台班", "签证变更", "其他"],
+  "corr_kinds": ["量差", "价差", "签证漏项", "返工损失", "损耗超标", "工期赶工", "其他"],
+  "corr_statuses": ["待落实", "落实中", "已验证", "已闭合"],
+  "templates": [
+    {
+      "id": "住宅楼",
+      "name": "高层住宅楼成本科目",
+      "specialty": "房屋建筑",
+      "notes": "按施工项目成本核算常用科目拆分，金额可按合同改。",
+      "items": [
+        {"code": "1.01", "name": "土建劳务", "category": "人工费", "unit": "项", "budget_amount": 4200000},
+        {"code": "1.02", "name": "装修劳务", "category": "人工费", "unit": "项", "budget_amount": 1800000},
+        {"code": "2.01", "name": "钢筋", "category": "材料费", "unit": "t", "budget_qty": 980, "budget_price": 4100},
+        {"code": "2.02", "name": "混凝土", "category": "材料费", "unit": "m³", "budget_qty": 6200, "budget_price": 420},
+        {"code": "2.03", "name": "砌块及砂浆", "category": "材料费", "unit": "项", "budget_amount": 680000},
+        {"code": "2.04", "name": "防水材料", "category": "材料费", "unit": "项", "budget_amount": 360000},
+        {"code": "2.05", "name": "周转材料", "category": "材料费", "unit": "项", "budget_amount": 520000},
+        {"code": "3.01", "name": "塔吊及施工电梯", "category": "机械费", "unit": "项", "budget_amount": 780000},
+        {"code": "3.02", "name": "其他机械", "category": "机械费", "unit": "项", "budget_amount": 260000},
+        {"code": "4.01", "name": "水电安装分包", "category": "专业分包", "unit": "项", "budget_amount": 2100000},
+        {"code": "4.02", "name": "外墙及门窗分包", "category": "专业分包", "unit": "项", "budget_amount": 1650000},
+        {"code": "5.01", "name": "脚手架及安全防护", "category": "措施费", "unit": "项", "budget_amount": 640000},
+        {"code": "5.02", "name": "临建及现场经费", "category": "措施费", "unit": "项", "budget_amount": 390000},
+        {"code": "6.01", "name": "项目管理费", "category": "管理费及其他", "unit": "项", "budget_amount": 720000}
+      ]
+    },
+    {
+      "id": "市政道路",
+      "name": "市政道路成本科目",
+      "specialty": "市政道路",
+      "items": [
+        {"code": "1.01", "name": "路基劳务", "category": "人工费", "unit": "项", "budget_amount": 860000},
+        {"code": "2.01", "name": "土方", "category": "材料费", "unit": "m³", "budget_qty": 18000, "budget_price": 28},
+        {"code": "2.02", "name": "水稳及碎石", "category": "材料费", "unit": "项", "budget_amount": 1450000},
+        {"code": "2.03", "name": "沥青混凝土", "category": "材料费", "unit": "t", "budget_qty": 3200, "budget_price": 480},
+        {"code": "3.01", "name": "压路机及摊铺机", "category": "机械费", "unit": "项", "budget_amount": 520000},
+        {"code": "4.01", "name": "雨污水管道分包", "category": "专业分包", "unit": "项", "budget_amount": 980000},
+        {"code": "5.01", "name": "交通导改及围挡", "category": "措施费", "unit": "项", "budget_amount": 210000},
+        {"code": "6.01", "name": "项目管理费", "category": "管理费及其他", "unit": "项", "budget_amount": 240000}
+      ]
+    },
+    {
+      "id": "装饰装修",
+      "name": "公共建筑精装成本科目",
+      "specialty": "装饰装修",
+      "items": [
+        {"code": "1.01", "name": "装修劳务", "category": "人工费", "unit": "项", "budget_amount": 920000},
+        {"code": "2.01", "name": "瓷砖石材", "category": "材料费", "unit": "项", "budget_amount": 680000},
+        {"code": "2.02", "name": "吊顶基层及饰面", "category": "材料费", "unit": "项", "budget_amount": 410000},
+        {"code": "2.03", "name": "涂料及辅材", "category": "材料费", "unit": "项", "budget_amount": 260000},
+        {"code": "4.01", "name": "水电改造分包", "category": "专业分包", "unit": "项", "budget_amount": 380000},
+        {"code": "5.01", "name": "成品保护及临设", "category": "措施费", "unit": "项", "budget_amount": 120000},
+        {"code": "6.01", "name": "项目管理费", "category": "管理费及其他", "unit": "项", "budget_amount": 150000}
+      ]
+    }
+  ]
+}

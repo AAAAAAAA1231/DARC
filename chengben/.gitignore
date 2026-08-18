@@ -1,0 +1,9 @@
+data/
+.venv/
+dist/*
+!dist/ChengBen.exe
+!dist/ChengBen.zip
+build/
+__pycache__/
+.pytest_cache/
+*.pyc
