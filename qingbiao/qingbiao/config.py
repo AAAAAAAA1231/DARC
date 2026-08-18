@@ -20,8 +20,18 @@ APP_DIR = _bundle_dir()
 ROOT_DIR = _writable_root()
 DATA_DIR = ROOT_DIR / "data"
 UPLOAD_DIR = DATA_DIR / "uploads"
-RESOURCES = APP_DIR / "resources"
-STATIC_DIR = APP_DIR / "static"
+_STATIC_CANDIDATES = [
+    Path(__file__).resolve().parent / "static",
+    APP_DIR / "qingbiao" / "static",
+    APP_DIR / "static",
+]
+_RESOURCE_CANDIDATES = [
+    Path(__file__).resolve().parent / "resources",
+    APP_DIR / "qingbiao" / "resources",
+    APP_DIR / "resources",
+]
+STATIC_DIR = next((p for p in _STATIC_CANDIDATES if p.exists()), _STATIC_CANDIDATES[0])
+RESOURCES = next((p for p in _RESOURCE_CANDIDATES if p.exists()), _RESOURCE_CANDIDATES[0])
 
 DEFAULT_HOST = "127.0.0.1"
 DEFAULT_PORT = 8790

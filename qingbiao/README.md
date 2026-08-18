@@ -20,7 +20,14 @@
 
 ## 本机运行（Windows）
 
-双击 `run.bat`，或：
+**推荐：双击 exe。** 下载后不要关弹出的黑窗口，浏览器会打开 http://127.0.0.1:8790  
+上传的标书和报告写在 **exe 同目录的 `data/`**。
+
+- 仓库文件：https://github.com/AAAAAAAA1231/DARC/blob/cursor/qingbiao-local-f8d9/qingbiao/dist/QingBiao.exe
+- 直接下载：https://github.com/AAAAAAAA1231/DARC/raw/cursor/qingbiao-local-f8d9/qingbiao/dist/QingBiao.exe
+- 也可在 GitHub Actions 产物 `QingBiao-windows` 中下载。
+
+本机有 Python 时也可双击 `run.bat`，或：
 
 ```bat
 cd qingbiao
@@ -69,3 +76,16 @@ python -m pytest tests -q
 ```
 
 本工具辅助清标复核，不替代评标委员会结论。
+
+## 打包 Windows EXE
+
+本机（需 Windows + Python 3.12）：
+
+```bat
+cd qingbiao
+pip install -r requirements.txt pyinstaller
+pyinstaller --noconfirm QingBiao.spec
+```
+
+生成 `dist/QingBiao.exe`。仓库已配置 GitHub Actions：`.github/workflows/build-qingbiao.yml`。
+

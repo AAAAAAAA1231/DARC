@@ -18,6 +18,8 @@ def test_health_and_home():
     assert page.status_code == 200
     assert "经济标" in page.text
     assert "技术标" in page.text
+    css = client.get("/static/css/app.css")
+    assert css.status_code == 200
 
 
 def test_analyze_requires_three_bidders():
