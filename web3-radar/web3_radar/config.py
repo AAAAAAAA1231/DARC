@@ -129,14 +129,14 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "breakeven_r": 1.0,
     "trail_arm_r": 1.5,
     "trail_atr_mult": 1.0,
-    "meme_rules_version": 6,
-    "meme_min_liquidity_usd": 80_000,
+    "meme_rules_version": 7,
+    "meme_min_liquidity_usd": 100_000,
     "meme_buyer_window_minutes": 30,
     "meme_min_unique_buyers": 15,
     "meme_min_holder_growth": 8,
-    "meme_max_1h_change": 25,
-    "meme_max_m5_change": 25,
-    "meme_min_age_minutes": 36 * 60,
+    "meme_max_1h_change": 20,
+    "meme_max_m5_change": 22,
+    "meme_min_age_minutes": 72 * 60,
     "airdrop_min_funding_usd": 20_000_000,
     "ambassador_lookback_days": 7,
     "twitter_bearer_token": "",
@@ -154,25 +154,25 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "copy_mode": "paper",
     "copy_max_positions": 1,
     "copy_size_usd": 10,
-    "copy_sl_pct": 0.25,
+    "copy_sl_pct": 0.28,
     "copy_tp_pct": 9.0,
-    "copy_max_1h_change": 25,
+    "copy_max_1h_change": 20,
     "copy_min_heat": 70,
     "copy_max_risk": 50,
     "copy_paper_equity": 1000,
-    "copy_cooldown_minutes": 60 * 24 * 8,
+    "copy_cooldown_minutes": 60 * 24 * 28,
     "copy_max_size_pct": 0.01,
     "copy_trail_arm_pct": 1.0,
-    "copy_trail_lock_pct": 3.0,
+    "copy_trail_lock_pct": 4.0,
     "copy_daily_loss_pct": 0.06,
-    "copy_time_stop_minutes": 60 * 24 * 10,
-    "copy_giveup_pct": 0.40,
+    "copy_time_stop_minutes": 60 * 24 * 30,
+    "copy_giveup_pct": 0.50,
     "copy_scale1_mult": 2.0,
-    "copy_scale2_mult": 4.0,
-    "copy_scale_frac": 0.40,
+    "copy_scale2_mult": 5.0,
+    "copy_scale_frac": 0.35,
     "copy_scale2_frac": 0.25,
-    "copy_fast_fail_minutes": 360,
-    "copy_fast_fail_pct": 0.18,
+    "copy_fast_fail_minutes": 1440,
+    "copy_fast_fail_pct": 0.20,
     "copy_struct_m5_fail": -25,
     "copy_struct_h1_min": 0,
     "copy_struct_h6_fail": -28,
@@ -231,8 +231,8 @@ MEME_RULE_KEYS = (
 
 
 def _apply_meme_rules_upgrade(settings: dict[str, Any]) -> dict[str, Any]:
-    """Force 妖币倍数仓 defaults over leftover scalp settings."""
-    target = int(DEFAULT_SETTINGS.get("meme_rules_version") or 6)
+    """Force monthly meme-coin defaults over leftover scalp settings."""
+    target = int(DEFAULT_SETTINGS.get("meme_rules_version") or 7)
     current = int(settings.get("meme_rules_version") or 0)
     if current >= target:
         return settings

@@ -1,11 +1,11 @@
 const views = {
   contracts: ["合约分析", "100 万次只用于校准指标权重。校准完成后，刷新信号会直接套用模型告诉你涨/跌/观望。"],
-  meme: ["妖币监控", "每 10 天只买一张高质量小妖：活过 36 小时、有 X/社区热度、买盘确认。飞刀和新盘不买。"],
-  copytrade: ["自动跟单", "本期最多 1 仓。2 倍卖掉 40%。前 6 小时跌超 18% 当撤池。10 天没 +40% 离场。单笔 1%。"],
+  meme: ["Meme币", "一个月只买一张高质量 meme：活过 3 天、有 X/社区热度、买盘确认，市值还小才有倍数。飞刀和新盘不买。"],
+  copytrade: ["自动跟单", "本月最多 1 仓。2 倍卖掉 35%。前 24 小时跌超 20% 当撤池。30 天没 +50% 离场。单笔 1%。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
   launch: ["打新监测", "新项目白名单 / Presale / TGE / 新协议上线，不是交易所上新。"],
   airdrop: ["空投雷达", "知名机构投资、融资 > $2000 万、优先未发币，可标记交互状态"],
-  wallet: ["钱包执行", "连接 OKX 等钱包，将空投 / 打新 / 妖币 / 合约加入确认队列"],
+  wallet: ["钱包执行", "连接 OKX 等钱包，将空投 / 打新 / meme / 合约加入确认队列"],
   settings: ["设置", "权重模拟次数、阈值、API Token 与自动参加上限"],
 };
 
@@ -118,20 +118,20 @@ async function loadView(name, refresh) {
         if (!analyzeJob && uni.items.length) startAnalyze("fit");
       }
     } else if (name === "meme") {
-      setStatus("正在拉取妖币（可能需要十几秒）…");
+      setStatus("正在拉取 meme 币（可能需要十几秒）…");
       if ($("memeRows")) $("memeRows").innerHTML = emptyRow(10, "加载中…");
       const data = await api("/api/meme" + q);
       store.meme = {};
       $("memeRows").innerHTML = (data.items || []).map((m) => {
         store.meme[m.key] = m;
         return memeRow(m);
-      }).join("") || emptyRow(11, "暂无过线小妖（要活过 36 小时、池子够、还有倍数）");
+      }).join("") || emptyRow(11, "暂无过线 meme（要活过 3 天、池子够、还有倍数）");
       if ($("memeMsg")) $("memeMsg").textContent = (data.method || "") + ((data.errors || []).length ? "；部分源失败：" + data.errors.slice(0,2).join("；") : "");
       if ($("periodPickBox")) {
         const pick = data.period_pick;
         if (pick) {
           store.meme[pick.key] = pick;
-          $("periodPickBox").innerHTML = `<h3>本期唯一推荐 · ${escapeHtml(pick.symbol)}</h3>
+          $("periodPickBox").innerHTML = `<h3>本月推荐 · ${escapeHtml(pick.symbol)}</h3>
             <p><strong>${escapeHtml(pick.chain || "")}</strong> · 流动性 ${fmtUsd(pick.liquidity_usd)} · FDV ${fmtUsd(pick.fdv)} · 买卖比 ${pick.buy_sell_ratio ?? "-"}</p>
             <p class="muted">${escapeHtml((pick.score_reasons || []).slice(0,4).join(" · "))}</p>
             <p class="muted">合约：<code>${escapeHtml(pick.token_address || "")}</code></p>
@@ -140,10 +140,10 @@ async function loadView(name, refresh) {
               <button class="btn primary" onclick="participate('meme','${encodeURIComponent(pick.key)}')">小仓队列</button>
             </div>`;
         } else {
-          $("periodPickBox").innerHTML = "<p class='muted'>本期没有过线的高质量小妖。宁可不买，也不要去接 12 小时飞刀。</p>";
+          $("periodPickBox").innerHTML = "<p class='muted'>本月没有过线的高质量 meme。宁可不买，也不要去接 3 天内的飞刀。</p>";
         }
       }
-      setStatus(`监控 ${data.count} · 可跟 ${data.followable_count || 0}` + (data.period_pick ? ` · 本期 ${data.period_pick.symbol}` : " · 本期空仓"));
+      setStatus(`监控 ${data.count} · 可跟 ${data.followable_count || 0}` + (data.period_pick ? ` · 本月 ${data.period_pick.symbol}` : " · 本月空仓"));
     } else if (name === "ambassador") {
       setStatus("正在加载大使计划…");
       $("ambassadorCards").innerHTML = "<p class='muted'>加载中…</p>";
@@ -419,7 +419,7 @@ async function participate(category, key) {
   const item = (store[bucket] || {})[decodeURIComponent(key)];
   if (!item) return;
   if (category === "meme" && item.grade !== "可跟") {
-    setStatus("该妖币不是「可跟」，禁止买入");
+    setStatus("该 meme 不是「可跟」，禁止买入");
     return;
   }
   const task = await api("/api/wallet/participate", { method: "POST", body: { category, item, auto: false } });
@@ -460,7 +460,7 @@ async function saveCopytrade() {
   }}});
   await api("/api/meme?refresh=true");
   await loadCopytrade();
-  setStatus("跟单规则已保存，并按最新妖币信号扫描");
+  setStatus("跟单规则已保存，并按最新 meme 信号扫描");
 }
 
 async function loadWallet() {

@@ -48,7 +48,7 @@ def test_meme_score_rejects_rugs_and_already_cooked():
 def test_meme_score_follow_is_10day_survivor():
     good = enrich_and_score(_base())
     assert good["followable"] is True
-    assert good["action"] == "10天小仓"
+    assert good["action"] == "月度小仓"
     assert good["conviction"] is True
     baby = enrich_and_score(_base(created_at=_created(12 * 60), price_change_h24=900))
     assert baby["followable"] is False
@@ -72,11 +72,11 @@ def test_copy_locks_win_then_lets_runner_go():
     assert _exit_reason(pos, 1.40, {}) is None
     assert trail_stop(1.0, 0.75, 1.50) is None
     assert trail_stop(1.0, 0.75, 2.00) == 1.0
-    assert trail_stop(1.0, 1.0, 4.00) == 2.0
+    assert trail_stop(1.0, 1.0, 5.00) == 2.0
     hit = apply_scale({"entry": 1.0, "qty": 10, "orig_qty": 10, "scale_stage": 0}, 2.05, {})
     assert hit and hit["stage"] == 1
-    assert hit["sell_qty"] == 4.0
-    hit2 = apply_scale({"entry": 1.0, "qty": 6.0, "orig_qty": 10, "scale_stage": 1}, 4.10, {})
+    assert hit["sell_qty"] == 3.5
+    hit2 = apply_scale({"entry": 1.0, "qty": 6.5, "orig_qty": 10, "scale_stage": 1}, 5.10, {})
     assert hit2 and hit2["stage"] == 2
 
 
@@ -89,11 +89,11 @@ def test_fast_fail_and_dead_ticket():
         "tp": 10.0,
         "opened_at": (now - timedelta(minutes=120)).isoformat(),
     }
-    s = {"copy_fast_fail_minutes": 360, "copy_fast_fail_pct": 0.18, "copy_time_stop_minutes": 60 * 24 * 10, "copy_giveup_pct": 0.40}
-    assert _exit_reason(baby, 0.80, s, now=now) == "快速止损"
-    stale = dict(baby, opened_at=(now - timedelta(days=11)).isoformat())
+    s = {"copy_fast_fail_minutes": 1440, "copy_fast_fail_pct": 0.20, "copy_time_stop_minutes": 60 * 24 * 30, "copy_giveup_pct": 0.50}
+    assert _exit_reason(baby, 0.79, s, now=now) == "快速止损"
+    stale = dict(baby, opened_at=(now - timedelta(days=31)).isoformat())
     assert _exit_reason(stale, 1.10, s, now=now) == "死票离场"
-    assert _exit_reason(stale, 1.50, s, now=now) is None
+    assert _exit_reason(stale, 1.60, s, now=now) is None
 
 
 def test_structure_break_exits_before_first_scale():

@@ -51,10 +51,11 @@ def _has_twitter(item: dict[str, Any]) -> bool:
     return "x.com" in blob or "twitter" in blob
 
 
-def enrich_and_score(item: dict[str, Any], min_liq: float = 80_000) -> dict[str, Any]:
-    """10 天一买：只挑能活过首轮屠杀、还有倍数、且有热度确认的小妖。
+def enrich_and_score(item: dict[str, Any], min_liq: float = 100_000) -> dict[str, Any]:
+    """一个月一买：meme 币，成功率优先，还要留倍数。
 
-    不买 12 小时飞刀，不买已经上亿市值的老币。赢面靠活下来 + 买盘 + 社交，而不是 5 分钟回踩。
+    不买 3 天内飞刀，不买已经上千万美元、翻倍空间没了的老币。
+    赢面靠活下来 + 买盘 + 社交热度。
     """
     out = dict(item)
     liq = _n(out, "liquidity_usd")
@@ -90,17 +91,17 @@ def enrich_and_score(item: dict[str, Any], min_liq: float = 80_000) -> dict[str,
     reject: list[str] = []
 
     if liq < min_liq:
-        reject.append(f"流动性 ${liq:,.0f} 太薄，10 天持有出不去")
+        reject.append(f"流动性 ${liq:,.0f} 太薄，一个月持有出不去")
     if liq > 1_200_000:
-        reject.append("池子已经很大，不像还能翻多倍的小妖")
-    if fdv and fdv > 8_000_000:
-        reject.append(f"FDV ${fdv:,.0f} 已偏大，10 天倍数不够")
-    if fdv and fdv < 200_000:
+        reject.append("池子已经很大，不像还能翻多倍的 meme")
+    if fdv and fdv > 12_000_000:
+        reject.append(f"FDV ${fdv:,.0f} 已偏大，一个月倍数不够")
+    if fdv and fdv < 300_000:
         reject.append("盘太小，撤池/归零概率高")
-    if age_h is not None and age_h < 36:
-        reject.append("池子不足 36 小时，还没活过第一波屠杀")
-    if age_h is not None and age_h > 24 * 45:
-        reject.append("超过 45 天还当新妖，胜率差")
+    if age_h is not None and age_h < 72:
+        reject.append("池子不足 3 天，还没活过第一波屠杀")
+    if age_h is not None and age_h > 24 * 60:
+        reject.append("超过 60 天还当新 meme，倍数空间差")
     if chg_h24 >= 150:
         reject.append(f"24h 已涨 {chg_h24:.0f}%，飞刀/高潮末期")
     if chg_h24 <= -35:
@@ -115,15 +116,15 @@ def enrich_and_score(item: dict[str, Any], min_liq: float = 80_000) -> dict[str,
         reject.append("Pump 内盘且池子不够")
 
     heat = 18.0
-    if age_h is not None and 48 <= age_h <= 24 * 21:
+    if age_h is not None and 72 <= age_h <= 24 * 21:
         heat += 22
-        reasons.append("活过 2–21 天，比新盘胜率高")
-    elif age_h is not None and 36 <= age_h < 48:
-        heat += 8
-        reasons.append("刚过 36 小时，仍要小仓")
+        reasons.append("活过 3–21 天，一个月胜率最高的区间")
     elif age_h is not None and 24 * 21 < age_h <= 24 * 45:
-        heat += 14
-        reasons.append("活过三周的小盘，胜率优先")
+        heat += 16
+        reasons.append("活过三周的小盘 meme，胜率优先")
+    elif age_h is not None and 24 * 45 < age_h <= 24 * 60:
+        heat += 8
+        reasons.append("快满月，倍数还在才考虑")
     heat += min(18.0, max(0.0, (ratio - 1.0) * 20))
     if has_twitter:
         heat += 12
@@ -144,19 +145,19 @@ def enrich_and_score(item: dict[str, Any], min_liq: float = 80_000) -> dict[str,
     elif boost >= 250:
         heat -= 6
         reasons.append("广告费砸太猛，容易拉高出货")
-    if 80_000 <= liq <= 350_000:
+    if 100_000 <= liq <= 400_000:
         heat += 10
         reasons.append("池子够出、盘还小")
-    if fdv and 300_000 <= fdv <= 2_000_000:
+    if fdv and 400_000 <= fdv <= 3_000_000:
         heat += 14
-        reasons.append("市值还在妖币区间")
-    elif fdv and fdv <= 5_000_000:
+        reasons.append("市值还在 meme 倍数区间")
+    elif fdv and fdv <= 8_000_000:
         heat += 6
     if 0.8 <= turnover <= 40:
         heat += min(10.0, turnover)
     if -8 <= chg_h24 <= 55 and chg_h1 > -8:
         heat += 10
-        reasons.append("不是暴涨暴跌，适合拿 10 天")
+        reasons.append("不是暴涨暴跌，适合拿一个月")
     if chg_h6 <= -20:
         heat -= 10
     if buyers:
@@ -166,13 +167,13 @@ def enrich_and_score(item: dict[str, Any], min_liq: float = 80_000) -> dict[str,
     heat = max(0.0, min(100.0, heat))
 
     risk = 18.0
-    if liq < 100_000:
+    if liq < 120_000:
         risk += 14
-        reasons.append("浅池，10 天里仍可能撤")
+        reasons.append("浅池，一个月里仍可能撤")
     if age_h is None:
         risk += 10
-    elif age_h < 48:
-        risk += 12
+    elif age_h < 72:
+        risk += 14
     if not has_twitter and not is_cto:
         risk += 12
         reasons.append("没有社交确认")
@@ -190,20 +191,20 @@ def enrich_and_score(item: dict[str, Any], min_liq: float = 80_000) -> dict[str,
 
     conviction = (
         age_h is not None
-        and 36 <= age_h <= 24 * 45
-        and 80_000 <= liq <= 800_000
-        and (not fdv or 250_000 <= fdv <= 5_000_000)
-        and -20 <= chg_h24 <= 80
-        and -8 <= chg_h1 <= 25
+        and 72 <= age_h <= 24 * 60
+        and 100_000 <= liq <= 900_000
+        and (not fdv or 400_000 <= fdv <= 8_000_000)
+        and -18 <= chg_h24 <= 70
+        and -8 <= chg_h1 <= 20
         and ratio >= 1.15
         and (has_twitter or is_cto or gecko_hot)
-        and chg_m5 < 25
+        and chg_m5 < 22
     )
     if reject:
         grade = "避开"
     elif conviction and heat >= 70 and risk <= 50:
         grade = "可跟"
-    elif not reject and heat >= 52 and (not fdv or fdv <= 8_000_000):
+    elif not reject and heat >= 52 and (not fdv or fdv <= 12_000_000):
         grade = "观察"
     else:
         grade = "避开"
@@ -229,13 +230,13 @@ def enrich_and_score(item: dict[str, Any], min_liq: float = 80_000) -> dict[str,
             "has_twitter": has_twitter,
             "is_cto": is_cto,
             "conviction": conviction,
-            "action": {"可跟": "10天小仓", "观察": "只看不买", "避开": "禁止买入"}[grade],
+            "action": {"可跟": "月度小仓", "观察": "只看不买", "避开": "禁止买入"}[grade],
         }
     )
     return out
 
 
-def select_watchlist(items: list[dict[str, Any]], min_liq: float = 80_000) -> list[dict[str, Any]]:
+def select_watchlist(items: list[dict[str, Any]], min_liq: float = 100_000) -> list[dict[str, Any]]:
     scored = [enrich_and_score(it, min_liq) for it in items]
     kept = [x for x in scored if x["grade"] in {"可跟", "观察"}]
     kept.sort(

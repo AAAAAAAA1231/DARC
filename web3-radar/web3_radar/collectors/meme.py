@@ -398,7 +398,7 @@ async def fetch_geckoterminal_new() -> list[dict[str, Any]]:
 
 
 async def scan_meme_coins(
-    min_liquidity_usd: float = 80_000,
+    min_liquidity_usd: float = 100_000,
     min_unique_buyers: int = 15,
     min_holder_growth: int = 8,
 ) -> dict[str, Any]:
@@ -457,5 +457,5 @@ async def scan_meme_coins(
         "period_pick": pick,
         "items": ranked,
         "errors": errors,
-        "method": "10天一买：只挑活过 36 小时、池子够出、还有倍数、买盘和 X/社区热度确认的小妖。飞刀K、日线高潮、过新盘一律避开。2 倍先锁 40%，剩下拿满本期。",
+        "method": "一个月一买：meme 币，成功率优先还要留倍数。只挑活过 3 天、池子够出、市值还小、买盘和 X/社区热度确认的票。飞刀K、过新盘、已经上千万的老币一律避开。2 倍先锁 35%，剩下拿到本月。",
     }

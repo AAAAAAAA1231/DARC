@@ -20,7 +20,7 @@ ACTION_SPECS = {
     },
     "meme": {
         "action": "swap",
-        "title": "妖币买入",
+        "title": "Meme 买入",
         "description": "按流动性与上限生成买入意图，需钱包确认。",
     },
     "contract": {
