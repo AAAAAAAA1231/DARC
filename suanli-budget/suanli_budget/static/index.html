@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>算力中心预算编制</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>算力中心预算编制</h1>
+      <p>输入算力目标与 GPU / CPU 等基础数据，本机汇总含税总投资 · 不上互联网</p>
+    </div>
+    <div>
+      <span class="badge">参考价可改</span>
+      <span class="status" id="statusLine">就绪</span>
+    </div>
+  </header>
+  <main>
+    <div class="card hint">
+      默认单价来自 2026 年公开渠道口径，<strong>不是锁死成交价</strong>。改右边单价后点「生成预算」即重算。
+      整机价模式下 CPU/内存默认已含在服务器里；若你按散件报价，勾选「CPU/内存单列」。
+    </div>
+
+    <div class="card">
+      <h2>1. 项目与算力要求</h2>
+      <div class="grid">
+        <label>项目名称 <input id="project" value="算力中心一期" /></label>
+        <label>建设地点 <input id="location" placeholder="如 乌兰察布 / 贵安" /></label>
+        <label>输入方式
+          <select id="mode">
+            <option value="pflops">按目标算力（FP16 PFLOPS）</option>
+            <option value="count">按 GPU 卡数</option>
+          </select>
+        </label>
+        <label>目标算力 PFLOPS <input id="target_pflops" type="number" step="0.1" value="10" /></label>
+        <label>GPU 卡数 <input id="gpu_count" type="number" step="1" value="64" /></label>
+        <label>GPU 型号 <select id="gpu_id"></select></label>
+        <label>制冷
+          <select id="cooling">
+            <option value="liquid">液冷</option>
+            <option value="air">风冷</option>
+          </select>
+        </label>
+        <label class="check" style="flex-direction:row;align-items:center;gap:8px">
+          <input type="checkbox" id="include_cpu_ram" /> CPU/内存在整机外单列
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>2. 所选 GPU 基础数据（可改）</h2>
+      <div class="grid">
+        <label>单卡 FP16 TFLOPS <input id="fp16_tflops" type="number" step="0.1" /></label>
+        <label>单卡 TDP（W） <input id="tdp_w" type="number" /></label>
+        <label>每台卡数 <input id="cards_per_node" type="number" /></label>
+        <label>计价
+          <select id="price_mode">
+            <option value="node">按 8 卡整机</option>
+            <option value="card">按单卡</option>
+          </select>
+        </label>
+        <label>整机单价（元） <input id="node_price" type="number" /></label>
+        <label>单卡单价（元） <input id="card_price" type="number" /></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>3. CPU / 存储 / 网络 / 机房单价（元）</h2>
+      <div class="grid" id="priceGrid"></div>
+    </div>
+
+    <div class="row" style="margin-bottom:14px">
+      <button class="btn primary" id="run">生成整体预算</button>
+      <a class="btn" href="/api/budget/excel">下载 Excel</a>
+      <a class="btn" href="/api/budget/docx">下载预算书 Word</a>
+    </div>
+
+    <div class="card">
+      <h2>4. 规模与总价</h2>
+      <div class="kpi" id="kpis"></div>
+      <p class="muted" id="note"></p>
+    </div>
+    <div class="card">
+      <h2>5. 分项预算</h2>
+      <table>
+        <thead><tr><th>名称</th><th>规格</th><th>数量</th><th>单位</th><th>单价</th><th>合价</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+  </main>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
