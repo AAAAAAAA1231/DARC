@@ -328,9 +328,9 @@ async def fetch_geckoterminal_new() -> list[dict[str, Any]]:
 
 
 async def scan_meme_coins(
-    min_liquidity_usd: float = 25_000,
-    min_unique_buyers: int = 10,
-    min_holder_growth: int = 5,
+    min_liquidity_usd: float = 40_000,
+    min_unique_buyers: int = 15,
+    min_holder_growth: int = 8,
 ) -> dict[str, Any]:
     errors: list[str] = []
     collected: list[dict[str, Any]] = []
@@ -376,5 +376,5 @@ async def scan_meme_coins(
         "followable_count": len(followable),
         "items": ranked,
         "errors": errors,
-        "method": "小妖倍数仓：池子 $2.5万–80万、FDV 还小、1h 已启动但未高潮、出货K避开。用小仓博 2x/5x，不是 16% 止盈。",
+        "method": "回踩买点提高胜率：1h 已启动、5m 未垂直。1.6 倍先锁 45%，3 倍再减；飞刀K/过新池/出货K 避开。",
     }

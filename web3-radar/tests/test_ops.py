@@ -12,10 +12,10 @@ from web3_radar.fallback import merge_items
 
 
 def test_trail_stop_breakeven_then_lock():
-    assert trail_stop(1.0, 0.70, 1.50) is None
-    assert trail_stop(1.0, 0.70, 2.00) == 1.25
-    locked = trail_stop(1.0, 1.25, 5.00)
-    assert locked == 2.5
+    assert trail_stop(1.0, 0.80, 1.50) is None
+    assert trail_stop(1.0, 0.80, 1.60) == 1.0
+    locked = trail_stop(1.0, 1.0, 3.00)
+    assert locked == 1.6
 
 
 def test_exit_reason_trailing_vs_stop():

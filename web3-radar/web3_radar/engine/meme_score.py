@@ -36,11 +36,10 @@ def _src(item: dict[str, Any]) -> str:
     return str(item.get("source") or "").lower()
 
 
-def enrich_and_score(item: dict[str, Any], min_liq: float = 25_000) -> dict[str, Any]:
-    """妖币按倍数仓，不是合约剥头皮。
+def enrich_and_score(item: dict[str, Any], min_liq: float = 40_000) -> dict[str, Any]:
+    """提高胜率：只买「1小时已启动、5分钟在回踩」的票。
 
-    要的是还小、已经在动、买盘还在的票；用小仓位承受归零，
-    而不是 16% 止盈把 10 倍砍掉。已经高潮完的大盘、正在出货的盘仍避开。
+    飞刀K、过新池、出货K仍然避开。赢面靠 1.6 倍先锁定一笔，剩下再博 3–5 倍。
     """
     out = dict(item)
     liq = _n(out, "liquidity_usd")
@@ -74,18 +73,18 @@ def enrich_and_score(item: dict[str, Any], min_liq: float = 25_000) -> dict[str,
         reject.append(f"FDV ${fdv:,.0f} 已偏大，倍数空间不够")
     if sells_m5 > 0 and buys_m5 > 0 and sells_m5 >= buys_m5:
         reject.append("5 分钟正在出货")
-    if sells > 0 and ratio < 1.15:
+    if sells > 0 and ratio < 1.35:
         reject.append(f"买卖比 {ratio:.2f} 已经翻弱")
-    if chg_m5 >= 80:
-        reject.append(f"5 分钟已涨 {chg_m5:.0f}%，这根K里接飞刀")
-    if chg_h1 >= 200:
+    if chg_m5 >= 40:
+        reject.append(f"5 分钟已涨 {chg_m5:.0f}%，这根K是飞刀")
+    if chg_h1 >= 160:
         reject.append(f"1 小时已涨 {chg_h1:.0f}%，高潮末期")
-    if chg_h24 >= 500:
+    if chg_h24 >= 350:
         reject.append(f"24h 已涨 {chg_h24:.0f}%，倍数大头过了")
-    if age is not None and age < 8:
-        reject.append("池子不足 8 分钟，纯狙击")
-    if age is not None and age > 60 * 24 * 7:
-        reject.append("超过 7 天还在当新妖炒，假突破居多")
+    if age is not None and age < 20:
+        reject.append("池子不足 20 分钟，撤池/狙击太多")
+    if age is not None and age > 60 * 48:
+        reject.append("超过 48 小时还当新妖，胜率差")
     if pump_inner and liq < min_liq:
         reject.append("Pump 内盘且池子不够")
 
@@ -97,30 +96,35 @@ def enrich_and_score(item: dict[str, Any], min_liq: float = 25_000) -> dict[str,
         heat += min(14.0, turnover * 5)
     if "+" in src:
         heat += 6
-    # 妖币黄金区：已经启动，但盘还小
-    if 20 <= chg_h1 <= 120:
-        heat += 22
-        reasons.append("1h 已启动，还在倍数区")
+    dip_in_trend = (28 <= chg_h1 <= 95) and (2 <= chg_m5 <= 22) and m5_ratio >= 1.5
+    if dip_in_trend:
+        heat += 24
+        reasons.append("1h 启动 + 5m 回踩，胜率最高的买点")
+    elif 20 <= chg_h1 <= 120:
+        heat += 10
+        reasons.append("1h 已启动")
     elif 8 <= chg_h1 < 20:
-        heat += 12
-        reasons.append("刚启动")
-    elif 120 < chg_h1 < 200:
-        heat += 6
-        reasons.append("偏热，仓位必须更小")
-    if 8 <= chg_m5 < 45:
-        heat += 8
-        reasons.append("5m 买盘还在抬")
+        heat += 4
+    if 120 < chg_h1 < 160:
+        heat -= 6
+        reasons.append("偏热")
+    if 8 <= chg_m5 <= 22:
+        heat += 10
+        reasons.append("5m 没有垂直")
+    elif chg_m5 > 22:
+        heat -= 10
+        reasons.append("5m 太陡，接盘胜率差")
     if fdv and 50_000 <= fdv <= 2_000_000:
         heat += 16
         reasons.append("盘还小，有翻倍空间")
     elif fdv and fdv <= 5_000_000:
         heat += 8
-    if liq and 25_000 <= liq <= 250_000:
-        heat += 8
-        reasons.append("池子够出、又没大到没倍数")
-    if age is not None and 15 <= age <= 60 * 36:
+    if liq and 40_000 <= liq <= 280_000:
         heat += 10
-        reasons.append("新票窗口")
+        reasons.append("池子够出、又没大到没倍数")
+    if age is not None and 25 <= age <= 60 * 24:
+        heat += 10
+        reasons.append("过了最毒的前 20 分钟")
     if pump_inner and liq >= min_liq:
         heat += 4
         reasons.append("内盘也能出倍，但仓位当彩票")
@@ -144,19 +148,21 @@ def enrich_and_score(item: dict[str, Any], min_liq: float = 25_000) -> dict[str,
     if pump_inner:
         risk += 12
         reasons.append("内盘彩票，只许小仓")
-    if chg_h1 > 100:
+    if chg_h1 > 90:
         risk += 10
+    if chg_m5 > 20:
+        risk += 8
     if not sells and not sells_m5:
         risk += 6
     risk = max(0.0, min(100.0, risk))
 
-    small_enough = (not fdv) or fdv <= 8_000_000
-    still_early = chg_h1 < 200 and chg_h24 < 500
+    small_enough = (not fdv) or fdv <= 5_000_000
+    still_early = chg_h1 < 160 and chg_h24 < 350
     if reject:
         grade = "避开"
-    elif heat >= 60 and risk <= 62 and small_enough and still_early:
+    elif dip_in_trend and heat >= 64 and risk <= 55 and small_enough and still_early:
         grade = "可跟"
-    elif heat >= 48 and not reject:
+    elif heat >= 52 and not reject and still_early:
         grade = "观察"
     else:
         grade = "避开"
@@ -178,13 +184,13 @@ def enrich_and_score(item: dict[str, Any], min_liq: float = 25_000) -> dict[str,
             "followable": grade == "可跟",
             "crowd_ok": buyers >= 10 or buys >= 12,
             "holders_rising": growth >= 5 or (holders >= 40 and ratio >= 1.2),
-            "action": {"可跟": "小仓博倍数", "观察": "只看不买", "避开": "禁止买入"}[grade],
+            "action": {"可跟": "回踩小仓", "观察": "只看不买", "避开": "禁止买入"}[grade],
         }
     )
     return out
 
 
-def select_watchlist(items: list[dict[str, Any]], min_liq: float = 25_000) -> list[dict[str, Any]]:
+def select_watchlist(items: list[dict[str, Any]], min_liq: float = 40_000) -> list[dict[str, Any]]:
     scored = [enrich_and_score(it, min_liq) for it in items]
     kept = [x for x in scored if x["grade"] in {"可跟", "观察"}]
     kept.sort(
