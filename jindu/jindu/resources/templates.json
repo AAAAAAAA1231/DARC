@@ -1,0 +1,85 @@
+{
+  "templates": [
+    {
+      "id": "住宅楼",
+      "name": "高层住宅楼（结构+装修+安装）",
+      "specialty": "房屋建筑",
+      "notes": "适用于常规剪力墙/框剪高层住宅。机电、二次结构与主体搭接，可按现场流水调整前置任务。",
+      "tasks": [
+        {"key": "prep", "wbs": "1", "name": "施工准备", "duration": 15, "owner": "项目经理", "notes": "临建、三通一平、图纸会审、临水临电"},
+        {"key": "pit", "wbs": "2", "name": "基坑支护与土方", "summary": true, "pred": ["prep"]},
+        {"key": "support", "wbs": "2.1", "name": "支护结构施工", "duration": 25, "pred": ["prep"], "parent": "pit", "owner": "土建工长"},
+        {"key": "excavate", "wbs": "2.2", "name": "土方开挖与验槽", "duration": 18, "pred": ["support"], "parent": "pit", "owner": "土建工长"},
+        {"key": "found", "wbs": "3", "name": "地基与基础", "duration": 40, "pred": ["excavate"], "owner": "土建工长"},
+        {"key": "bsmt", "wbs": "4", "name": "地下室结构", "duration": 45, "pred": ["found"], "owner": "土建工长"},
+        {"key": "super", "wbs": "5", "name": "主体结构", "summary": true, "pred": ["bsmt"]},
+        {"key": "s1", "wbs": "5.1", "name": "主体 1～6 层", "duration": 48, "pred": ["bsmt"], "parent": "super", "owner": "施工员"},
+        {"key": "s2", "wbs": "5.2", "name": "主体 7～12 层", "duration": 48, "pred": ["s1"], "parent": "super", "owner": "施工员"},
+        {"key": "s3", "wbs": "5.3", "name": "主体 13～18 层", "duration": 48, "pred": ["s2"], "parent": "super", "owner": "施工员"},
+        {"key": "top", "wbs": "5.4", "name": "结构封顶", "duration": 8, "pred": ["s3"], "parent": "super", "owner": "项目经理"},
+        {"key": "sec", "wbs": "6", "name": "二次结构砌筑", "duration": 55, "pred": ["s1"], "owner": "施工员"},
+        {"key": "roof", "wbs": "7", "name": "屋面工程", "duration": 25, "pred": ["top"], "owner": "施工员"},
+        {"key": "fit", "wbs": "8", "name": "装饰装修", "summary": true, "pred": ["sec"]},
+        {"key": "plaster", "wbs": "8.1", "name": "内墙抹灰及地面", "duration": 50, "pred": ["sec"], "parent": "fit", "owner": "装修工长"},
+        {"key": "facade", "wbs": "8.2", "name": "外墙装饰", "duration": 45, "pred": ["s2"], "parent": "fit", "owner": "装修工长"},
+        {"key": "win", "wbs": "8.3", "name": "门窗安装", "duration": 35, "pred": ["s2"], "parent": "fit", "owner": "装修工长"},
+        {"key": "mep", "wbs": "9", "name": "机电安装", "summary": true, "pred": ["bsmt"]},
+        {"key": "plumb", "wbs": "9.1", "name": "给排水及消防", "duration": 90, "pred": ["bsmt"], "parent": "mep", "owner": "水电工长"},
+        {"key": "elec", "wbs": "9.2", "name": "电气及智能化", "duration": 90, "pred": ["bsmt"], "parent": "mep", "owner": "水电工长"},
+        {"key": "hvac", "wbs": "9.3", "name": "暖通空调", "duration": 70, "pred": ["s1"], "parent": "mep", "owner": "水电工长"},
+        {"key": "out", "wbs": "10", "name": "室外配套与园林", "duration": 35, "pred": ["roof"], "owner": "施工员"},
+        {"key": "acc", "wbs": "11", "name": "竣工验收", "duration": 18, "pred": ["plaster", "facade", "plumb", "elec", "out"], "owner": "项目经理"}
+      ]
+    },
+    {
+      "id": "市政道路",
+      "name": "市政道路工程",
+      "specialty": "市政道路",
+      "notes": "适用于城市道路新建/改建。雨季路面施工应预留机动时间。",
+      "tasks": [
+        {"key": "prep", "wbs": "1", "name": "施工准备与交通导改", "duration": 12, "owner": "项目经理"},
+        {"key": "pipe", "wbs": "2", "name": "地下管线迁改与新建", "duration": 35, "pred": ["prep"], "owner": "施工员"},
+        {"key": "sub", "wbs": "3", "name": "路基填筑与碾压", "duration": 40, "pred": ["pipe"], "owner": "施工员"},
+        {"key": "base", "wbs": "4", "name": "基层施工", "duration": 25, "pred": ["sub"], "owner": "施工员"},
+        {"key": "surf", "wbs": "5", "name": "沥青/水泥混凝土面层", "duration": 20, "pred": ["base"], "owner": "施工员"},
+        {"key": "side", "wbs": "6", "name": "人行道与侧石", "duration": 18, "pred": ["base"], "owner": "施工员"},
+        {"key": "drain", "wbs": "7", "name": "雨水口及排水附属", "duration": 15, "pred": ["side"], "owner": "施工员"},
+        {"key": "mark", "wbs": "8", "name": "交通标线、标志与信号", "duration": 10, "pred": ["surf"], "owner": "施工员"},
+        {"key": "acc", "wbs": "9", "name": "竣工验收", "duration": 10, "pred": ["mark", "drain"], "owner": "项目经理"}
+      ]
+    },
+    {
+      "id": "装饰装修",
+      "name": "公共建筑装饰装修",
+      "specialty": "装饰装修",
+      "notes": "适用于办公/商业精装修。水电改造完成后才能大面积饰面。",
+      "tasks": [
+        {"key": "prep", "wbs": "1", "name": "进场准备与保护", "duration": 7, "owner": "项目经理"},
+        {"key": "demo", "wbs": "2", "name": "拆除及垃圾清运", "duration": 12, "pred": ["prep"], "owner": "施工员"},
+        {"key": "mep", "wbs": "3", "name": "水电改造", "duration": 20, "pred": ["demo"], "owner": "水电工长"},
+        {"key": "wp", "wbs": "4", "name": "防水工程", "duration": 10, "pred": ["mep"], "owner": "施工员"},
+        {"key": "mud", "wbs": "5", "name": "泥工（砌筑/找平/贴砖）", "duration": 25, "pred": ["wp"], "owner": "装修工长"},
+        {"key": "wood", "wbs": "6", "name": "木作吊顶与基层", "duration": 18, "pred": ["mep"], "owner": "装修工长"},
+        {"key": "paint", "wbs": "7", "name": "涂料与饰面", "duration": 16, "pred": ["mud", "wood"], "owner": "装修工长"},
+        {"key": "inst", "wbs": "8", "name": "洁具灯具及末端安装", "duration": 12, "pred": ["paint"], "owner": "水电工长"},
+        {"key": "clean", "wbs": "9", "name": "保洁与竣工验收", "duration": 8, "pred": ["inst"], "owner": "项目经理"}
+      ]
+    },
+    {
+      "id": "钢结构厂房",
+      "name": "单层钢结构厂房",
+      "specialty": "钢结构厂房",
+      "notes": "钢构件加工可与基础平行，现场以吊装为主线。",
+      "tasks": [
+        {"key": "prep", "wbs": "1", "name": "施工准备", "duration": 10, "owner": "项目经理"},
+        {"key": "found", "wbs": "2", "name": "基础及预埋件", "duration": 30, "pred": ["prep"], "owner": "土建工长"},
+        {"key": "fab", "wbs": "3", "name": "钢构件加工（厂内）", "duration": 35, "pred": ["prep"], "owner": "钢构工长"},
+        {"key": "erect", "wbs": "4", "name": "钢结构吊装", "duration": 25, "pred": ["found", "fab"], "owner": "钢构工长"},
+        {"key": "roof", "wbs": "5", "name": "屋面及围护板", "duration": 18, "pred": ["erect"], "owner": "钢构工长"},
+        {"key": "floor", "wbs": "6", "name": "地坪及附属土建", "duration": 20, "pred": ["found"], "owner": "土建工长"},
+        {"key": "mep", "wbs": "7", "name": "机电设备安装", "duration": 22, "pred": ["roof"], "owner": "水电工长"},
+        {"key": "acc", "wbs": "8", "name": "竣工验收", "duration": 10, "pred": ["mep", "floor"], "owner": "项目经理"}
+      ]
+    }
+  ]
+}

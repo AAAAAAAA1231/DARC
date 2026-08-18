@@ -19,3 +19,13 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+
+jindu/.venv
+jindu/data/
+jindu/dist/*
+!jindu/dist/JinDu.exe
+!jindu/dist/JinDu.zip
+jindu/build
+__pycache__/
+*.pyc
+.pytest_cache
