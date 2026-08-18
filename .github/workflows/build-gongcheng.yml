@@ -27,12 +27,9 @@ jobs:
       - name: Build EXE
         run: pyinstaller --noconfirm GongCheng.spec
       - name: Pack zip
-        run: |
-          python -c "import zipfile; z=zipfile.ZipFile('dist/GongCheng.zip','w',zipfile.ZIP_DEFLATED); z.write('dist/GongCheng.exe','GongCheng.exe'); z.write('打开说明.txt','ReadMe.txt')"
-      - name: Upload EXE
+        run: python pack_zip.py
+      - name: Upload zip
         uses: actions/upload-artifact@v4
         with:
           name: GongCheng-windows
-          path: |
-            gongcheng/dist/GongCheng.exe
-            gongcheng/dist/GongCheng.zip
+          path: gongcheng/dist/GongCheng.zip

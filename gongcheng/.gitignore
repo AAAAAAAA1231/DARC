@@ -1,7 +1,6 @@
 data/
 .venv/
 dist/*
-!dist/GongCheng.exe
 !dist/GongCheng.zip
 build/
 __pycache__/

@@ -45,4 +45,16 @@ for pkg in ("uvicorn", "starlette", "fastapi", "anyio", "openpyxl", "docx", "lxm
 
 a = Analysis(["run.py"], pathex=["."], binaries=binaries, datas=datas, hiddenimports=hiddenimports, excludes=[], noarchive=False)
 pyz = PYZ(a.pure)
-exe = EXE(pyz, a.scripts, a.binaries, a.datas, [], name="GongCheng", debug=False, bootloader_ignore_signals=False, strip=False, upx=False, console=True)
+exe = EXE(
+    pyz,
+    a.scripts,
+    [],
+    exclude_binaries=True,
+    name="GongCheng",
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=True,
+)
+coll = COLLECT(exe, a.binaries, a.datas, name="GongCheng")
