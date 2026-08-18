@@ -1,0 +1,9 @@
+data/
+.venv/
+dist/*
+!dist/ZhiLiang.exe
+!dist/ZhiLiang.zip
+build/
+__pycache__/
+.pytest_cache/
+*.pyc

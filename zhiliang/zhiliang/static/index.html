@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>工程质量 · 跟踪纠偏</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>工程质量</h1>
+      <p>问题台账 · 整改闭环 · 纠偏措施 · 本机保存</p>
+    </div>
+    <div>
+      <span class="badge">离线本机</span>
+      <span class="status" id="statusLine">就绪</span>
+    </div>
+  </header>
+  <div class="layout">
+    <aside class="side">
+      <div class="side-head">工程</div>
+      <div id="projectList"></div>
+      <button class="btn block" id="btnEmpty">+ 空白工程</button>
+      <p class="muted tiny">数据只存在本机。发现问题时从右侧「通病模板」一键入账，再按 整改 → 复查 → 闭合 跟踪。</p>
+    </aside>
+    <main>
+      <div class="stats" id="stats"></div>
+      <div class="toolbar">
+        <button class="btn primary" id="btnSave">保存</button>
+        <button class="btn" id="btnXlsx">导出 Excel 台账</button>
+        <button class="btn danger" id="btnDel">删除本工程</button>
+      </div>
+      <div class="tabs">
+        <button class="tab on" data-tab="issues">问题台账</button>
+        <button class="tab" data-tab="fix">纠偏措施</button>
+        <button class="tab" data-tab="inspect">质量巡检</button>
+        <button class="tab" data-tab="info">工程信息</button>
+      </div>
+
+      <section class="panel on" id="tab-issues">
+        <div class="card">
+          <h2>登记质量问题</h2>
+          <div class="grid">
+            <label>通病模板
+              <select id="defectId"></select>
+            </label>
+            <label>部位 <input id="newLoc" placeholder="如 3层①-③轴梁底" /></label>
+            <label>责任人 <input id="newOwner" placeholder="班组或姓名" /></label>
+            <label>期限 <input id="newDead" type="date" /></label>
+          </div>
+          <button class="btn primary" id="btnAddIssue">入账</button>
+          <span class="muted">选模板会带上规范依据、纠正和预防措施，可再改。</span>
+        </div>
+        <div class="filters">
+          <label>状态 <select id="fStatus"><option value="">全部</option></select></label>
+          <label>专业 <select id="fSpec"><option value="">全部</option></select></label>
+          <label class="chk"><input type="checkbox" id="fOverdue" /> 只看超期</label>
+        </div>
+        <div class="table-wrap" id="issueTable"></div>
+        <div class="card" id="issueDetail" style="display:none"></div>
+      </section>
+
+      <section class="panel" id="tab-fix">
+        <div class="hint">对照标准找偏差，按人机料法环分析原因，写纠正（当下改掉）和预防（下次不再发生）。改完点保存。</div>
+        <div id="fixList"></div>
+      </section>
+
+      <section class="panel" id="tab-inspect">
+        <div class="card">
+          <h2>填写巡检</h2>
+          <div class="grid">
+            <label>日期 <input id="insDate" type="date" /></label>
+            <label>类型 <select id="insKind"></select></label>
+            <label>区域 <input id="insArea" /></label>
+            <label>检查人 <input id="insWho" /></label>
+            <label>结论
+              <select id="insResult">
+                <option>合格</option>
+                <option>合格（有一般问题）</option>
+                <option>有隐患</option>
+                <option>不合格</option>
+              </select>
+            </label>
+          </div>
+          <label>发现问题 <textarea id="insFind"></textarea></label>
+          <label>后续措施 <textarea id="insFollow"></textarea></label>
+          <button class="btn primary" id="btnIns">写入巡检</button>
+        </div>
+        <div id="insList"></div>
+      </section>
+
+      <section class="panel" id="tab-info">
+        <div class="card">
+          <h2>工程信息</h2>
+          <div class="grid">
+            <label>工程名称 <input id="infoName" /></label>
+            <label>地点 <input id="infoLoc" /></label>
+            <label>项目经理 <input id="infoMgr" /></label>
+            <label>质量员 <input id="infoQc" /></label>
+            <label>监理 <input id="infoSup" /></label>
+            <label>专业 <input id="infoSpec" /></label>
+          </div>
+          <label>备注 <textarea id="infoNotes"></textarea></label>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
