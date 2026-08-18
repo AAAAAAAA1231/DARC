@@ -54,6 +54,7 @@ def _pair_to_item(pair: dict[str, Any], source: str) -> dict[str, Any] | None:
     volume_m5 = _num((pair.get("volume") or {}).get("m5"))
     price_change = _num((pair.get("priceChange") or {}).get("h1"))
     price_change_m5 = _num((pair.get("priceChange") or {}).get("m5"))
+    price_change_h24 = _num((pair.get("priceChange") or {}).get("h24"))
     holders = int(_num(pair.get("holders") or (pair.get("info") or {}).get("holders")))
     chain = pair.get("chainId") or pair.get("chain") or "unknown"
     token = pair.get("baseToken") or {}
@@ -74,11 +75,12 @@ def _pair_to_item(pair: dict[str, Any], source: str) -> dict[str, Any] | None:
         "sells": sells,
         "buys_m5": buys_m5,
         "sells_m5": sells_m5,
-        "unique_buyers_est": max(buyers, buys_m5, int(buys * 0.4)),
+        "unique_buyers_est": max(buyers, buys_m5),
         "holders": holders,
-        "holder_growth_est": max(0, buys_m5, int(buys * 0.2)),
+        "holder_growth_est": max(0, int(_num((pair.get("info") or {}).get("holderChange") or 0))),
         "price_change_h1": price_change,
         "price_change_m5": price_change_m5,
+        "price_change_h24": price_change_h24,
         "volume_m5": volume_m5,
         "fdv": _num(pair.get("fdv") or pair.get("marketCap")),
         "url": pair.get("url") or "",
@@ -262,9 +264,9 @@ async def fetch_geckoterminal() -> list[dict[str, Any]]:
                     "volume_h1": _num(attrs.get("volume_usd", {}).get("h1") if isinstance(attrs.get("volume_usd"), dict) else 0),
                     "buys": buys,
                     "sells": 0,
-                    "unique_buyers_est": max(buys, 8 if liq >= 20000 else 0),
+                    "unique_buyers_est": buys,
                     "holders": 0,
-                    "holder_growth_est": max(5, buys // 3),
+                    "holder_growth_est": 0,
                     "price_change_h1": _num((attrs.get("price_change_percentage") or {}).get("h1")),
                     "fdv": _num(attrs.get("fdv_usd") or attrs.get("market_cap_usd")),
                     "url": f"https://www.geckoterminal.com/{network}/pools/{attrs.get('address') or ''}",
@@ -313,7 +315,7 @@ async def fetch_geckoterminal_new() -> list[dict[str, Any]]:
                     "sells_m5": int(_num((m5 or {}).get("sells"))),
                     "unique_buyers_est": buys,
                     "holders": 0,
-                    "holder_growth_est": max(0, buys // 2),
+                    "holder_growth_est": max(0, buys // 2) if buys else 0,
                     "price_change_h1": _num(chg.get("h1")),
                     "price_change_m5": _num(chg.get("m5")),
                     "fdv": _num(attrs.get("fdv_usd") or attrs.get("market_cap_usd")),
@@ -326,9 +328,9 @@ async def fetch_geckoterminal_new() -> list[dict[str, Any]]:
 
 
 async def scan_meme_coins(
-    min_liquidity_usd: float = 20_000,
-    min_unique_buyers: int = 8,
-    min_holder_growth: int = 5,
+    min_liquidity_usd: float = 80_000,
+    min_unique_buyers: int = 15,
+    min_holder_growth: int = 8,
 ) -> dict[str, Any]:
     errors: list[str] = []
     collected: list[dict[str, Any]] = []
@@ -374,5 +376,5 @@ async def scan_meme_coins(
         "followable_count": len(followable),
         "items": ranked,
         "errors": errors,
-        "method": "短期买压 + 持币增长 + 池子≥20k + 热度/风险评分，过滤接盘与过新狙击盘",
+        "method": "生存优先：池子≥$8万、5m未垂直、1h涨幅8–32%、买卖比健康、过滤 Pump 内盘与付费加热接盘",
     }

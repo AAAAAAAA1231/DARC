@@ -129,10 +129,14 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "breakeven_r": 1.0,
     "trail_arm_r": 1.5,
     "trail_atr_mult": 1.0,
-    "meme_min_liquidity_usd": 20_000,
+    "meme_rules_version": 2,
+    "meme_min_liquidity_usd": 80_000,
     "meme_buyer_window_minutes": 30,
-    "meme_min_unique_buyers": 8,
-    "meme_min_holder_growth": 5,
+    "meme_min_unique_buyers": 15,
+    "meme_min_holder_growth": 8,
+    "meme_max_1h_change": 40,
+    "meme_max_m5_change": 18,
+    "meme_min_age_minutes": 30,
     "airdrop_min_funding_usd": 20_000_000,
     "ambassador_lookback_days": 7,
     "twitter_bearer_token": "",
@@ -148,19 +152,21 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "wallet_chain": "ethereum",
     "copy_enabled": True,
     "copy_mode": "paper",
-    "copy_max_positions": 5,
-    "copy_size_usd": 30,
-    "copy_sl_pct": 0.18,
-    "copy_tp_pct": 0.40,
-    "copy_max_1h_change": 80,
-    "copy_min_heat": 65,
-    "copy_max_risk": 45,
+    "copy_max_positions": 2,
+    "copy_size_usd": 15,
+    "copy_sl_pct": 0.08,
+    "copy_tp_pct": 0.16,
+    "copy_max_1h_change": 32,
+    "copy_min_heat": 70,
+    "copy_max_risk": 38,
     "copy_paper_equity": 1000,
-    "copy_cooldown_minutes": 60,
-    "copy_max_size_pct": 0.05,
-    "copy_trail_arm_pct": 0.25,
-    "copy_trail_lock_pct": 0.50,
-    "copy_daily_loss_pct": 0.15,
+    "copy_cooldown_minutes": 180,
+    "copy_max_size_pct": 0.02,
+    "copy_trail_arm_pct": 0.08,
+    "copy_trail_lock_pct": 0.12,
+    "copy_daily_loss_pct": 0.06,
+    "copy_time_stop_minutes": 45,
+    "copy_giveup_pct": 0.03,
     "weight_refit_days": 7,
 }
 
@@ -177,7 +183,46 @@ def load_settings() -> dict[str, Any]:
     raw = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
     merged = dict(DEFAULT_SETTINGS)
     merged.update(raw)
+    merged = _apply_meme_rules_upgrade(merged)
     return merged
+
+
+MEME_RULE_KEYS = (
+    "meme_min_liquidity_usd",
+    "meme_min_unique_buyers",
+    "meme_min_holder_growth",
+    "meme_max_1h_change",
+    "meme_max_m5_change",
+    "meme_min_age_minutes",
+    "copy_sl_pct",
+    "copy_tp_pct",
+    "copy_max_1h_change",
+    "copy_min_heat",
+    "copy_max_risk",
+    "copy_max_positions",
+    "copy_size_usd",
+    "copy_max_size_pct",
+    "copy_trail_arm_pct",
+    "copy_trail_lock_pct",
+    "copy_daily_loss_pct",
+    "copy_cooldown_minutes",
+    "copy_time_stop_minutes",
+    "copy_giveup_pct",
+)
+
+
+def _apply_meme_rules_upgrade(settings: dict[str, Any]) -> dict[str, Any]:
+    """Force survival-first meme/copy defaults; ignore leftover 20k/18% 止损 settings."""
+    target = int(DEFAULT_SETTINGS.get("meme_rules_version") or 2)
+    current = int(settings.get("meme_rules_version") or 0)
+    if current >= target:
+        return settings
+    upgraded = dict(settings)
+    for key in MEME_RULE_KEYS:
+        upgraded[key] = DEFAULT_SETTINGS[key]
+    upgraded["meme_rules_version"] = target
+    save_settings(upgraded)
+    return upgraded
 
 
 def save_settings(settings: dict[str, Any]) -> None:

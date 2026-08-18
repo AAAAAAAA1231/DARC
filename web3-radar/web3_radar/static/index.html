@@ -70,9 +70,9 @@
 
     <section id="view-meme" class="view hidden">
       <div class="toolbar">
-        <span class="pill">池子 ≥ $20k</span>
-        <span class="pill">5 分钟买压 + 持币增长</span>
-        <span class="pill">过滤接盘 / 过新狙击盘</span>
+        <span class="pill">池子 ≥ $8万</span>
+        <span class="pill">不追 1h&gt;32% / 5m&gt;18%</span>
+        <span class="pill">8% 止损 · 16% 止盈 · 超时离场</span>
         <input id="memeFilter" placeholder="筛选 可跟/观察/链" />
       </div>
       <p class="muted" id="memeMsg"></p>
@@ -93,7 +93,7 @@
       <div class="grid-2">
         <div class="panel">
           <h3>跟单规则（针对妖币「可跟」）</h3>
-          <p class="muted">默认模拟盘：热度≥65、风险≤45、池子≥20k、不追涨幅过大的币。缓存刷新只盯市；点「刷新」才开新仓。止损 18%、止盈 40%；浮盈 25% 保本、50% 追踪。同币冷却 60 分钟，单笔不超过权益 5%。实盘只推到钱包确认队列。</p>
+          <p class="muted">生存优先，不再用旧的 20k 池子 / 18% 宽止损。只跟「可跟」：池子≥$8万、1h 涨幅未超过 32%、5m 未垂直、买卖比健康。止损 8%、止盈 16%；浮盈 8% 保本、12% 追踪。45 分钟还没到 +3% 就离场。最多 2 仓，单笔不超过权益 2%。当日回撤 6% 停开。实盘只推到钱包确认队列。</p>
           <label class="check"><input type="checkbox" id="copyEnabled" checked /> 启用跟单</label>
           <label>模式
             <select id="copyMode">
@@ -101,7 +101,7 @@
               <option value="live_queue">实盘队列（需钱包确认）</option>
             </select>
           </label>
-          <label>单笔 USD <input type="number" id="copySize" min="5" value="30" /></label>
+          <label>单笔 USD <input type="number" id="copySize" min="5" value="15" /></label>
           <button class="btn primary" id="copySave">保存规则并扫描</button>
         </div>
         <div class="panel">

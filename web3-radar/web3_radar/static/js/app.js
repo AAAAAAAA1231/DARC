@@ -1,7 +1,7 @@
 const views = {
   contracts: ["合约分析", "100 万次只用于校准指标权重。校准完成后，刷新信号会直接套用模型告诉你涨/跌/观望。"],
-  meme: ["妖币监控", "只保留池子≥$20k、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
-  copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
+  meme: ["妖币监控", "生存优先：池子≥$8万，不追 1h>32% / 5m>18% 的垂直币，Pump 内盘默认禁止。只有「可跟」才允许小仓。归零盘直接不展示。"],
+  copytrade: ["自动跟单", "8% 硬止损、16% 止盈，浮盈 8% 保本。45 分钟没到 +3% 超时离场。最多 2 仓，单笔≤权益 2%。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
   launch: ["打新监测", "新项目白名单 / Presale / TGE / 新协议上线，不是交易所上新。"],
   airdrop: ["空投雷达", "知名机构投资、融资 > $2000 万、优先未发币，可标记交互状态"],
@@ -125,7 +125,7 @@ async function loadView(name, refresh) {
       $("memeRows").innerHTML = (data.items || []).map((m) => {
         store.meme[m.key] = m;
         return memeRow(m);
-      }).join("") || emptyRow(10, "暂无过线妖币（需要池子≥20k且短期买压）");
+      }).join("") || emptyRow(11, "暂无过线妖币（需要池子≥8万、未垂直、买压仍在）");
       if ($("memeMsg")) $("memeMsg").textContent = (data.method || "") + ((data.errors || []).length ? "；部分源失败：" + data.errors.slice(0,2).join("；") : "");
       setStatus(`监控 ${data.count} · 可跟 ${data.followable_count || 0}`);
     } else if (name === "ambassador") {
@@ -308,12 +308,16 @@ function memeRow(m) {
   const id = encodeURIComponent(m.key);
   const g = m.grade || "观察";
   const cls = g === "可跟" ? "up" : g === "避开" ? "down" : "wait";
-  const extra = [ageLabel(m)].concat(m.score_reasons || []).concat(m.reject_reasons || []).slice(0, 3).join(" · ");
+  const extra = [m.action, ageLabel(m)].concat(m.score_reasons || []).concat(m.reject_reasons || []).filter(Boolean).slice(0, 3).join(" · ");
+  const chg = [m.price_change_m5 != null ? `5m ${Number(m.price_change_m5).toFixed(0)}%` : "", m.price_change_h1 != null ? `1h ${Number(m.price_change_h1).toFixed(0)}%` : ""].filter(Boolean).join(" / ");
+  const buyBtn = g === "可跟"
+    ? `<button class="btn" onclick="participate('meme','${id}')">小仓队列</button>`
+    : `<button class="btn" disabled>禁止买入</button>`;
   return `<tr>
     <td><span class="tag ${cls}">${escapeHtml(g)}</span></td>
     <td>${escapeHtml(m.chain)}</td>
     <td><strong>${escapeHtml(m.symbol)}</strong><div class="muted">${escapeHtml(extra)}</div></td>
-    <td>${fmtUsd(m.price_usd)}</td>
+    <td>${fmtUsd(m.price_usd)}<div class="muted">${escapeHtml(chg)}</div></td>
     <td>${fmtUsd(m.liquidity_usd)}</td>
     <td>${m.buy_sell_ratio ?? "-"}</td>
     <td>${m.heat ?? "-"}</td>
@@ -321,7 +325,7 @@ function memeRow(m) {
     <td>${escapeHtml(m.source)}</td>
     <td class="row-actions">
       ${m.url ? `<a class="btn" href="${escapeHtml(m.url)}" target="_blank">打开</a>` : ""}
-      <button class="btn" onclick="participate('meme','${id}')">手动队列</button>
+      ${buyBtn}
     </td>
   </tr>`;
 }
@@ -398,6 +402,10 @@ async function participate(category, key) {
   const bucket = category === "contract" ? "contracts" : category;
   const item = (store[bucket] || {})[decodeURIComponent(key)];
   if (!item) return;
+  if (category === "meme" && item.grade !== "可跟") {
+    setStatus("该妖币不是「可跟」，禁止买入（上一版这类盘最容易归零）");
+    return;
+  }
   const task = await api("/api/wallet/participate", { method: "POST", body: { category, item, auto: false } });
   setStatus("已加入队列 #" + task.id + "，请到钱包页确认");
   showView("wallet");

@@ -424,9 +424,9 @@ async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
         90,
         refresh,
         lambda: scan_meme_coins(
-            min_liquidity_usd=float(settings.get("meme_min_liquidity_usd") or 20_000),
-            min_unique_buyers=int(settings.get("meme_min_unique_buyers") or 8),
-            min_holder_growth=int(settings.get("meme_min_holder_growth") or 5),
+            min_liquidity_usd=float(settings.get("meme_min_liquidity_usd") or 80_000),
+            min_unique_buyers=int(settings.get("meme_min_unique_buyers") or 15),
+            min_holder_growth=int(settings.get("meme_min_holder_growth") or 8),
         ),
     )
     try:
