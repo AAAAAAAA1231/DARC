@@ -129,14 +129,14 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "breakeven_r": 1.0,
     "trail_arm_r": 1.5,
     "trail_atr_mult": 1.0,
-    "meme_rules_version": 2,
-    "meme_min_liquidity_usd": 80_000,
+    "meme_rules_version": 3,
+    "meme_min_liquidity_usd": 25_000,
     "meme_buyer_window_minutes": 30,
-    "meme_min_unique_buyers": 15,
-    "meme_min_holder_growth": 8,
-    "meme_max_1h_change": 40,
-    "meme_max_m5_change": 18,
-    "meme_min_age_minutes": 30,
+    "meme_min_unique_buyers": 10,
+    "meme_min_holder_growth": 5,
+    "meme_max_1h_change": 150,
+    "meme_max_m5_change": 70,
+    "meme_min_age_minutes": 8,
     "airdrop_min_funding_usd": 20_000_000,
     "ambassador_lookback_days": 7,
     "twitter_bearer_token": "",
@@ -152,21 +152,24 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "wallet_chain": "ethereum",
     "copy_enabled": True,
     "copy_mode": "paper",
-    "copy_max_positions": 2,
-    "copy_size_usd": 15,
-    "copy_sl_pct": 0.08,
-    "copy_tp_pct": 0.16,
-    "copy_max_1h_change": 32,
-    "copy_min_heat": 70,
-    "copy_max_risk": 38,
+    "copy_max_positions": 3,
+    "copy_size_usd": 10,
+    "copy_sl_pct": 0.30,
+    "copy_tp_pct": 9.0,
+    "copy_max_1h_change": 150,
+    "copy_min_heat": 60,
+    "copy_max_risk": 62,
     "copy_paper_equity": 1000,
-    "copy_cooldown_minutes": 180,
-    "copy_max_size_pct": 0.02,
-    "copy_trail_arm_pct": 0.08,
-    "copy_trail_lock_pct": 0.12,
-    "copy_daily_loss_pct": 0.06,
-    "copy_time_stop_minutes": 45,
-    "copy_giveup_pct": 0.03,
+    "copy_cooldown_minutes": 90,
+    "copy_max_size_pct": 0.01,
+    "copy_trail_arm_pct": 1.0,
+    "copy_trail_lock_pct": 4.0,
+    "copy_daily_loss_pct": 0.08,
+    "copy_time_stop_minutes": 240,
+    "copy_giveup_pct": 0.20,
+    "copy_scale1_mult": 2.0,
+    "copy_scale2_mult": 5.0,
+    "copy_scale_frac": 0.30,
     "weight_refit_days": 7,
 }
 
@@ -208,12 +211,15 @@ MEME_RULE_KEYS = (
     "copy_cooldown_minutes",
     "copy_time_stop_minutes",
     "copy_giveup_pct",
+    "copy_scale1_mult",
+    "copy_scale2_mult",
+    "copy_scale_frac",
 )
 
 
 def _apply_meme_rules_upgrade(settings: dict[str, Any]) -> dict[str, Any]:
-    """Force survival-first meme/copy defaults; ignore leftover 20k/18% 止损 settings."""
-    target = int(DEFAULT_SETTINGS.get("meme_rules_version") or 2)
+    """Force 妖币倍数仓 defaults over leftover scalp settings."""
+    target = int(DEFAULT_SETTINGS.get("meme_rules_version") or 3)
     current = int(settings.get("meme_rules_version") or 0)
     if current >= target:
         return settings

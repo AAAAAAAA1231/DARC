@@ -1,7 +1,7 @@
 const views = {
   contracts: ["合约分析", "100 万次只用于校准指标权重。校准完成后，刷新信号会直接套用模型告诉你涨/跌/观望。"],
-  meme: ["妖币监控", "生存优先：池子≥$8万，不追 1h>32% / 5m>18% 的垂直币，Pump 内盘默认禁止。只有「可跟」才允许小仓。归零盘直接不展示。"],
-  copytrade: ["自动跟单", "8% 硬止损、16% 止盈，浮盈 8% 保本。45 分钟没到 +3% 超时离场。最多 2 仓，单笔≤权益 2%。"],
+  meme: ["妖币监控", "小盘博倍数：池子 $2.5万起，1h 已经动了但还没高潮。16% 止盈那套已拿掉。归零用 1% 仓位扛，不是用窄止盈砍月亮仓。"],
+  copytrade: ["自动跟单", "单笔约本金 1%。2 倍卖掉 30%，5 倍再卖 30%，剩下拿到破位。止损 30%。4 小时还没 +20% 当死票走。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
   launch: ["打新监测", "新项目白名单 / Presale / TGE / 新协议上线，不是交易所上新。"],
   airdrop: ["空投雷达", "知名机构投资、融资 > $2000 万、优先未发币，可标记交互状态"],
@@ -125,7 +125,7 @@ async function loadView(name, refresh) {
       $("memeRows").innerHTML = (data.items || []).map((m) => {
         store.meme[m.key] = m;
         return memeRow(m);
-      }).join("") || emptyRow(11, "暂无过线妖币（需要池子≥8万、未垂直、买压仍在）");
+      }).join("") || emptyRow(11, "暂无过线小妖（要小盘、已启动、还没高潮）");
       if ($("memeMsg")) $("memeMsg").textContent = (data.method || "") + ((data.errors || []).length ? "；部分源失败：" + data.errors.slice(0,2).join("；") : "");
       setStatus(`监控 ${data.count} · 可跟 ${data.followable_count || 0}`);
     } else if (name === "ambassador") {
@@ -403,7 +403,7 @@ async function participate(category, key) {
   const item = (store[bucket] || {})[decodeURIComponent(key)];
   if (!item) return;
   if (category === "meme" && item.grade !== "可跟") {
-    setStatus("该妖币不是「可跟」，禁止买入（上一版这类盘最容易归零）");
+    setStatus("该妖币不是「可跟」，禁止买入");
     return;
   }
   const task = await api("/api/wallet/participate", { method: "POST", body: { category, item, auto: false } });
