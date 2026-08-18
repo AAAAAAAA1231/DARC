@@ -37,13 +37,20 @@ def token_id(item: dict[str, Any]) -> str:
 
 def position_size_usd(s: dict[str, Any]) -> float:
     equity = max(float(s.get("copy_paper_equity") or 1000), 1.0)
-    wanted = float(s.get("copy_size_usd") or 30)
-    cap = equity * float(s.get("copy_max_size_pct") or 0.05)
+    wanted = float(s.get("copy_size_usd") or 10)
+    cap = equity * float(s.get("copy_max_size_pct") or 0.01)
     return round(max(0.0, min(wanted, cap)), 2)
 
 
-def trail_stop(entry: float, current_sl: float, price: float, arm_pct: float = 0.25, lock_pct: float = 0.50) -> float | None:
-    """After +arm, lock breakeven; after +lock, trail SL to keep half of open profit."""
+def trail_stop(
+    entry: float,
+    current_sl: float,
+    price: float,
+    arm_pct: float = 1.0,
+    lock_pct: float = 4.0,
+    lock_mult: float = 2.0,
+) -> float | None:
+    """2 倍先把止损抬到成本；5 倍抬到 2 倍。一个月持有，先锁胜利再留倍数。"""
     if entry <= 0 or price <= 0:
         return None
     ret = (price - entry) / entry
@@ -51,9 +58,31 @@ def trail_stop(entry: float, current_sl: float, price: float, arm_pct: float = 0
     if ret >= arm_pct:
         new_sl = max(new_sl, entry)
     if ret >= lock_pct:
-        new_sl = max(new_sl, entry + (price - entry) * 0.5)
+        new_sl = max(new_sl, entry * lock_mult)
     if new_sl > current_sl + 1e-12:
         return round(new_sl, 10)
+    return None
+
+
+def apply_scale(pos: dict[str, Any], price: float, s: dict[str, Any]) -> dict[str, Any] | None:
+    """2 倍卖掉约 35% 锁定胜利，5 倍再卖 25%，剩下拿到本月。"""
+    entry = float(pos.get("entry") or 0)
+    qty = float(pos.get("qty") or 0)
+    orig = float(pos.get("orig_qty") or qty)
+    if entry <= 0 or orig <= 0 or price <= 0:
+        return None
+    multiple = price / entry
+    stage = int(pos.get("scale_stage") or 0)
+    s1 = float(s.get("copy_scale1_mult") or 2.0)
+    s2 = float(s.get("copy_scale2_mult") or 5.0)
+    frac1 = float(s.get("copy_scale_frac") or 0.35)
+    frac2 = float(s.get("copy_scale2_frac") or 0.25)
+    if stage < 1 and multiple >= s1:
+        sell = min(orig * frac1, qty * 0.95)
+        return {"stage": 1, "sell_qty": sell, "label": f"{s1:.1f}倍锁定"}
+    if stage < 2 and multiple >= s2:
+        sell = min(orig * frac2, qty * 0.95)
+        return {"stage": 2, "sell_qty": sell, "label": f"{s2:.1f}倍减仓"}
     return None
 
 
@@ -94,19 +123,31 @@ def _settings() -> dict[str, Any]:
     s = load_settings()
     s.setdefault("copy_enabled", True)
     s.setdefault("copy_mode", "paper")  # paper | live_queue
-    s.setdefault("copy_max_positions", 5)
-    s.setdefault("copy_size_usd", 30)
-    s.setdefault("copy_sl_pct", 0.18)
-    s.setdefault("copy_tp_pct", 0.40)
-    s.setdefault("copy_max_1h_change", 80)
-    s.setdefault("copy_min_heat", 65)
-    s.setdefault("copy_max_risk", 45)
+    s.setdefault("copy_max_positions", 1)
+    s.setdefault("copy_size_usd", 10)
+    s.setdefault("copy_sl_pct", 0.28)
+    s.setdefault("copy_tp_pct", 9.0)
+    s.setdefault("copy_max_1h_change", 20)
+    s.setdefault("copy_min_heat", 70)
+    s.setdefault("copy_max_risk", 50)
     s.setdefault("copy_paper_equity", 1000)
-    s.setdefault("copy_cooldown_minutes", 60)
-    s.setdefault("copy_max_size_pct", 0.05)
-    s.setdefault("copy_trail_arm_pct", 0.25)
-    s.setdefault("copy_trail_lock_pct", 0.50)
-    s.setdefault("copy_daily_loss_pct", 0.15)
+    s.setdefault("copy_cooldown_minutes", 60 * 24 * 28)
+    s.setdefault("copy_max_size_pct", 0.01)
+    s.setdefault("copy_trail_arm_pct", 1.0)
+    s.setdefault("copy_trail_lock_pct", 4.0)
+    s.setdefault("copy_daily_loss_pct", 0.06)
+    s.setdefault("copy_time_stop_minutes", 60 * 24 * 30)
+    s.setdefault("copy_giveup_pct", 0.50)
+    s.setdefault("copy_scale1_mult", 2.0)
+    s.setdefault("copy_scale2_mult", 5.0)
+    s.setdefault("copy_scale_frac", 0.35)
+    s.setdefault("copy_scale2_frac", 0.25)
+    s.setdefault("copy_fast_fail_minutes", 1440)
+    s.setdefault("copy_fast_fail_pct", 0.20)
+    s.setdefault("copy_struct_m5_fail", -25)
+    s.setdefault("copy_struct_h1_min", 0)
+    s.setdefault("copy_struct_h6_fail", -28)
+    s.setdefault("copy_require_multi_source", False)
     return s
 
 
@@ -123,12 +164,12 @@ async def snapshot() -> dict[str, Any]:
         "mode": s.get("copy_mode") or "paper",
         "equity": float(s.get("copy_paper_equity") or 1000),
         "size_usd": position_size_usd(s),
-        "max_positions": int(s.get("copy_max_positions") or 5),
-        "sl_pct": float(s.get("copy_sl_pct") or 0.18),
-        "tp_pct": float(s.get("copy_tp_pct") or 0.40),
-        "min_heat": float(s.get("copy_min_heat") or 65),
-        "max_risk": float(s.get("copy_max_risk") or 45),
-        "cooldown_minutes": int(s.get("copy_cooldown_minutes") or 60),
+        "max_positions": int(s.get("copy_max_positions") or 1),
+        "sl_pct": float(s.get("copy_sl_pct") or 0.28),
+        "tp_pct": float(s.get("copy_tp_pct") or 9.0),
+        "min_heat": float(s.get("copy_min_heat") or 70),
+        "max_risk": float(s.get("copy_max_risk") or 50),
+        "cooldown_minutes": int(s.get("copy_cooldown_minutes") or 60 * 24 * 28),
         "open": open_pos,
         "closed": closed[:40],
         "open_count": len(open_pos),
@@ -136,9 +177,10 @@ async def snapshot() -> dict[str, Any]:
         "unrealized_pnl": round(unreal, 2),
         "win_rate": round(len(wins) / len(closed), 3) if closed else 0,
         "note": (
-            "默认模拟跟单：只在刷新妖币时开新仓；缓存刷新只做盯市与平仓。"
-            "止损 18%、止盈 40%，浮盈 25% 保本、50% 追踪锁一半利润。"
-            "同币冷却 60 分钟，单笔不超过权益 5%。实盘只进钱包确认队列，不代签私钥。"
+            "一个月一买：只跟本月「可跟」meme，最多 1 仓。"
+            "2 倍卖掉 35% 锁定胜利；5 倍再卖 25%，剩下博更高倍数。"
+            "前 24 小时跌超 20% 当撤池。30 天还没 +50% 离场。"
+            "单笔 1% 本金。不要加仓归零票。"
         ),
     }
 
@@ -161,6 +203,18 @@ async def update_settings(fields: dict[str, Any]) -> dict[str, Any]:
         "copy_trail_arm_pct",
         "copy_trail_lock_pct",
         "copy_daily_loss_pct",
+        "copy_time_stop_minutes",
+        "copy_giveup_pct",
+        "copy_scale1_mult",
+        "copy_scale2_mult",
+        "copy_scale_frac",
+        "copy_scale2_frac",
+        "copy_fast_fail_minutes",
+        "copy_fast_fail_pct",
+        "copy_struct_m5_fail",
+        "copy_struct_h1_min",
+        "copy_struct_h6_fail",
+        "copy_require_multi_source",
     }
     for k, v in fields.items():
         if k in allowed:
@@ -170,64 +224,103 @@ async def update_settings(fields: dict[str, Any]) -> dict[str, Any]:
 
 
 def _should_enter(item: dict[str, Any], s: dict[str, Any]) -> tuple[bool, str]:
-    scored = item if "grade" in item else enrich_and_score(item, float(s.get("meme_min_liquidity_usd") or 20_000))
+    scored = enrich_and_score(item, float(s.get("meme_min_liquidity_usd") or 100_000))
     if scored.get("grade") != "可跟":
         return False, f"评级 {scored.get('grade')}，不自动跟"
-    if float(scored.get("heat") or 0) < float(s.get("copy_min_heat") or 65):
+    if not scored.get("conviction"):
+        return False, "不是月度持有的高质量 meme"
+    if float(scored.get("heat") or 0) < float(s.get("copy_min_heat") or 70):
         return False, "热度不够"
-    if float(scored.get("risk") or 100) > float(s.get("copy_max_risk") or 45):
+    if float(scored.get("risk") or 100) > float(s.get("copy_max_risk") or 50):
         return False, "风险过高"
-    chg = float(scored.get("price_change_m5") or scored.get("price_change_h1") or 0)
-    if chg >= float(s.get("copy_max_1h_change") or 80):
-        return False, "涨幅过大，不追高"
+    chg_h1 = float(scored.get("price_change_h1") or 0)
+    chg_h24 = float(scored.get("price_change_h24") or 0)
+    if chg_h1 >= float(s.get("copy_max_1h_change") or 20):
+        return False, "1h 太陡，等凉了再买"
+    if chg_h24 >= 70:
+        return False, "24h 已经翻太倍"
+    if not scored.get("has_twitter") and not scored.get("is_cto") and not scored.get("gecko_trending"):
+        return False, "没有 X/社区/热榜确认"
     px = float(scored.get("price_usd") or 0)
     if px <= 0:
         return False, "无有效价格"
-    return True, "可跟：多人买入+持币增加+池子够深+涨幅未失控"
+    return True, "可跟：月度高质量 meme"
 
 
 async def evaluate_memes(items: list[dict[str, Any]], open_new: bool = True) -> dict[str, Any]:
     s = _settings()
     actions: list[str] = []
     prices = {it.get("key"): float(it.get("price_usd") or 0) for it in items if it.get("key")}
+    tape_by_key: dict[str, dict[str, Any]] = {}
+    tape_by_tid: dict[str, dict[str, Any]] = {}
     # also index by token id so MTM still works if source key changed
     for it in items:
         tid = token_id(it)
         px = float(it.get("price_usd") or 0)
+        if it.get("key"):
+            tape_by_key[str(it.get("key"))] = it
+        if tid:
+            tape_by_tid[tid] = it
         if tid and px > 0:
             prices.setdefault(tid, px)
     open_pos = await db.list_copy_positions("open")
+    s1 = float(s.get("copy_scale1_mult") or 2.0)
 
     for pos in open_pos:
         px = prices.get(pos["item_key"]) or prices.get(token_id(pos)) or float(pos.get("last_price") or pos["entry"])
-        await db.update_copy_position(pos["id"], last_price=px, unrealized_pnl=_pnl(pos, px))
+        peak = max(float(pos.get("peak") or 0), px, float(pos.get("entry") or 0))
+        await db.update_copy_position(pos["id"], last_price=px, peak=peak, unrealized_pnl=_pnl(pos, px))
         pos["last_price"] = px
+        pos["peak"] = peak
         pos["unrealized_pnl"] = _pnl(pos, px)
+        scaled = apply_scale(pos, px, s)
+        if scaled:
+            sell_qty = float(scaled["sell_qty"])
+            pnl = round((px - float(pos["entry"])) * sell_qty, 4)
+            new_qty = max(0.0, float(pos["qty"]) - sell_qty)
+            booked = float(pos.get("pnl_usd") or 0) + pnl
+            sl = max(float(pos.get("sl") or 0), float(pos["entry"]) * (1.0 if scaled["stage"] == 1 else s1))
+            await db.update_copy_position(
+                pos["id"],
+                qty=new_qty,
+                scale_stage=scaled["stage"],
+                sl=sl,
+                pnl_usd=booked,
+            )
+            pos["qty"] = new_qty
+            pos["scale_stage"] = scaled["stage"]
+            pos["sl"] = sl
+            pos["pnl_usd"] = booked
+            s["copy_paper_equity"] = float(s.get("copy_paper_equity") or 1000) + pnl
+            actions.append(f"{scaled['label']} {pos['symbol']} 卖 {sell_qty:.4f} PnL {pnl:.2f}")
         new_sl = trail_stop(
             float(pos.get("entry") or 0),
             float(pos.get("sl") or 0),
             px,
-            float(s.get("copy_trail_arm_pct") or 0.25),
-            float(s.get("copy_trail_lock_pct") or 0.50),
+            float(s.get("copy_trail_arm_pct") or 1.0),
+            float(s.get("copy_trail_lock_pct") or 4.0),
+            s1,
         )
         if new_sl is not None:
             await db.update_copy_position(pos["id"], sl=new_sl)
             pos["sl"] = new_sl
             actions.append(f"追踪止损 {pos['symbol']} → {new_sl}")
-        hit = _exit_reason(pos, px, s)
+        live = tape_by_key.get(str(pos.get("item_key") or "")) or tape_by_tid.get(token_id(pos))
+        hit = _exit_reason(pos, px, s, tape=live)
         if hit:
-            pnl = _pnl(pos, px)
+            remain = _pnl(pos, px)
+            total = float(pos.get("pnl_usd") or 0) + remain
             await db.update_copy_position(
                 pos["id"],
                 status="closed",
                 exit_price=px,
-                pnl_usd=pnl,
+                pnl_usd=total,
                 closed_at=_now(),
                 unrealized_pnl=0,
                 close_reason=hit,
             )
-            s["copy_paper_equity"] = float(s.get("copy_paper_equity") or 1000) + pnl
-            actions.append(f"平仓 {pos['symbol']} @ {px} ({hit}) PnL {pnl:.2f}")
+            s["copy_paper_equity"] = float(s.get("copy_paper_equity") or 1000) + remain
+            actions.append(f"平仓 {pos['symbol']} @ {px} ({hit}) PnL {total:.2f}")
     save_settings(s)
 
     if not s.get("copy_enabled"):
@@ -254,9 +347,9 @@ async def evaluate_memes(items: list[dict[str, Any]], open_new: bool = True) -> 
     closed = [p for p in all_pos if p.get("status") == "closed"]
     open_keys = {str(p["item_key"]).lower() for p in open_pos}
     open_tids = {token_id(p) for p in open_pos}
-    max_n = int(s.get("copy_max_positions") or 5)
+    max_n = int(s.get("copy_max_positions") or 1)
     size = position_size_usd(s)
-    cooldown = int(s.get("copy_cooldown_minutes") or 60)
+    cooldown = int(s.get("copy_cooldown_minutes") or 180)
 
     if size < 5:
         snap = await snapshot()
@@ -269,7 +362,7 @@ async def evaluate_memes(items: list[dict[str, Any]], open_new: bool = True) -> 
         ok, why = _should_enter(it, s)
         if ok:
             candidates.append((it, why))
-    candidates.sort(key=lambda x: float(x[0].get("heat") or 0) - float(x[0].get("risk") or 0), reverse=True)
+    candidates.sort(key=lambda x: float(x[0].get("expectancy") or 0) or (float(x[0].get("heat") or 0) - 1.5 * float(x[0].get("risk") or 0)), reverse=True)
 
     opened = 0
     for it, why in candidates:
@@ -284,8 +377,8 @@ async def evaluate_memes(items: list[dict[str, Any]], open_new: bool = True) -> 
             actions.append(f"冷却中，跳过 {it.get('symbol')}")
             continue
         px = float(it.get("price_usd") or 0)
-        sl = px * (1 - float(s.get("copy_sl_pct") or 0.18))
-        tp = px * (1 + float(s.get("copy_tp_pct") or 0.40))
+        sl = px * (1 - float(s.get("copy_sl_pct") or 0.28))
+        tp = px * (1 + float(s.get("copy_tp_pct") or 9.0))
         qty = size / px
         pos = await db.add_copy_position(
             {
@@ -309,7 +402,7 @@ async def evaluate_memes(items: list[dict[str, Any]], open_new: bool = True) -> 
         open_keys.add(key.lower())
         open_tids.add(tid)
         opened += 1
-        actions.append(f"开仓 {pos['symbol']} {pos['chain']} @ {px} 仓位 ${size}")
+        actions.append(f"开仓 {pos['symbol']} {pos['chain']} @ {px} 彩票 ${size}")
         if (s.get("copy_mode") or "paper") == "live_queue":
             await enqueue_participate("meme", it, auto=False)
 
@@ -325,13 +418,43 @@ def _pnl(pos: dict[str, Any], price: float) -> float:
     return round((price - entry) * qty, 4)
 
 
-def _exit_reason(pos: dict[str, Any], price: float, s: dict[str, Any]) -> str | None:
+def _exit_reason(
+    pos: dict[str, Any],
+    price: float,
+    s: dict[str, Any],
+    now: datetime | None = None,
+    tape: dict[str, Any] | None = None,
+) -> str | None:
     sl = float(pos.get("sl") or 0)
     tp = float(pos.get("tp") or 0)
+    entry = float(pos.get("entry") or 0)
     if sl and price <= sl:
-        if price >= float(pos.get("entry") or 0):
+        if price >= entry:
             return "追踪止盈"
         return "止损"
     if tp and price >= tp:
-        return "止盈"
+        return "月亮仓止盈"
+    if entry > 0:
+        ret = (price - entry) / entry
+        opened = _parse_dt(pos.get("opened_at"))
+        now = now or datetime.now(timezone.utc)
+        if opened:
+            age_min = (now - opened).total_seconds() / 60.0
+            fast_m = int(s.get("copy_fast_fail_minutes") or 1440)
+            fast_p = float(s.get("copy_fast_fail_pct") or 0.20)
+            if age_min <= fast_m and ret <= -abs(fast_p):
+                return "快速止损"
+            limit = int(s.get("copy_time_stop_minutes") or 60 * 24 * 30)
+            giveup = float(s.get("copy_giveup_pct") or 0.50)
+            if limit > 0 and age_min >= limit and ret < giveup:
+                return "死票离场"
+        if tape and int(pos.get("scale_stage") or 0) < 1:
+            chg_h6 = float(tape.get("price_change_h6") or 0)
+            chg_m5 = float(tape.get("price_change_m5") or 0)
+            buys_m5 = float(tape.get("buys_m5") or 0)
+            sells_m5 = float(tape.get("sells_m5") or 0)
+            if chg_h6 <= float(s.get("copy_struct_h6_fail") or -28):
+                return "结构破坏"
+            if chg_m5 <= float(s.get("copy_struct_m5_fail") or -25) and sells_m5 >= max(buys_m5, 1.0) * 1.3:
+                return "结构破坏"
     return None

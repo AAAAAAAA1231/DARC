@@ -55,7 +55,10 @@ CREATE TABLE IF NOT EXISTS copy_positions (
     heat REAL,
     risk REAL,
     opened_at TEXT NOT NULL,
-    closed_at TEXT NOT NULL DEFAULT ''
+    closed_at TEXT NOT NULL DEFAULT '',
+    peak REAL NOT NULL DEFAULT 0,
+    scale_stage INTEGER NOT NULL DEFAULT 0,
+    orig_qty REAL NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS analysis_runs (
@@ -87,8 +90,20 @@ async def connect() -> aiosqlite.Connection:
     conn = await aiosqlite.connect(DB_PATH)
     conn.row_factory = aiosqlite.Row
     await conn.executescript(SCHEMA)
+    await _migrate_copy_columns(conn)
     await conn.commit()
     return conn
+
+
+async def _migrate_copy_columns(conn: aiosqlite.Connection) -> None:
+    cur = await conn.execute("PRAGMA table_info(copy_positions)")
+    cols = {row[1] for row in await cur.fetchall()}
+    if "peak" not in cols:
+        await conn.execute("ALTER TABLE copy_positions ADD COLUMN peak REAL NOT NULL DEFAULT 0")
+    if "scale_stage" not in cols:
+        await conn.execute("ALTER TABLE copy_positions ADD COLUMN scale_stage INTEGER NOT NULL DEFAULT 0")
+    if "orig_qty" not in cols:
+        await conn.execute("ALTER TABLE copy_positions ADD COLUMN orig_qty REAL NOT NULL DEFAULT 0")
 
 
 async def upsert_mark(
@@ -286,8 +301,8 @@ async def add_copy_position(row: dict[str, Any]) -> dict[str, Any]:
         cur = await conn.execute(
             """
             INSERT INTO copy_positions
-            (item_key, symbol, chain, url, entry, qty, sl, tp, last_price, status, reason, mode, heat, risk, opened_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?)
+            (item_key, symbol, chain, url, entry, qty, sl, tp, last_price, status, reason, mode, heat, risk, opened_at, peak, scale_stage, orig_qty)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?, ?, ?, ?, ?, 0, ?)
             """,
             (
                 row["item_key"],
@@ -304,6 +319,8 @@ async def add_copy_position(row: dict[str, Any]) -> dict[str, Any]:
                 row.get("heat"),
                 row.get("risk"),
                 now,
+                float(row.get("last_price") or row["entry"]),
+                float(row["qty"]),
             ),
         )
         await conn.commit()

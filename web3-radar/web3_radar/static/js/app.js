@@ -1,11 +1,11 @@
 const views = {
   contracts: ["合约分析", "100 万次只用于校准指标权重。校准完成后，刷新信号会直接套用模型告诉你涨/跌/观望。"],
-  meme: ["妖币监控", "只保留池子≥$20k、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
-  copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
+  meme: ["Meme币", "一个月只买一张高质量 meme：活过 3 天、有 X/社区热度、买盘确认，市值还小才有倍数。飞刀和新盘不买。"],
+  copytrade: ["自动跟单", "本月最多 1 仓。2 倍卖掉 35%。前 24 小时跌超 20% 当撤池。30 天没 +50% 离场。单笔 1%。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
   launch: ["打新监测", "新项目白名单 / Presale / TGE / 新协议上线，不是交易所上新。"],
   airdrop: ["空投雷达", "知名机构投资、融资 > $2000 万、优先未发币，可标记交互状态"],
-  wallet: ["钱包执行", "连接 OKX 等钱包，将空投 / 打新 / 妖币 / 合约加入确认队列"],
+  wallet: ["钱包执行", "连接 OKX 等钱包，将空投 / 打新 / meme / 合约加入确认队列"],
   settings: ["设置", "权重模拟次数、阈值、API Token 与自动参加上限"],
 };
 
@@ -118,16 +118,32 @@ async function loadView(name, refresh) {
         if (!analyzeJob && uni.items.length) startAnalyze("fit");
       }
     } else if (name === "meme") {
-      setStatus("正在拉取妖币（可能需要十几秒）…");
+      setStatus("正在拉取 meme 币（可能需要十几秒）…");
       if ($("memeRows")) $("memeRows").innerHTML = emptyRow(10, "加载中…");
       const data = await api("/api/meme" + q);
       store.meme = {};
       $("memeRows").innerHTML = (data.items || []).map((m) => {
         store.meme[m.key] = m;
         return memeRow(m);
-      }).join("") || emptyRow(10, "暂无过线妖币（需要池子≥20k且短期买压）");
+      }).join("") || emptyRow(11, "暂无过线 meme（要活过 3 天、池子够、还有倍数）");
       if ($("memeMsg")) $("memeMsg").textContent = (data.method || "") + ((data.errors || []).length ? "；部分源失败：" + data.errors.slice(0,2).join("；") : "");
-      setStatus(`监控 ${data.count} · 可跟 ${data.followable_count || 0}`);
+      if ($("periodPickBox")) {
+        const pick = data.period_pick;
+        if (pick) {
+          store.meme[pick.key] = pick;
+          $("periodPickBox").innerHTML = `<h3>本月推荐 · ${escapeHtml(pick.symbol)}</h3>
+            <p><strong>${escapeHtml(pick.chain || "")}</strong> · 流动性 ${fmtUsd(pick.liquidity_usd)} · FDV ${fmtUsd(pick.fdv)} · 买卖比 ${pick.buy_sell_ratio ?? "-"}</p>
+            <p class="muted">${escapeHtml((pick.score_reasons || []).slice(0,4).join(" · "))}</p>
+            <p class="muted">合约：<code>${escapeHtml(pick.token_address || "")}</code></p>
+            <div class="card-actions">
+              ${pick.url ? `<a class="btn" href="${escapeHtml(pick.url)}" target="_blank">打开图表</a>` : ""}
+              <button class="btn primary" onclick="participate('meme','${encodeURIComponent(pick.key)}')">小仓队列</button>
+            </div>`;
+        } else {
+          $("periodPickBox").innerHTML = "<p class='muted'>本月没有过线的高质量 meme。宁可不买，也不要去接 3 天内的飞刀。</p>";
+        }
+      }
+      setStatus(`监控 ${data.count} · 可跟 ${data.followable_count || 0}` + (data.period_pick ? ` · 本月 ${data.period_pick.symbol}` : " · 本月空仓"));
     } else if (name === "ambassador") {
       setStatus("正在加载大使计划…");
       $("ambassadorCards").innerHTML = "<p class='muted'>加载中…</p>";
@@ -308,12 +324,16 @@ function memeRow(m) {
   const id = encodeURIComponent(m.key);
   const g = m.grade || "观察";
   const cls = g === "可跟" ? "up" : g === "避开" ? "down" : "wait";
-  const extra = [ageLabel(m)].concat(m.score_reasons || []).concat(m.reject_reasons || []).slice(0, 3).join(" · ");
+  const extra = [m.action, ageLabel(m)].concat(m.score_reasons || []).concat(m.reject_reasons || []).filter(Boolean).slice(0, 3).join(" · ");
+  const chg = [m.price_change_m5 != null ? `5m ${Number(m.price_change_m5).toFixed(0)}%` : "", m.price_change_h1 != null ? `1h ${Number(m.price_change_h1).toFixed(0)}%` : ""].filter(Boolean).join(" / ");
+  const buyBtn = g === "可跟"
+    ? `<button class="btn" onclick="participate('meme','${id}')">小仓队列</button>`
+    : `<button class="btn" disabled>禁止买入</button>`;
   return `<tr>
     <td><span class="tag ${cls}">${escapeHtml(g)}</span></td>
     <td>${escapeHtml(m.chain)}</td>
     <td><strong>${escapeHtml(m.symbol)}</strong><div class="muted">${escapeHtml(extra)}</div></td>
-    <td>${fmtUsd(m.price_usd)}</td>
+    <td>${fmtUsd(m.price_usd)}<div class="muted">${escapeHtml(chg)}</div></td>
     <td>${fmtUsd(m.liquidity_usd)}</td>
     <td>${m.buy_sell_ratio ?? "-"}</td>
     <td>${m.heat ?? "-"}</td>
@@ -321,7 +341,7 @@ function memeRow(m) {
     <td>${escapeHtml(m.source)}</td>
     <td class="row-actions">
       ${m.url ? `<a class="btn" href="${escapeHtml(m.url)}" target="_blank">打开</a>` : ""}
-      <button class="btn" onclick="participate('meme','${id}')">手动队列</button>
+      ${buyBtn}
     </td>
   </tr>`;
 }
@@ -398,6 +418,10 @@ async function participate(category, key) {
   const bucket = category === "contract" ? "contracts" : category;
   const item = (store[bucket] || {})[decodeURIComponent(key)];
   if (!item) return;
+  if (category === "meme" && item.grade !== "可跟") {
+    setStatus("该 meme 不是「可跟」，禁止买入");
+    return;
+  }
   const task = await api("/api/wallet/participate", { method: "POST", body: { category, item, auto: false } });
   setStatus("已加入队列 #" + task.id + "，请到钱包页确认");
   showView("wallet");
@@ -436,7 +460,7 @@ async function saveCopytrade() {
   }}});
   await api("/api/meme?refresh=true");
   await loadCopytrade();
-  setStatus("跟单规则已保存，并按最新妖币信号扫描");
+  setStatus("跟单规则已保存，并按最新 meme 信号扫描");
 }
 
 async function loadWallet() {

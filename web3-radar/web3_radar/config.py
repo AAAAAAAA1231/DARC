@@ -129,10 +129,14 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "breakeven_r": 1.0,
     "trail_arm_r": 1.5,
     "trail_atr_mult": 1.0,
-    "meme_min_liquidity_usd": 20_000,
+    "meme_rules_version": 7,
+    "meme_min_liquidity_usd": 100_000,
     "meme_buyer_window_minutes": 30,
-    "meme_min_unique_buyers": 8,
-    "meme_min_holder_growth": 5,
+    "meme_min_unique_buyers": 15,
+    "meme_min_holder_growth": 8,
+    "meme_max_1h_change": 20,
+    "meme_max_m5_change": 22,
+    "meme_min_age_minutes": 72 * 60,
     "airdrop_min_funding_usd": 20_000_000,
     "ambassador_lookback_days": 7,
     "twitter_bearer_token": "",
@@ -148,19 +152,31 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "wallet_chain": "ethereum",
     "copy_enabled": True,
     "copy_mode": "paper",
-    "copy_max_positions": 5,
-    "copy_size_usd": 30,
-    "copy_sl_pct": 0.18,
-    "copy_tp_pct": 0.40,
-    "copy_max_1h_change": 80,
-    "copy_min_heat": 65,
-    "copy_max_risk": 45,
+    "copy_max_positions": 1,
+    "copy_size_usd": 10,
+    "copy_sl_pct": 0.28,
+    "copy_tp_pct": 9.0,
+    "copy_max_1h_change": 20,
+    "copy_min_heat": 70,
+    "copy_max_risk": 50,
     "copy_paper_equity": 1000,
-    "copy_cooldown_minutes": 60,
-    "copy_max_size_pct": 0.05,
-    "copy_trail_arm_pct": 0.25,
-    "copy_trail_lock_pct": 0.50,
-    "copy_daily_loss_pct": 0.15,
+    "copy_cooldown_minutes": 60 * 24 * 28,
+    "copy_max_size_pct": 0.01,
+    "copy_trail_arm_pct": 1.0,
+    "copy_trail_lock_pct": 4.0,
+    "copy_daily_loss_pct": 0.06,
+    "copy_time_stop_minutes": 60 * 24 * 30,
+    "copy_giveup_pct": 0.50,
+    "copy_scale1_mult": 2.0,
+    "copy_scale2_mult": 5.0,
+    "copy_scale_frac": 0.35,
+    "copy_scale2_frac": 0.25,
+    "copy_fast_fail_minutes": 1440,
+    "copy_fast_fail_pct": 0.20,
+    "copy_struct_m5_fail": -25,
+    "copy_struct_h1_min": 0,
+    "copy_struct_h6_fail": -28,
+    "copy_require_multi_source": False,
     "weight_refit_days": 7,
 }
 
@@ -177,7 +193,55 @@ def load_settings() -> dict[str, Any]:
     raw = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
     merged = dict(DEFAULT_SETTINGS)
     merged.update(raw)
+    merged = _apply_meme_rules_upgrade(merged)
     return merged
+
+
+MEME_RULE_KEYS = (
+    "meme_min_liquidity_usd",
+    "meme_min_unique_buyers",
+    "meme_min_holder_growth",
+    "meme_max_1h_change",
+    "meme_max_m5_change",
+    "meme_min_age_minutes",
+    "copy_sl_pct",
+    "copy_tp_pct",
+    "copy_max_1h_change",
+    "copy_min_heat",
+    "copy_max_risk",
+    "copy_max_positions",
+    "copy_size_usd",
+    "copy_max_size_pct",
+    "copy_trail_arm_pct",
+    "copy_trail_lock_pct",
+    "copy_daily_loss_pct",
+    "copy_cooldown_minutes",
+    "copy_time_stop_minutes",
+    "copy_giveup_pct",
+    "copy_scale1_mult",
+    "copy_scale2_mult",
+    "copy_scale_frac",
+    "copy_scale2_frac",
+    "copy_fast_fail_minutes",
+    "copy_fast_fail_pct",
+    "copy_struct_m5_fail",
+    "copy_struct_h1_min",
+    "copy_struct_h6_fail",
+)
+
+
+def _apply_meme_rules_upgrade(settings: dict[str, Any]) -> dict[str, Any]:
+    """Force monthly meme-coin defaults over leftover scalp settings."""
+    target = int(DEFAULT_SETTINGS.get("meme_rules_version") or 7)
+    current = int(settings.get("meme_rules_version") or 0)
+    if current >= target:
+        return settings
+    upgraded = dict(settings)
+    for key in MEME_RULE_KEYS:
+        upgraded[key] = DEFAULT_SETTINGS[key]
+    upgraded["meme_rules_version"] = target
+    save_settings(upgraded)
+    return upgraded
 
 
 def save_settings(settings: dict[str, Any]) -> None:

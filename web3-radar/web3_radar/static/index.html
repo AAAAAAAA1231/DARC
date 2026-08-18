@@ -17,7 +17,7 @@
     </div>
     <nav>
       <button data-view="contracts" class="active">合约分析</button>
-      <button data-view="meme">妖币监控</button>
+      <button data-view="meme">Meme币</button>
       <button data-view="copytrade">自动跟单</button>
       <button data-view="ambassador">大使招募</button>
       <button data-view="launch">打新监测</button>
@@ -70,12 +70,13 @@
 
     <section id="view-meme" class="view hidden">
       <div class="toolbar">
-        <span class="pill">池子 ≥ $20k</span>
-        <span class="pill">5 分钟买压 + 持币增长</span>
-        <span class="pill">过滤接盘 / 过新狙击盘</span>
+        <span class="pill">一个月一买 · meme币</span>
+        <span class="pill">活过3天</span>
+        <span class="pill">2倍先锁 35%</span>
         <input id="memeFilter" placeholder="筛选 可跟/观察/链" />
       </div>
       <p class="muted" id="memeMsg"></p>
+      <div class="panel" id="periodPickBox" style="margin-bottom:12px"></div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -92,8 +93,8 @@
     <section id="view-copytrade" class="view hidden">
       <div class="grid-2">
         <div class="panel">
-          <h3>跟单规则（针对妖币「可跟」）</h3>
-          <p class="muted">默认模拟盘：热度≥65、风险≤45、池子≥20k、不追涨幅过大的币。缓存刷新只盯市；点「刷新」才开新仓。止损 18%、止盈 40%；浮盈 25% 保本、50% 追踪。同币冷却 60 分钟，单笔不超过权益 5%。实盘只推到钱包确认队列。</p>
+          <h3>跟单规则（针对 meme「可跟」）</h3>
+          <p class="muted">一个月左右只买一张 meme。只跟「可跟」：活过 3 天、流动性够出、市值还在倍数区间、买盘和 X/社区热度确认。飞刀K、过新盘、已经上千万的老币不买。2 倍卖掉 35% 锁定胜利，5 倍再减 25%，剩下拿到本月。前 24 小时跌超 20% 当撤池。30 天还没 +50% 离场。单笔 1% 本金，最多 1 仓。</p>
           <label class="check"><input type="checkbox" id="copyEnabled" checked /> 启用跟单</label>
           <label>模式
             <select id="copyMode">
@@ -101,7 +102,7 @@
               <option value="live_queue">实盘队列（需钱包确认）</option>
             </select>
           </label>
-          <label>单笔 USD <input type="number" id="copySize" min="5" value="30" /></label>
+          <label>单笔 USD <input type="number" id="copySize" min="5" value="10" /></label>
           <button class="btn primary" id="copySave">保存规则并扫描</button>
         </div>
         <div class="panel">
@@ -186,7 +187,7 @@
         </div>
         <div class="panel">
           <h3>自动参加规则</h3>
-          <p class="muted">开启后，可将空投 / 打新 / 妖币 / 合约信号加入执行队列。默认仍需在钱包中确认。</p>
+          <p class="muted">开启后，可将空投 / 打新 / meme / 合约信号加入执行队列。默认仍需在钱包中确认。</p>
           <label class="check"><input type="checkbox" id="autoParticipate" /> 允许加入自动队列</label>
           <label>单笔上限 USD <input type="number" id="autoMaxSpend" min="1" step="1" /></label>
         </div>
@@ -208,7 +209,7 @@
         <label>止盈 ATR 倍数<input id="s_atr_tp_mult" type="number" step="0.1" /></label>
         <label>单笔风险占权益 %<input id="s_risk_per_trade_pct" type="number" step="0.1" /></label>
         <label>最多同时持仓<input id="s_max_contract_positions" type="number" step="1" /></label>
-        <label>妖币最小流动性 USD<input id="s_meme_min_liquidity_usd" type="number" /></label>
+        <label>Meme 最小流动性 USD<input id="s_meme_min_liquidity_usd" type="number" /></label>
         <label>空投最小融资 USD<input id="s_airdrop_min_funding_usd" type="number" /></label>
         <label>Twitter Bearer Token<input id="s_twitter_bearer_token" type="password" placeholder="填写后才能检索 X 上的新项目打新/大使" /></label>
         <label>OKX API Key（合约跟单可选）<input id="s_okx_api_key" type="password" /></label>
