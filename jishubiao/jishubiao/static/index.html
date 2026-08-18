@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>工程技术标自动生成器</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>工程技术标自动生成器</h1>
+      <p>按工程类型匹配现行规范，生成施工组织设计（技术标）初稿 · 本机运行</p>
+    </div>
+    <div>
+      <span class="badge">现行规范号</span>
+      <span class="status" id="statusLine">就绪</span>
+    </div>
+  </header>
+  <main>
+    <div class="card hint">
+      填写项目概况后点「生成技术标」。系统会按专业自动勾选 GB 55000 系列强制性通用规范及对应施工验收标准，并写入编制依据、方案和质量安全措施。
+      <strong>生成的是初稿</strong>，须技术负责人按施工图、地勘和招标文件审核。规范正文请以正式文本为准，本文只引用规范名称和编号。
+    </div>
+
+    <div class="card">
+      <h2>1. 项目概况</h2>
+      <div class="grid">
+        <label>工程名称 <input id="name" value="××小区 1# 住宅楼工程" /></label>
+        <label>建设地点 <input id="location" placeholder="省 / 市 / 项目地址" /></label>
+        <label>招标人 <input id="owner" /></label>
+        <label>投标人 <input id="bidder" placeholder="本单位名称" /></label>
+        <label>专业
+          <select id="specialty"></select>
+        </label>
+        <label>结构类型
+          <select id="structure"></select>
+        </label>
+        <label>工程性质
+          <select id="building_type">
+            <option value="住宅">住宅</option>
+            <option value="公建">公共建筑</option>
+            <option value="工业">工业</option>
+            <option value="市政">市政</option>
+          </select>
+        </label>
+        <label>建筑面积 / 规模 <input id="area" placeholder="如 28600㎡ 或 1.2km" /></label>
+        <label>层数 / 跨度 <input id="floors" placeholder="如 地下 2 层 / 地上 18 层" /></label>
+        <label>工期 <input id="duration" value="540 日历天" /></label>
+        <label>抗震设防 <input id="seismic" value="抗震设防烈度 7 度" /></label>
+        <label>基础形式 <input id="foundation" value="筏板基础" /></label>
+        <label>投资规模 <input id="cost" placeholder="可选" /></label>
+        <label>质量目标 <input id="quality_goal" value="一次性验收合格" /></label>
+        <label>安全目标 <input id="safety_goal" value="杜绝较大及以上生产安全事故" /></label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>2. 招标文件技术要求（可选，写入响应章）</h2>
+      <label>粘贴招标文件中的技术标准、创优、BIM、装配式、智慧工地等条款
+        <textarea id="tender_text" placeholder="例如：本工程须创建市级文明工地；应用 BIM 进行管线综合；装配率不低于 50%；深基坑专项方案需专家论证……"></textarea>
+      </label>
+    </div>
+
+    <div class="card">
+      <h2>3. 自动匹配的现行规范（可取消勾选）</h2>
+      <p class="muted" id="codeHint">选择专业后自动勾选。废止规范不会写入。</p>
+      <div class="codes" id="codeBox"></div>
+    </div>
+
+    <div class="row" style="margin-bottom:14px">
+      <button class="btn primary" id="run">生成技术标</button>
+      <a class="btn" id="dlDocx" href="/api/download/docx">下载 Word</a>
+      <a class="btn" id="dlMd" href="/api/download/md">下载 Markdown</a>
+    </div>
+
+    <div class="card" id="resultBox" style="display:none">
+      <h2>生成结果</h2>
+      <div id="warnBox"></div>
+      <h3>引用规范</h3>
+      <div style="overflow:auto"><table><thead><tr><th>规范号</th><th>名称</th><th>类别</th></tr></thead><tbody id="codeRows"></tbody></table></div>
+      <div class="preview" id="preview"></div>
+    </div>
+  </main>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
