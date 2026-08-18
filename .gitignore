@@ -19,3 +19,13 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+
+chengben/.venv
+chengben/data/
+chengben/dist/*
+!chengben/dist/ChengBen.exe
+!chengben/dist/ChengBen.zip
+chengben/build
+__pycache__/
+*.pyc
+.pytest_cache

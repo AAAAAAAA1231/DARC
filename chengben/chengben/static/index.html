@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>工程成本 · 跟踪纠偏</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>工程成本</h1>
+      <p>目标·动态·已发生 · 节超跟踪 · 纠偏闭环 · 本机保存</p>
+    </div>
+    <div>
+      <span class="badge">离线本机</span>
+      <span class="status" id="statusLine">就绪</span>
+    </div>
+  </header>
+  <div class="layout">
+    <aside class="side">
+      <div class="side-head">工程</div>
+      <div id="projectList"></div>
+      <button class="btn block" id="btnEmpty">+ 空白工程</button>
+      <div class="side-head">从模板新建</div>
+      <label>模板 <select id="tplSelect"></select></label>
+      <label>工程名称 <input id="tplName" placeholder="如 ××道路改造" /></label>
+      <label>地点 <input id="tplLoc" /></label>
+      <label>项目经理 <input id="tplMgr" /></label>
+      <label>成本员 <input id="tplCost" /></label>
+      <button class="btn primary block" id="btnTpl">按模板生成科目</button>
+      <p class="muted tiny">金额单位：元。看板里的「万」只是换算显示。发生一笔就登记一笔，超支科目点纠偏。</p>
+    </aside>
+    <main>
+      <div class="stats" id="stats"></div>
+      <div class="toolbar">
+        <button class="btn primary" id="btnSave">保存</button>
+        <button class="btn" id="btnAddItem">新增科目</button>
+        <button class="btn" id="btnXlsx">导出 Excel</button>
+        <button class="btn danger" id="btnDel">删除本工程</button>
+      </div>
+      <div class="tabs">
+        <button class="tab on" data-tab="items">成本科目</button>
+        <button class="tab" data-tab="logs">发生登记</button>
+        <button class="tab" data-tab="corr">纠偏</button>
+        <button class="tab" data-tab="chg">签证变更</button>
+        <button class="tab" data-tab="info">工程信息</button>
+      </div>
+
+      <section class="panel on" id="tab-items">
+        <div class="filters">
+          <label>类别 <select id="fCat"><option value="">全部</option></select></label>
+          <label>状态 <select id="fFlag">
+            <option value="">全部</option>
+            <option>超支</option><option>预警</option><option>正常</option><option>节约</option>
+          </select></label>
+        </div>
+        <div class="table-wrap" id="itemTable"></div>
+        <div class="card" id="itemDetail" style="display:none"></div>
+      </section>
+
+      <section class="panel" id="tab-logs">
+        <div class="card">
+          <h2>登记一笔发生</h2>
+          <div class="grid">
+            <label>日期 <input id="logDate" type="date" /></label>
+            <label>科目 <select id="logItem"></select></label>
+            <label>类型 <select id="logKind"></select></label>
+            <label>数量 <input id="logQty" type="number" step="0.01" /></label>
+            <label>金额（元） <input id="logAmt" type="number" step="0.01" /></label>
+            <label>单据号 <input id="logVou" /></label>
+          </div>
+          <label>备注 <textarea id="logNotes"></textarea></label>
+          <button class="btn primary" id="btnLog">计入已发生</button>
+          <span class="muted">会自动加到该科目的已发生，并从待发生里扣回。</span>
+        </div>
+        <div id="logList"></div>
+      </section>
+
+      <section class="panel" id="tab-corr">
+        <div class="card">
+          <h2>新增纠偏</h2>
+          <div class="grid">
+            <label>科目 <select id="cItem"></select></label>
+            <label>类型 <select id="cKind"></select></label>
+            <label>纠偏金额（元） <input id="cAmt" type="number" step="0.01" /></label>
+            <label>责任人 <input id="cOwner" /></label>
+            <label>期限 <input id="cDead" type="date" /></label>
+          </div>
+          <label>标题 <input id="cTitle" placeholder="如 钢筋价差锁定采购" /></label>
+          <label>原因 <textarea id="cCause" placeholder="量差 / 价差 / 签证漏项 / 损耗…"></textarea></label>
+          <label>措施 <textarea id="cAction" placeholder="当下怎么压回来，下次怎么防"></textarea></label>
+          <button class="btn primary" id="btnCorr">写入纠偏</button>
+        </div>
+        <div id="corrList"></div>
+      </section>
+
+      <section class="panel" id="tab-chg">
+        <div class="card">
+          <h2>登记签证变更</h2>
+          <div class="grid">
+            <label>日期 <input id="zDate" type="date" /></label>
+            <label>对应科目 <select id="zItem"></select></label>
+            <label>金额（元，可负） <input id="zAmt" type="number" step="0.01" /></label>
+            <label>内容 <input id="zTitle" /></label>
+          </div>
+          <label>备注 <textarea id="zNotes"></textarea></label>
+          <button class="btn primary" id="btnChg">计入动态成本</button>
+        </div>
+        <div id="chgList"></div>
+      </section>
+
+      <section class="panel" id="tab-info">
+        <div class="card">
+          <h2>工程信息</h2>
+          <div class="grid">
+            <label>工程名称 <input id="infoName" /></label>
+            <label>地点 <input id="infoLoc" /></label>
+            <label>项目经理 <input id="infoMgr" /></label>
+            <label>成本员 <input id="infoCost" /></label>
+            <label>专业 <input id="infoSpec" /></label>
+            <label>合同额（元） <input id="infoContract" type="number" step="0.01" /></label>
+          </div>
+          <label>备注 <textarea id="infoNotes"></textarea></label>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
