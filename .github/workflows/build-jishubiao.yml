@@ -1,0 +1,33 @@
+name: Build JiShuBiao EXE
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "jishubiao/**"
+      - ".github/workflows/build-jishubiao.yml"
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: jishubiao
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+      - name: Test
+        run: python -m pytest tests -q
+      - name: Build EXE
+        run: pyinstaller --noconfirm JiShuBiao.spec
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: JiShuBiao-windows
+          path: jishubiao/dist/JiShuBiao.exe

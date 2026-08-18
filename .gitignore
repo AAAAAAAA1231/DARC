@@ -19,3 +19,11 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+jishubiao/.venv
+jishubiao/data/
+jishubiao/dist/*
+!jishubiao/dist/JiShuBiao.exe
+jishubiao/build
+__pycache__/
+*.pyc
+.pytest_cache
