@@ -17,11 +17,11 @@ from web3_radar.collectors.binance import BinanceClient
 from web3_radar.collectors.launch import scan_launches
 from web3_radar.collectors.meme import scan_meme_coins
 from web3_radar.config import INITIAL_INDICATOR_SHARES, STATIC_DIR, load_settings, save_settings
-from web3_radar.engine.indicators import historical_expectancy
+from web3_radar.engine.risk import RiskConfig, apply_portfolio_overlay, path_expectancy
 from web3_radar.engine.signals import analyze_klines, average_weights_from_results, fit_global_weights
 from web3_radar.wallet import enqueue_participate, wallet_status
 
-app = FastAPI(title="链上雷达", version="1.0.0")
+app = FastAPI(title="链上雷达", version="1.3.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 _jobs: dict[str, dict[str, Any]] = {}
@@ -76,7 +76,7 @@ async def wallet_page() -> FileResponse:
 
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
-    return {"ok": True, "app": "链上雷达", "version": "1.2.0"}
+    return {"ok": True, "app": "链上雷达", "version": "1.3.0"}
 
 
 @app.get("/api/settings")
@@ -220,9 +220,10 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
             _jobs[job_id]["total"] = max(len(symbols) * 2, 1)
             meta = {u["binance_symbol"]: u for u in universe}
             sem = asyncio.Semaphore(6)
-            threshold = float(settings.get("signal_threshold") or 0.18)
-            sl_m = float(settings.get("atr_sl_mult") or 1.5)
-            tp_m = float(settings.get("atr_tp_mult") or 2.5)
+            risk_cfg = RiskConfig.from_settings(settings)
+            threshold = risk_cfg.threshold
+            sl_m = risk_cfg.base_sl_mult
+            tp_m = risk_cfg.base_tp_mult
             top_pct = float(settings.get("monte_carlo_top_pct") or 1.0)
             klimit = int(settings.get("kline_limit") or 500)
 
@@ -250,7 +251,7 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
                 # Median across top names is enough; walking every coin's history is too slow for a global model.
                 for _sym, df in list(frames.items())[:25]:
                     try:
-                        emap = await asyncio.to_thread(historical_expectancy, df)
+                        emap = await asyncio.to_thread(path_expectancy, df, risk_cfg)
                         if emap:
                             expect_maps.append(emap)
                             names = list(emap.keys())
@@ -296,6 +297,7 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
                     None,
                     top_pct,
                     weights,
+                    risk_cfg,
                 )
                 extra = meta.get(sym, {})
                 result["name"] = extra.get("name") or sym
@@ -314,6 +316,13 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
                     _jobs[job_id]["results"].append({"symbol": "?", "decision": "观望", "error": str(exc)})
                 _jobs[job_id]["done"] += 1
 
+            scored = [r for r in _jobs[job_id]["results"] if not r.get("error")]
+            errors = [r for r in _jobs[job_id]["results"] if r.get("error")]
+            apply_portfolio_overlay(scored, risk_cfg)
+            tradable_n = sum(1 for r in scored if r.get("tradable"))
+            _jobs[job_id]["results"] = scored + errors
+            _jobs[job_id]["tradable_count"] = tradable_n
+            _jobs[job_id]["phase"] = f"可做 {tradable_n} 个（按 1R 等风险，最多 {risk_cfg.max_positions} 仓）"
             _jobs[job_id]["status"] = "done"
             _jobs[job_id]["n_sims"] = n_sims
             await db.save_analysis_run(_jobs[job_id])

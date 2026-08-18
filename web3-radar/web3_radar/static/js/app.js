@@ -181,15 +181,22 @@ function emptyRow(cols, text) {
 
 function contractRow(r) {
   const id = encodeURIComponent(r.symbol);
+  const tradable = !!r.tradable;
+  const note = r.filter_note ? `<div class="muted">${escapeHtml(r.filter_note)}</div>` : "";
+  const size = tradable && r.suggested_notional_pct ? `${Number(r.suggested_notional_pct).toFixed(1)}% 权益` : "-";
+  const manage = tradable ? `${fmtPx(r.partial_tp)} / ${fmtPx(r.breakeven)}` : "-";
   return `<tr>
-    <td><strong>${r.symbol}</strong><div class="muted">${r.name || ""} ${r.venue ? "· " + r.venue : ""}</div></td>
+    <td><strong>${r.symbol}</strong><div class="muted">${r.name || ""} ${r.venue ? "· " + r.venue : ""}</div>${note}</td>
     <td>${r.market_cap_rank || "-"}</td>
-    <td><span class="tag ${tagClass(r.decision)}">${r.decision || "观望"}</span></td>
+    <td><span class="tag ${tagClass(r.decision)}">${r.decision || "观望"}</span>${tradable ? ' <span class="tag seed">可做</span>' : ""}</td>
+    <td>${r.quality ?? "-"}</td>
     <td>${r.score ?? "-"}</td>
     <td>${fmtPx(r.price)}</td>
     <td>${fmtPx(r.entry)}</td>
     <td>${fmtPx(r.stop_loss)}</td>
+    <td>${manage}</td>
     <td>${fmtPx(r.take_profit)}</td>
+    <td>${size}</td>
     <td>${r.mode === "infer" ? "套用模型" : (r.n_sims ? ("校准 " + Number(r.n_sims).toLocaleString() + " 次") : "未校准")}</td>
     <td class="row-actions">
       <button class="btn" onclick="showDetail('${id}')">指标</button>
@@ -205,6 +212,8 @@ function showDetail(id) {
   $("contractDetail").innerHTML = `
     <div class="panel">
       <h3>${r.symbol} 指标权重（${r.mode === "infer" ? "套用已拟合模型" : "本次校准"} · 校准 ${Number(r.n_sims||0).toLocaleString()} 次）</h3>
+      <p class="muted">${escapeHtml(r.plan_note || r.filter_note || "")}</p>
+      <p class="muted">原始结论 ${escapeHtml(r.raw_decision || r.decision || "观望")} · 趋势一致度 ${r.agreement ?? "-"} · ATR% ${(r.atr_pct!=null ? (Number(r.atr_pct)*100).toFixed(2)+"%" : "-")} · 止损 ${r.sl_mult ?? "-"} ATR</p>
       <div class="table-wrap"><table>
         <thead><tr><th>指标</th><th>信号</th><th>强度</th><th>期望</th><th>初始权重</th><th>优化权重</th><th>说明</th></tr></thead>
         <tbody>
@@ -252,7 +261,8 @@ async function pollAnalyze() {
     if (note && $("simBadge")) $("simBadge").textContent = note.sim_note;
     const phase = data.phase ? " · " + data.phase : "";
     const kindLabel = data.kind === "fit" ? "校准权重" : "套用模型";
-    setStatus(`${kindLabel} ${data.done}/${data.total} · ${data.status}${phase}` + (data.status === "done" ? " · 完成" : ""));
+    const book = data.tradable_count != null ? ` · 可做 ${data.tradable_count}` : "";
+    setStatus(`${kindLabel} ${data.done}/${data.total} · ${data.status}${phase}${book}` + (data.status === "done" ? " · 完成" : ""));
     if (data.status === "running") setTimeout(pollAnalyze, 1200);
     else if (data.status === "error") setStatus("任务失败：" + (data.error || "").slice(0, 180));
     else if (data.status === "done" && $("simBadge") && note) $("simBadge").textContent = note.sim_note;
@@ -454,7 +464,7 @@ async function persistWalletFlags() {
 
 async function loadSettingsForm() {
   settingsCache = await api("/api/settings");
-  ["monte_carlo_sims","signal_threshold","atr_sl_mult","atr_tp_mult","meme_min_liquidity_usd","airdrop_min_funding_usd","twitter_bearer_token","okx_api_key","okx_api_secret","okx_passphrase"].forEach((k) => {
+  ["monte_carlo_sims","signal_threshold","atr_sl_mult","atr_tp_mult","risk_per_trade_pct","max_contract_positions","meme_min_liquidity_usd","airdrop_min_funding_usd","twitter_bearer_token","okx_api_key","okx_api_secret","okx_passphrase"].forEach((k) => {
     const el = $("s_" + k);
     if (el) el.value = settingsCache[k] ?? "";
   });
@@ -462,7 +472,7 @@ async function loadSettingsForm() {
 
 async function saveSettings() {
   const settings = {};
-  ["monte_carlo_sims","signal_threshold","atr_sl_mult","atr_tp_mult","meme_min_liquidity_usd","airdrop_min_funding_usd","twitter_bearer_token","okx_api_key","okx_api_secret","okx_passphrase"].forEach((k) => {
+  ["monte_carlo_sims","signal_threshold","atr_sl_mult","atr_tp_mult","risk_per_trade_pct","max_contract_positions","meme_min_liquidity_usd","airdrop_min_funding_usd","twitter_bearer_token","okx_api_key","okx_api_secret","okx_passphrase"].forEach((k) => {
     const el = $("s_" + k);
     let v = el.value;
     if (el.type === "number") v = Number(v);
