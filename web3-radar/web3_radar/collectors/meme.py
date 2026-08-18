@@ -328,7 +328,7 @@ async def fetch_geckoterminal_new() -> list[dict[str, Any]]:
 
 
 async def scan_meme_coins(
-    min_liquidity_usd: float = 40_000,
+    min_liquidity_usd: float = 50_000,
     min_unique_buyers: int = 15,
     min_holder_growth: int = 8,
 ) -> dict[str, Any]:
@@ -376,5 +376,5 @@ async def scan_meme_coins(
         "followable_count": len(followable),
         "items": ranked,
         "errors": errors,
-        "method": "回踩买点提高胜率：1h 已启动、5m 未垂直。1.6 倍先锁 45%，3 倍再减；飞刀K/过新池/出货K 避开。",
+        "method": "胜率优先：多源确认 + 1h 启动 + 5m 回踩反弹。1.5 倍先锁 55%，2.5 倍再减；飞刀K/见顶回落/出货K 避开。",
     }
