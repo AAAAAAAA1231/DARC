@@ -67,7 +67,7 @@ th { color: var(--muted); font-weight: 600; background: #0e141c; position: stick
 .tag.up { background: #123c31; color: var(--up); }
 .tag.down { background: #3c1218; color: var(--down); }
 .tag.seed { background: #1c170c; color: var(--accent-2); }
-.tag.live { background: #123c31; color: var(--up); }
+.tag.wait { background: #1b2230; color: var(--wait); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
 .card, .panel {
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px;

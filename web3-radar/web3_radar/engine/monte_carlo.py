@@ -64,7 +64,7 @@ def composite_score(signals: np.ndarray, strengths: np.ndarray, weights: np.ndar
     return float(np.dot(weights, signed))
 
 
-def decision_from_score(score: float, threshold: float = 0.18) -> str:
+def decision_from_score(score: float, threshold: float = 0.22) -> str:
     if score >= threshold:
         return "涨"
     if score <= -threshold:
