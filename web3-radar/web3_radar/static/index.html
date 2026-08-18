@@ -70,12 +70,13 @@
 
     <section id="view-meme" class="view hidden">
       <div class="toolbar">
-        <span class="pill">回踩买点（1h 启动 + 5m 反弹）</span>
-        <span class="pill">1.5倍先锁 55%</span>
-        <span class="pill">12分钟 -7% 快止损</span>
+        <span class="pill">10天一买 · 只出高质量</span>
+        <span class="pill">活过36小时</span>
+        <span class="pill">2倍先锁 40%</span>
         <input id="memeFilter" placeholder="筛选 可跟/观察/链" />
       </div>
       <p class="muted" id="memeMsg"></p>
+      <div class="panel" id="periodPickBox" style="margin-bottom:12px"></div>
       <div class="table-wrap">
         <table>
           <thead>
@@ -93,7 +94,7 @@
       <div class="grid-2">
         <div class="panel">
           <h3>跟单规则（针对妖币「可跟」）</h3>
-          <p class="muted">为了提高胜率：只买「多源确认、小时线已经动、5 分钟在回踩反弹」的票。飞刀K、日线见顶回落不买。1.5 倍卖掉 55% 先锁定胜利，止损抬到成本，剩下继续博 2.5–10 倍。12 分钟内跌超 7%、或 5 分钟结构破坏立刻走。50 分钟还没 +12% 当死票。单笔 1% 本金，最多 2 仓。</p>
+          <p class="muted">每 10 天左右只买一张票。只跟「可跟」：活过 36 小时、流动性够出、市值还在小妖区间、买盘和 X/社区热度确认。飞刀K、过新盘不买。2 倍卖掉 40% 锁定胜利，4 倍再减 25%。前 6 小时跌超 18% 当撤池。10 天还没 +40% 离场。单笔 1% 本金，最多 1 仓。</p>
           <label class="check"><input type="checkbox" id="copyEnabled" checked /> 启用跟单</label>
           <label>模式
             <select id="copyMode">

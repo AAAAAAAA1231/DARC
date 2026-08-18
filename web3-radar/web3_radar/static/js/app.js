@@ -1,7 +1,7 @@
 const views = {
   contracts: ["合约分析", "100 万次只用于校准指标权重。校准完成后，刷新信号会直接套用模型告诉你涨/跌/观望。"],
-  meme: ["妖币监控", "提高胜率：只买多源确认、1 小时已启动、5 分钟回踩反弹的票。飞刀K和见顶回落不买。1.5 倍先锁一半以上胜利，剩下再博 2.5–10 倍。"],
-  copytrade: ["自动跟单", "1.5 倍卖掉 55% 并抬到成本。12 分钟跌超 7% 或结构破坏立刻走。50 分钟没 +12% 离场。单笔 1%，最多 2 仓。"],
+  meme: ["妖币监控", "每 10 天只买一张高质量小妖：活过 36 小时、有 X/社区热度、买盘确认。飞刀和新盘不买。"],
+  copytrade: ["自动跟单", "本期最多 1 仓。2 倍卖掉 40%。前 6 小时跌超 18% 当撤池。10 天没 +40% 离场。单笔 1%。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
   launch: ["打新监测", "新项目白名单 / Presale / TGE / 新协议上线，不是交易所上新。"],
   airdrop: ["空投雷达", "知名机构投资、融资 > $2000 万、优先未发币，可标记交互状态"],
@@ -125,9 +125,25 @@ async function loadView(name, refresh) {
       $("memeRows").innerHTML = (data.items || []).map((m) => {
         store.meme[m.key] = m;
         return memeRow(m);
-      }).join("") || emptyRow(11, "暂无过线小妖（要小盘、已启动、还没高潮）");
+      }).join("") || emptyRow(11, "暂无过线小妖（要活过 36 小时、池子够、还有倍数）");
       if ($("memeMsg")) $("memeMsg").textContent = (data.method || "") + ((data.errors || []).length ? "；部分源失败：" + data.errors.slice(0,2).join("；") : "");
-      setStatus(`监控 ${data.count} · 可跟 ${data.followable_count || 0}`);
+      if ($("periodPickBox")) {
+        const pick = data.period_pick;
+        if (pick) {
+          store.meme[pick.key] = pick;
+          $("periodPickBox").innerHTML = `<h3>本期唯一推荐 · ${escapeHtml(pick.symbol)}</h3>
+            <p><strong>${escapeHtml(pick.chain || "")}</strong> · 流动性 ${fmtUsd(pick.liquidity_usd)} · FDV ${fmtUsd(pick.fdv)} · 买卖比 ${pick.buy_sell_ratio ?? "-"}</p>
+            <p class="muted">${escapeHtml((pick.score_reasons || []).slice(0,4).join(" · "))}</p>
+            <p class="muted">合约：<code>${escapeHtml(pick.token_address || "")}</code></p>
+            <div class="card-actions">
+              ${pick.url ? `<a class="btn" href="${escapeHtml(pick.url)}" target="_blank">打开图表</a>` : ""}
+              <button class="btn primary" onclick="participate('meme','${encodeURIComponent(pick.key)}')">小仓队列</button>
+            </div>`;
+        } else {
+          $("periodPickBox").innerHTML = "<p class='muted'>本期没有过线的高质量小妖。宁可不买，也不要去接 12 小时飞刀。</p>";
+        }
+      }
+      setStatus(`监控 ${data.count} · 可跟 ${data.followable_count || 0}` + (data.period_pick ? ` · 本期 ${data.period_pick.symbol}` : " · 本期空仓"));
     } else if (name === "ambassador") {
       setStatus("正在加载大使计划…");
       $("ambassadorCards").innerHTML = "<p class='muted'>加载中…</p>";
