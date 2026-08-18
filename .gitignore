@@ -19,3 +19,13 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+
+zhiliang/.venv
+zhiliang/data/
+zhiliang/dist/*
+!zhiliang/dist/ZhiLiang.exe
+!zhiliang/dist/ZhiLiang.zip
+zhiliang/build
+__pycache__/
+*.pyc
+.pytest_cache
