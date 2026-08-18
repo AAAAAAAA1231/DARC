@@ -1,0 +1,97 @@
+{
+  "note": "2026年8月国内渠道/公开报道口径的参考价（人民币，未含议价）。编制时请改成你的询价。",
+  "gpus": [
+    {
+      "id": "h20-141",
+      "name": "NVIDIA H20 141GB（8卡机）",
+      "fp16_tflops": 74,
+      "tdp_w": 400,
+      "cards_per_node": 8,
+      "card_price": 100000,
+      "node_price": 1100000,
+      "price_mode": "node"
+    },
+    {
+      "id": "h100-sxm",
+      "name": "NVIDIA H100 SXM 80GB（8卡机，供对照）",
+      "fp16_tflops": 494,
+      "tdp_w": 700,
+      "cards_per_node": 8,
+      "card_price": 250000,
+      "node_price": 2800000,
+      "price_mode": "node"
+    },
+    {
+      "id": "910b",
+      "name": "华为昇腾 910B（等效8卡机）",
+      "fp16_tflops": 280,
+      "tdp_w": 310,
+      "cards_per_node": 8,
+      "card_price": 220000,
+      "node_price": 1750000,
+      "price_mode": "node"
+    },
+    {
+      "id": "910c",
+      "name": "华为昇腾 910C（等效8卡机）",
+      "fp16_tflops": 400,
+      "tdp_w": 350,
+      "cards_per_node": 8,
+      "card_price": 260000,
+      "node_price": 2200000,
+      "price_mode": "node"
+    },
+    {
+      "id": "4090",
+      "name": "GeForce RTX 4090 24GB（8卡工控/推理）",
+      "fp16_tflops": 82.6,
+      "tdp_w": 450,
+      "cards_per_node": 8,
+      "card_price": 14000,
+      "node_price": 160000,
+      "price_mode": "node"
+    },
+    {
+      "id": "5090",
+      "name": "GeForce RTX 5090（8卡）",
+      "fp16_tflops": 105,
+      "tdp_w": 575,
+      "cards_per_node": 8,
+      "card_price": 22000,
+      "node_price": 240000,
+      "price_mode": "node"
+    }
+  ],
+  "defaults": {
+    "cpu_per_node": 2,
+    "cpu_tdp_w": 350,
+    "cpu_price": 45000,
+    "ram_tb_per_node": 2.0,
+    "ram_price_per_tb": 22000,
+    "nvme_tb_per_node": 16.0,
+    "nvme_price_per_tb": 1800,
+    "nic_per_gpu": 1,
+    "nic_price": 12000,
+    "ib_ports_per_switch": 40,
+    "ib_switch_price": 180000,
+    "cable_price": 2500,
+    "nodes_per_rack": 4,
+    "rack_price_air": 8500,
+    "rack_price_liquid": 48000,
+    "pdu_price": 3500,
+    "ups_cny_per_kva": 2800,
+    "cooling_air_cny_per_kw": 7500,
+    "cooling_liquid_cny_per_kw": 16000,
+    "fitout_cny_per_m2": 8500,
+    "m2_per_rack": 6.0,
+    "pue_air": 1.40,
+    "pue_liquid": 1.15,
+    "electricity_cny_per_kwh": 0.65,
+    "hours_per_year": 8000,
+    "install_pct": 3.0,
+    "software_pct": 2.0,
+    "contingency_pct": 5.0,
+    "vat_pct": 13.0,
+    "other_node_w": 400
+  }
+}
