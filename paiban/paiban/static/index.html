@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>装修排版神器</title>
+  <link rel="stylesheet" href="/static/css/app.css?v=3.1.0" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>装修排版神器</h1>
+      <p>地砖 · 墙砖 · 吊顶 · 家具　按现行国标计算后再校核　CAD / PDF / 文字　完全离线</p>
+    </div>
+    <div>
+      <span class="badge">离线 · GB 55038-2025 / 50210 / 50209 / 50327</span>
+      <span class="status" id="statusLine">就绪</span>
+    </div>
+  </header>
+  <main>
+    <div class="card hint">
+      按 GB 50327-2001 排版：墙砖 12.3.1（非整砖放阴角、每面不宜两列、边砖≥1/3、洞口整砖套割）；地砖从实际门所在墙起铺整砖并拉十字线（14.3.1）；厨卫阳台做防水并上翻 100mm（6.1.1 / 6.3.3）；强化地板端头错缝 &gt;300mm（14.3.3）。
+      吊顶按 8.3.1：吊点 &lt;1.2m、吊杆距端 ≤300mm、次龙骨 ≤600mm（潮湿 300～400mm）、短跨 1‰～3‰ 起拱、边龙骨固定于墙；吊杆空腔 &gt;1.5m 须反支撑（GB 50210 7.1.11）；石膏板长边垂直次龙骨、端缝错开 ≥300mm。
+      GB 55038-2025：新建层高 ≥3.00m，卧起净高 ≥2.60m（局部 ≥2.20m 且面积 ≤1/3），厨卫 ≥2.20m，卫生间防滑 COF≥0.6、地漏找坡 ≥1％、门口高差 ≤15mm。空鼓、COF 试验只标现场验收，不假装已通过。
+    </div>
+    <div class="modes" id="tasks">
+      <button class="mode on" type="button" data-t="floor"><b>地砖排版</b><span>正铺 / 工字 / 斜铺 · 卫房地漏找坡</span></button>
+      <button class="mode" type="button" data-t="wall"><b>墙砖排版</b><span>四面展开、门洞套割、防水高度</span></button>
+      <button class="mode" type="button" data-t="ceiling"><b>吊顶排版</b><span>按 50327 吊点；净高不够改局部</span></button>
+      <button class="mode" type="button" data-t="furniture"><b>家具布置</b><span>按 55038 面积净高门宽过道</span></button>
+    </div>
+    <p class="mode-hint" id="modeHint">当前：地砖排版。点上方四个按钮立刻出图，不必再点「开始排版」。</p>
+    <div class="layout">
+      <section class="card side">
+        <h2>1. 输入</h2>
+        <label>语言描述
+          <textarea id="text">客厅 4.8x6.2 层高2.8米，铺 800x800 抛光砖，正铺十字缝。</textarea>
+        </label>
+        <label>或上传 CAD / PDF
+          <input id="file" type="file" accept=".dxf,.pdf,.txt" />
+        </label>
+        <div class="row">
+          <span class="muted" id="fileName">未选择图纸，用左侧文字描述</span>
+          <button class="btn" type="button" id="clearFile">清除图纸</button>
+        </div>
+        <div class="grid2">
+          <label>工程类型
+            <select id="project_type">
+              <option value="既有">既有住宅装修</option>
+              <option value="新建">新建住宅</option>
+            </select>
+          </label>
+          <label>房间
+            <select id="room_kind">
+              <option value="">自动识别</option>
+              <option>客厅</option><option>卧室</option><option>餐厅</option>
+              <option>厨房</option><option>卫生间</option><option>走廊</option>
+            </select>
+          </label>
+          <label>铺法
+            <select id="pattern">
+              <option value="straight">正铺十字缝</option>
+              <option value="brick">工字/1/3 错缝</option>
+              <option value="diagonal">斜铺 45°</option>
+              <option value="laminate">强化地板错缝</option>
+            </select>
+          </label>
+          <label>开间 m <input id="width" type="number" step="0.01" placeholder="可空，用描述/图纸" /></label>
+          <label>进深 m <input id="depth" type="number" step="0.01" /></label>
+          <label>层高 m <input id="height" type="number" step="0.01" placeholder="既有约2.8 / 新建≥3.0" /></label>
+          <label>地砖 <select id="floor_tile"></select></label>
+          <label>墙砖 <select id="wall_tile"></select></label>
+          <label>吊顶 <select id="ceiling"></select></label>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="run">开始排版</button>
+          <a class="btn" href="/api/download/svg">SVG</a>
+          <a class="btn" href="/api/download/dxf">DXF</a>
+          <a class="btn" href="/api/download/zip">下载 ZIP</a>
+        </div>
+        <h2 style="margin-top:16px">2. 规范校核</h2>
+        <div id="checks"></div>
+        <h2>3. 工程量</h2>
+        <table id="qty"></table>
+      </section>
+      <section class="card view">
+        <div class="viewbar"><span id="titleLine">排版图</span><span class="muted" id="srcLine"></span></div>
+        <div id="preview"></div>
+      </section>
+    </div>
+  </main>
+  <script src="/static/js/app.js?v=3.1.0"></script>
+</body>
+</html>
