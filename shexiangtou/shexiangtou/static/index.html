@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>摄像头布置</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>摄像头布置生成器</h1>
+      <p>离线工具 · 出入口 + 区域覆盖 · 支持手填 / 中文 / CAD / PDF</p>
+    </div>
+    <div class="badge">端口 8802 · 双击 SheXiangTou.exe</div>
+  </header>
+
+  <main class="layout">
+    <section class="card">
+      <h2>输入</h2>
+      <label>中文描述（场所、长宽、层高、门数量）
+        <textarea id="description" rows="3" placeholder="例：办公室 12x8 层高3.0 2个门 要看清人脸"></textarea>
+      </label>
+      <label>CAD / PDF / 文本
+        <input id="file" type="file" accept=".dxf,.pdf,.txt" />
+      </label>
+      <div class="row">
+        <label>场所类型
+          <select id="space_type"></select>
+        </label>
+        <label>覆盖目标
+          <select id="purpose">
+            <option value="">按场所默认</option>
+            <option value="监视">监视（发现目标）</option>
+            <option value="观察">观察（看清行为）</option>
+            <option value="识别">识别（认人/认车）</option>
+            <option value="辨认">辨认（人脸/细节）</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label>进深 m <input id="width_m" type="number" step="0.1" min="0" placeholder="0=自动" /></label>
+        <label>开间 m <input id="depth_m" type="number" step="0.1" min="0" placeholder="0=自动" /></label>
+        <label>层高 m <input id="height_m" type="number" step="0.1" min="0" placeholder="0=默认" /></label>
+      </div>
+      <div class="row">
+        <label>门数量 <input id="doors" type="number" min="0" placeholder="0=自动" /></label>
+      </div>
+      <div class="actions">
+        <button id="btn-run" class="primary" type="button">生成布置</button>
+        <button id="btn-svg" type="button">下载 SVG</button>
+        <button id="btn-dxf" type="button">下载 DXF</button>
+        <button id="btn-zip" type="button">下载 ZIP</button>
+      </div>
+      <p class="hint">出入口布置迎面/人脸摄像机，房间按 DORI 半径补点。CAD 读闭合轮廓和短线门洞。本工具是布置建议，不能替代安防专项设计。</p>
+    </section>
+
+    <section class="card">
+      <h2>结果</h2>
+      <div id="kpis" class="kpis"></div>
+      <div id="summary" class="fixture"></div>
+      <table class="checks">
+        <thead><tr><th>项</th><th>结果</th><th>说明</th></tr></thead>
+        <tbody id="checks"></tbody>
+      </table>
+      <h3>点位与选型</h3>
+      <table class="checks">
+        <thead><tr><th>编号</th><th>位置 m</th><th>高度</th><th>角色</th><th>摄像机</th></tr></thead>
+        <tbody id="cams"></tbody>
+      </table>
+      <h3>材料表</h3>
+      <ul id="qty"></ul>
+    </section>
+  </main>
+
+  <section class="card preview-wrap">
+    <h2>平面布置</h2>
+    <div id="preview" class="preview"></div>
+  </section>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
