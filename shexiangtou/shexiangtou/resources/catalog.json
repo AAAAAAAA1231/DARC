@@ -1,0 +1,28 @@
+{
+  "spaces": [
+    {"id": "办公室", "purpose": "观察", "indoor": true, "kinds": ["半球", "筒型"], "mount_h": 2.6, "overlap": 0.15},
+    {"id": "会议室", "purpose": "观察", "indoor": true, "kinds": ["半球", "筒型"], "mount_h": 2.6, "overlap": 0.15},
+    {"id": "走廊", "purpose": "识别", "indoor": true, "kinds": ["半球", "筒型"], "mount_h": 2.5, "overlap": 0.2},
+    {"id": "门厅/大堂", "purpose": "识别", "indoor": true, "kinds": ["半球", "人脸", "鱼眼"], "mount_h": 2.8, "overlap": 0.2},
+    {"id": "出入口", "purpose": "辨认", "indoor": true, "kinds": ["人脸", "筒型"], "mount_h": 2.4, "overlap": 0.25},
+    {"id": "电梯厅", "purpose": "识别", "indoor": true, "kinds": ["半球", "人脸"], "mount_h": 2.5, "overlap": 0.2},
+    {"id": "商铺/收银", "purpose": "辨认", "indoor": true, "kinds": ["半球", "筒型"], "mount_h": 2.6, "overlap": 0.2},
+    {"id": "教室", "purpose": "观察", "indoor": true, "kinds": ["半球"], "mount_h": 2.8, "overlap": 0.15},
+    {"id": "仓库", "purpose": "监视", "indoor": true, "kinds": ["枪机", "半球"], "mount_h": 4.0, "overlap": 0.15},
+    {"id": "停车场", "purpose": "监视", "indoor": false, "kinds": ["枪机", "球机"], "mount_h": 4.0, "overlap": 0.2},
+    {"id": "周界", "purpose": "监视", "indoor": false, "kinds": ["枪机", "球机"], "mount_h": 3.5, "overlap": 0.25},
+    {"id": "室外场地", "purpose": "监视", "indoor": false, "kinds": ["枪机", "球机"], "mount_h": 4.5, "overlap": 0.2}
+  ],
+  "cameras": [
+    {"id": "D4-28", "name": "400万室内半球 2.8mm", "kind": "半球", "mp": 4, "W": 6, "lens_mm": 2.8, "hfov": 96, "indoor": true, "ip": "IP67", "ir": true, "detect": 22, "observe": 9, "recognize": 4.5, "identify": 2.2, "mount": "吸顶/壁装"},
+    {"id": "D4-40", "name": "400万室内半球 4mm", "kind": "半球", "mp": 4, "W": 6, "lens_mm": 4.0, "hfov": 78, "indoor": true, "ip": "IP67", "ir": true, "detect": 30, "observe": 12, "recognize": 6.0, "identify": 3.0, "mount": "吸顶/壁装"},
+    {"id": "D8-28", "name": "800万室内半球 2.8mm", "kind": "半球", "mp": 8, "W": 8, "lens_mm": 2.8, "hfov": 102, "indoor": true, "ip": "IP67", "ir": true, "detect": 28, "observe": 12, "recognize": 6.0, "identify": 3.0, "mount": "吸顶/壁装"},
+    {"id": "T4-28", "name": "400万全彩筒型 2.8mm", "kind": "筒型", "mp": 4, "W": 8, "lens_mm": 2.8, "hfov": 96, "indoor": true, "ip": "IP67", "ir": true, "detect": 22, "observe": 9, "recognize": 4.5, "identify": 2.2, "mount": "壁装"},
+    {"id": "F4-60", "name": "400万人脸抓拍 6–12mm", "kind": "人脸", "mp": 4, "W": 10, "lens_mm": 8.0, "hfov": 40, "indoor": true, "ip": "IP66", "ir": true, "detect": 18, "observe": 10, "recognize": 8.0, "identify": 5.0, "mount": "壁装"},
+    {"id": "B4-40", "name": "400万室外枪机 4mm", "kind": "枪机", "mp": 4, "W": 9, "lens_mm": 4.0, "hfov": 78, "indoor": false, "ip": "IP67", "ir": true, "detect": 32, "observe": 13, "recognize": 6.5, "identify": 3.2, "mount": "壁装/立杆"},
+    {"id": "B8-28", "name": "800万室外枪机 2.8mm", "kind": "枪机", "mp": 8, "W": 12, "lens_mm": 2.8, "hfov": 102, "indoor": false, "ip": "IP67", "ir": true, "detect": 30, "observe": 13, "recognize": 6.5, "identify": 3.2, "mount": "壁装/立杆"},
+    {"id": "B8-80", "name": "800万变焦枪机 2.8–12mm", "kind": "枪机", "mp": 8, "W": 14, "lens_mm": 8.0, "hfov": 42, "indoor": false, "ip": "IP67", "ir": true, "detect": 55, "observe": 22, "recognize": 11, "identify": 5.5, "mount": "立杆"},
+    {"id": "P4-25", "name": "400万球机 5–125mm", "kind": "球机", "mp": 4, "W": 24, "lens_mm": 25.0, "hfov": 18, "indoor": false, "ip": "IP66", "ir": true, "detect": 80, "observe": 40, "recognize": 20, "identify": 10, "mount": "立杆/屋面"},
+    {"id": "E12-14", "name": "1200万鱼眼 1.4mm", "kind": "鱼眼", "mp": 12, "W": 10, "lens_mm": 1.4, "hfov": 360, "indoor": true, "ip": "IP66", "ir": true, "detect": 15, "observe": 8, "recognize": 4.0, "identify": 2.0, "mount": "吸顶"}
+  ]
+}
