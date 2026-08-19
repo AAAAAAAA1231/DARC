@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>建筑施工图自动生成器</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>建筑施工图自动生成器</h1>
+      <p>输入性质、面积、层数、柱网等参数，生成建筑 / 结构 / 水 / 电 / 暖 / 风 / 消防全套图纸 · 本机运行</p>
+    </div>
+    <div>
+      <span class="badge">示意深度 · 须审核</span>
+      <span class="status" id="statusLine">就绪</span>
+    </div>
+  </header>
+  <main>
+    <div class="card hint">
+      填写建筑物需求后点「生成全套施工图」。系统按柱网自动排布平面、立剖面和机电消防系统图，导出 <strong>A3 SVG</strong>（可打印）和 <strong>DXF</strong>（可用 CAD 打开）。
+      生成结果相当于方案/初步设计，<strong>不能替代</strong>结构计算、施工图审查和注册人员签章。
+    </div>
+
+    <div class="card">
+      <h2>1. 建筑物需求</h2>
+      <div class="grid">
+        <label>工程名称 <input id="name" value="××办公楼工程" /></label>
+        <label>建设地点 <input id="location" value="某市" /></label>
+        <label>建设单位 <input id="client" /></label>
+        <label>设计单位 <input id="designer" value="施工图生成器" /></label>
+        <label>建筑物性质
+          <select id="building_type">
+            <option>办公楼</option>
+            <option>住宅</option>
+            <option>商业</option>
+            <option>厂房</option>
+            <option>学校</option>
+            <option>医院</option>
+            <option>酒店</option>
+          </select>
+        </label>
+        <label>地上层数 <input id="floors" type="number" value="6" min="1" max="40" /></label>
+        <label>地下层数 <input id="basement" type="number" value="1" min="0" max="3" /></label>
+        <label>单层面积（㎡） <input id="floor_area" type="number" value="1200" /></label>
+        <label>总建筑面积（㎡，可空） <input id="total_area" type="number" value="" placeholder="可按层数自动估算" /></label>
+        <label>层高（m） <input id="floor_height" type="number" step="0.1" value="3.6" /></label>
+        <label>平面长度（m，可空） <input id="length" type="number" step="0.1" placeholder="按面积和柱网自动" /></label>
+        <label>平面宽度（m，可空） <input id="width" type="number" step="0.1" /></label>
+        <label>柱网 X（m） <input id="span_x" type="number" step="0.1" value="8.4" /></label>
+        <label>柱网 Y（m） <input id="span_y" type="number" step="0.1" value="8.4" /></label>
+        <label>结构形式
+          <select id="structure">
+            <option>框架</option>
+            <option>框剪</option>
+            <option>剪力墙</option>
+            <option>砖混</option>
+            <option>钢结构</option>
+            <option>排架</option>
+          </select>
+        </label>
+        <label>抗震设防
+          <select id="seismic">
+            <option>6度</option>
+            <option selected>7度</option>
+            <option>8度</option>
+            <option>9度</option>
+          </select>
+        </label>
+        <label>耐火等级
+          <select id="fire_rating">
+            <option>一级</option>
+            <option selected>二级</option>
+            <option>三级</option>
+            <option>四级</option>
+          </select>
+        </label>
+        <label>气候区
+          <select id="climate">
+            <option>严寒</option>
+            <option>寒冷</option>
+            <option selected>夏热冬冷</option>
+            <option>夏热冬暖</option>
+            <option>温和</option>
+          </select>
+        </label>
+        <label>基础形式
+          <select id="foundation">
+            <option value="">自动推荐</option>
+            <option>独立基础</option>
+            <option>条形基础</option>
+            <option>筏板基础</option>
+            <option>桩基础</option>
+          </select>
+        </label>
+      </div>
+      <label style="margin-top:10px">其他需求
+        <textarea id="notes" placeholder="例如：需要人防、幕墙、高大空间、洁净车间……将写入说明（平面仍按类型模板生成）"></textarea>
+      </label>
+    </div>
+
+    <div class="row" style="margin-bottom:14px">
+      <button class="btn primary" id="run">生成全套施工图</button>
+      <a class="btn" id="dlZip" href="/api/download/zip">下载 ZIP（SVG+DXF）</a>
+      <a class="btn" id="dlIndex" href="/api/download/index">打开图纸目录</a>
+    </div>
+
+    <div class="card" id="resultBox" style="display:none">
+      <h2>2. 生成结果</h2>
+      <div id="summaryBox"></div>
+      <div id="warnBox"></div>
+      <div class="tabs" id="tabs"></div>
+      <div class="workspace">
+        <div class="list" id="list"></div>
+        <div class="preview">
+          <iframe id="frame" title="图纸预览"></iframe>
+          <div class="row" style="margin-top:8px">
+            <a class="btn" id="openSvg" href="#" target="_blank">新窗口打开 SVG</a>
+            <a class="btn" id="openDxf" href="#">下载本张 DXF</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+  <script src="/static/js/app.js"></script>
+</body>
+</html>

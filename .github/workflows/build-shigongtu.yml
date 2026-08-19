@@ -1,0 +1,33 @@
+name: Build ShiGongTu EXE
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "shigongtu/**"
+      - ".github/workflows/build-shigongtu.yml"
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: shigongtu
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+      - name: Test
+        run: python -m pytest tests -q
+      - name: Build EXE
+        run: pyinstaller --noconfirm ShiGongTu.spec
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: ShiGongTu-windows
+          path: shigongtu/dist/ShiGongTu.exe
