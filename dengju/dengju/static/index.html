@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>灯具选型</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>灯具选型</h1>
+      <p>离线工具 · 利用系数法（GB 50034 思路）· 支持手填 / 中文 / CAD / PDF</p>
+    </div>
+    <div class="badge">端口 8801 · 双击 DengJu.exe</div>
+  </header>
+
+  <main class="layout">
+    <section class="card">
+      <h2>输入</h2>
+      <label>中文描述（可识别：房间类型、长宽、层高、照度）
+        <textarea id="description" rows="3" placeholder="例：普通办公室 7.2x9.0 层高2.8 300lx"></textarea>
+      </label>
+      <label>CAD / PDF / 文本
+        <input id="file" type="file" accept=".dxf,.pdf,.txt" />
+      </label>
+      <div class="row">
+        <label>房间类型
+          <select id="room_type"></select>
+        </label>
+        <label>指定灯具（可空）
+          <select id="fixture_id">
+            <option value="">自动推荐</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label>进深 m <input id="width_m" type="number" step="0.1" min="0" placeholder="0=自动" /></label>
+        <label>开间 m <input id="depth_m" type="number" step="0.1" min="0" placeholder="0=自动" /></label>
+        <label>层高 m <input id="height_m" type="number" step="0.1" min="0" placeholder="0=默认" /></label>
+      </div>
+      <div class="row">
+        <label>目标照度 lx <input id="illuminance_lx" type="number" min="0" placeholder="0=规范" /></label>
+        <label>维护系数 MF <input id="mf" type="number" step="0.01" min="0" max="1" value="0.8" /></label>
+        <label>工作面 m <input id="work_plane_m" type="number" step="0.05" value="0.75" /></label>
+      </div>
+      <div class="row">
+        <label>色温 K <input id="cct" type="number" value="4000" /></label>
+        <label>最低 Ra <input id="ra_min" type="number" min="0" placeholder="0=规范" /></label>
+      </div>
+      <div class="actions">
+        <button id="btn-run" class="primary" type="button">开始选型</button>
+        <button id="btn-svg" type="button">下载 SVG</button>
+        <button id="btn-dxf" type="button">下载 DXF</button>
+        <button id="btn-zip" type="button">下载 ZIP</button>
+      </div>
+      <p class="hint">灯具数量 N = E×A / (Φ×UF×MF)。只推荐同时满足照度与 LPD 的方案。CAD 读取闭合多段线房间轮廓。应急灯为 GB 51309 示意布置，不能替代电气施工图。</p>
+    </section>
+
+    <section class="card">
+      <h2>结果</h2>
+      <div id="kpis" class="kpis"></div>
+      <div id="fixture" class="fixture"></div>
+      <table class="checks">
+        <thead><tr><th>项</th><th>结果</th><th>说明</th></tr></thead>
+        <tbody id="checks"></tbody>
+      </table>
+      <h3>备选灯具</h3>
+      <ul id="alts"></ul>
+      <h3>说明</h3>
+      <ul id="notes"></ul>
+    </section>
+  </main>
+
+  <section class="card preview-wrap">
+    <h2>平面布置</h2>
+    <div id="preview" class="preview"></div>
+  </section>
+
+  <script src="/static/js/app.js"></script>
+</body>
+</html>
