@@ -60,9 +60,16 @@ def svg_floor(room, layout: dict[str, Any]) -> str:
     p = PlanSvg(room.width, room.depth, f"{room.name} 地砖排版  {layout['tile_w']*1000:.0f}×{layout['tile_h']*1000:.0f}  {layout['note']}")
     p.rect(0, 0, room.width, room.depth, fill="#efe7d6", stroke="#111", sw=2)
     for t in layout["tiles"]:
-        fill = "#e8eef6" if t["full"] else "#fed7aa"
+        fill = "#fca5a5" if t.get("sleeve") else ("#e8eef6" if t["full"] else "#fed7aa")
         p.rect(t["x"], t["y"], t["w"], t["h"], fill=fill, stroke="#3b5b7a", sw=0.8)
     wet = layout.get("wet_features") or {}
+    door = next((o for o in getattr(room, "openings", []) or [] if getattr(o, "wall", "") == "S"), None)
+    cx = wet.get("cross_x")
+    if cx is None:
+        cx = (door.offset + door.width / 2) if door else room.width / 2
+    p.line(cx, 0, cx, room.depth, stroke="#b45309", sw=1, dash="6 4")
+    p.line(0, room.depth / 2, room.width, room.depth / 2, stroke="#b45309", sw=1, dash="6 4")
+    p.text(cx + 0.12, room.depth / 2 + 0.12, "十字控制线", 10, fill="#92400e", anchor="start")
     ramp = wet.get("ramp")
     if ramp:
         p.rect(ramp["x"], ramp["y"], ramp["w"], ramp["d"], fill="#fde68a", stroke="#b45309", sw=1.2, opacity=0.85)
@@ -70,10 +77,13 @@ def svg_floor(room, layout: dict[str, Any]) -> str:
     drain = wet.get("drain")
     if drain:
         p.circle(drain["x"], drain["y"], 0.08, fill="#0ea5e9", stroke="#0c4a6e")
-        p.text(drain["x"] + 0.22, drain["y"], "地漏 1％", 11, fill="#0c4a6e", anchor="start")
-        # slope ticks toward drain
+        p.text(drain["x"] + 0.22, drain["y"], "地漏套割 1％", 11, fill="#0c4a6e", anchor="start")
         for tx, ty in ((0.25, 0.25), (room.width - 0.25, 0.25), (0.25, room.depth - 0.25), (room.width - 0.25, room.depth - 0.25)):
             p.line(tx, ty, drain["x"], drain["y"], stroke="#38bdf8", sw=0.8, dash="4 3")
+    for o in getattr(room, "openings", []) or []:
+        if o.wall == "S":
+            p.rect(o.offset, 0, o.width, 0.06, fill="#f7f4ea", stroke="#b91c1c", sw=2)
+            p.text(o.offset + o.width / 2, 0.18, "门口整砖", 10, fill="#b91c1c")
     p.text(room.width / 2, -0.15, f"{room.width:.2f}m", 11)
     p.text(0.15, room.depth / 2, f"{room.depth:.2f}m", 11, anchor="start")
     return p.finish()
@@ -90,8 +100,11 @@ def svg_walls(room, walls: list[dict[str, Any]]) -> str:
         p.text(0.05, y0 + w["wall_h"] + 0.15, w["name"], 11, anchor="start")
         p.rect(0, y0, w["wall_len"], w["wall_h"], fill="#f3f4f6", stroke="#111", sw=1.5)
         for t in w["tiles"]:
-            fill = "#dbeafe" if t["full"] else "#fecaca"
+            fill = "#fca5a5" if t.get("sleeve") else ("#dbeafe" if t["full"] else "#fed7aa")
             p.rect(t["x"], y0 + t["y"], t["w"], t["h"], fill=fill, stroke="#1e3a5f", sw=0.6)
+        p.line(0.02, y0, 0.02, y0 + w["wall_h"], stroke="#a16207", sw=3)
+        p.line(w["wall_len"] - 0.02, y0, w["wall_len"] - 0.02, y0 + w["wall_h"], stroke="#a16207", sw=3)
+        p.text(0.08, y0 + 0.12, "阳角条", 9, fill="#854d0e", anchor="start")
         for h in w.get("holes") or []:
             p.rect(h["x"], y0 + h["y"], h["w"], h["h"], fill="#f7f4ea", stroke="#b91c1c", sw=1.5, dash="4 3")
         for band in w.get("waterproof") or []:
@@ -112,6 +125,8 @@ def svg_ceiling(room, ceil: dict[str, Any]) -> str:
     for pan in ceil["panels"]:
         fill = "#e2e8f0" if pan["cut"] else "#fff"
         p.rect(pan["x"], pan["y"], pan["w"], pan["h"], fill=fill, stroke="#64748b", sw=0.7)
+    for e in ceil.get("edges") or []:
+        p.line(e["x1"], e["y1"], e["x2"], e["y2"], stroke="#111", sw=2.5)
     for m in ceil["mains"]:
         p.line(m["x1"], m["y1"], m["x2"], m["y2"], stroke="#b45309", sw=2)
     for s in ceil["seconds"]:

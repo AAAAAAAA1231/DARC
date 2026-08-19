@@ -100,9 +100,9 @@ def generate_layout(params: dict[str, Any], file_bytes: bytes | None = None, fil
         qty = quantities("furniture", room, payload)
     else:
         task = "floor"
-        payload = layout_floor(room.width, room.depth, floor_tile["w"], floor_tile["h"], floor_tile["grout"], pattern)
+        payload = layout_floor(room.width, room.depth, floor_tile["w"], floor_tile["h"], floor_tile["grout"], pattern, openings=room.openings)
         if room.kind in ("卫生间", "厨房"):
-            payload["wet_features"] = wet_floor_features(room.width, room.depth, room.openings, room.kind)
+            payload["wet_features"] = wet_floor_features(room.width, room.depth, room.openings, room.kind, tiles=payload["tiles"])
         checks = check_floor(room, floor_tile, payload)
         svg = svg_floor(room, payload)
         qty = quantities("floor", room, payload, tile=floor_tile)
@@ -168,9 +168,10 @@ def _all_walls(room: Room, tile: dict) -> list[dict]:
         lay["name"] = name
         if room.kind == "卫生间":
             lay["waterproof"] = [
-                {"h": 2.00, "label": "淋浴区防水 ≥2.00m"},
+                {"h": 2.00, "label": "淋浴区防水 ≥2.00m（GB 55038 4.1.9）"},
                 {"h": 1.20, "label": "洗面器防水 ≥1.20m"},
                 {"h": 0.25, "label": "泛水翻起 ≥0.25m"},
+                {"h": 0.10, "label": "地面防水上翻 ≥100mm（GB 50327 6.3.3）"},
             ]
         out.append(lay)
     return out
@@ -208,7 +209,7 @@ def _to_dxf(room: Room, task: str, payload: Any, path: Path) -> None:
         for pan in payload["panels"]:
             x, y, w, h = pan["x"] * k, pan["y"] * k, pan["w"] * k, pan["h"] * k
             msp.add_lwpolyline([(x, y), (x + w, y), (x + w, y + h), (x, y + h)], close=True, dxfattribs={"layer": "PANEL"})
-        for ln in payload["mains"] + payload["seconds"] + list(payload.get("extras") or []):
+        for ln in payload["mains"] + payload["seconds"] + list(payload.get("extras") or []) + list(payload.get("edges") or []):
             msp.add_line((ln["x1"] * k, ln["y1"] * k), (ln["x2"] * k, ln["y2"] * k), dxfattribs={"layer": "KEEL"})
         for h in payload.get("hangers") or []:
             msp.add_circle((h["x"] * k, h["y"] * k), 25, dxfattribs={"layer": "HANGER"})

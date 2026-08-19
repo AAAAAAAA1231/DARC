@@ -285,6 +285,15 @@ def layout_ceiling(
     local_area = sum(r["w"] * r["h"] for r in drop_rects)
     room_area = room_w * room_d
     net_height = net_main if mode == "local" else net_full
+    edges = []
+    for r in drop_rects:
+        x0, y0, x1, y1 = r["x"], r["y"], r["x"] + r["w"], r["y"] + r["h"]
+        edges.extend([
+            {"x1": x0, "y1": y0, "x2": x1, "y2": y0},
+            {"x1": x0, "y1": y1, "x2": x1, "y2": y1},
+            {"x1": x0, "y1": y0, "x2": x0, "y2": y1},
+            {"x1": x1, "y1": y0, "x2": x1, "y2": y1},
+        ])
 
     return {
         "kind": kind,
@@ -294,6 +303,7 @@ def layout_ceiling(
         "panels": panels,
         "mains": mains,
         "seconds": seconds,
+        "edges": edges,
         "extras": extras,
         "hangers": hangers,
         "lights": light_pts,

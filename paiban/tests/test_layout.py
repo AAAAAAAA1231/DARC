@@ -5,7 +5,7 @@ from paiban.api import app
 from paiban.engine.ceiling import layout_ceiling
 from paiban.engine.generate import generate_layout
 from paiban.engine.parse import load_catalog, parse_description
-from paiban.engine.tiles import layout_floor
+from paiban.engine.tiles import layout_floor, layout_wall
 
 client = TestClient(app)
 
@@ -120,11 +120,39 @@ def test_entry_corridor_width():
     assert doc["pass"] is False
 
 
-def test_craft_edge_is_not_hard_gb():
+def test_gb50327_floor_cut_at_far_corner():
+    lay = layout_floor(4.8, 6.2, 0.8, 0.8, 0.002, "straight")
+    gy = lay["gy"]["widths"]
+    assert abs(gy[0] - 0.8) < 0.006
+    assert lay["min_edge"] + 1e-6 >= 0.8 / 3
+    assert lay["n_cut_cols"] <= 2
+    assert lay["n_cut_rows"] <= 2
+    assert lay["first_row_whole_from_door"] is True
+    assert lay["cut_mode_y"] in ("one_cut", "whole")
+
+
+def test_gb50327_wall_one_cut_column_and_sleeve():
+    holes = [{"x": 1.8, "y": 0.0, "w": 0.9, "h": 2.1}]
+    lay = layout_wall(4.8, 2.8, 0.3, 0.6, 0.002, holes)
+    assert lay["n_cut_cols"] <= 2
+    assert lay["cut_mode_x"] in ("one_cut", "whole")
+    assert lay["sleeved"] > 0
+    assert lay["min_edge"] + 1e-6 >= 0.3 / 3
+    doc = generate_layout({"text": "客厅 4.8x6.2 层高2.8 墙砖300x600", "task": "wall"})
+    assert "阳角条" in doc["svg"]
+    assert any("套割" in c["msg"] and c["ok"] for c in doc["checks"])
+    assert any("12.3.1" in c["code"] and c.get("hard") is True and c["ok"] for c in doc["checks"])
+    assert doc["pass"] is True
+
+
+def test_gb50327_edge_is_code_not_craft():
     doc = generate_layout({"text": "客厅 4.8x6.2 地砖800x800", "task": "floor"})
-    craft = [c for c in doc["checks"] if "1/3" in c["msg"]]
-    assert craft
-    assert all(c.get("hard") is False for c in craft)
+    edge = [c for c in doc["checks"] if "1/3" in c["msg"] and "12.3.1" in c["code"]]
+    assert edge
+    assert all(c.get("hard") is True and c["ok"] for c in edge)
+    assert "十字控制线" in doc["svg"]
+    assert "门口整砖" in doc["svg"]
+    assert doc["pass"] is True
 
 
 def test_api_and_dxf_upload(tmp_path):

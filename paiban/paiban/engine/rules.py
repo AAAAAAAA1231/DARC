@@ -13,13 +13,29 @@ def check_floor(room, tile: dict, layout: dict) -> list[dict[str, Any]]:
     grout = tile["grout"]
     anti = "防滑" in (tile.get("kind") or "") or "防滑" in (tile.get("name") or "")
     wet = layout.get("wet_features") or {}
+    gy = layout.get("gy") or {}
+    first_row = (gy.get("widths") or [th])[0]
+    door_whole = abs(first_row - th) < 0.006
     checks = [
         _chk(
             layout["min_edge"] + 1e-6 >= min_ok,
-            "排砖工艺",
-            f"边砖最小 {layout['min_edge']*1000:.0f}mm，不宜小于整砖 1/3（{min_ok*1000:.0f}mm）；非整砖宜放阴角或柜下。GB 50210 只要求非整砖部位符合设计，1/3 不是国标限值",
-            hard=False,
-            kind="craft",
+            "GB 50327-2001 12.3.1",
+            f"非整砖宽度不宜小于整砖的 1/3；本图最小边砖 {layout['min_edge']*1000:.0f}mm（整砖 1/3＝{min_ok*1000:.0f}mm）",
+        ),
+        _chk(
+            layout.get("n_cut_cols", 99) <= 2 and layout.get("n_cut_rows", 99) <= 2,
+            "GB 50327-2001 12.3.1",
+            f"每面不宜有两列/两行以上非整砖；本图开间切割列 {layout.get('n_cut_cols')}，进深切割行 {layout.get('n_cut_rows')}",
+        ),
+        _chk(
+            bool(layout.get("cuts_at_corner", True)),
+            "GB 50327-2001 12.3.1",
+            "非整砖应排放在次要部位或阴角处，不得放在门口等主要部位",
+        ),
+        _chk(
+            door_whole,
+            "GB 50327-2001 12.3.1 / 14.3.1",
+            "弹线从门口开始，进口处应为整砖，非整砖置于远端阴角；本图门口第一皮" + ("为整砖" if door_whole else "不是整砖"),
         ),
         _chk(
             0.001 <= grout <= 0.005 or grout == 0,
@@ -40,7 +56,9 @@ def check_floor(room, tile: dict, layout: dict) -> list[dict[str, Any]]:
         checks.append(_chk(anti, "GB 55038-2025 4.1.10", f"卫生间地面应采用防滑铺装，COF 不应小于 0.6；当前面层「{tile['name']}」{'为防滑砖（COF 以检测报告为准）' if anti else '不是防滑砖，不得用于卫生间地面'}"))
         drain_ok = bool(wet.get("drain"))
         slope = float(wet.get("slope_pct") or 0)
-        checks.append(_chk(drain_ok and slope >= 1.0 - 1e-9, "GB 55038-2025 4.1.9", "卫生间地面应设防水层和地漏，排水坡度不应小于 1％、坡向地漏" + ("；本图已布置地漏并按 1％找坡" if drain_ok else "；本图未布置地漏")))
+        sleeved = bool((wet.get("drain") or {}).get("sleeved"))
+        checks.append(_chk(drain_ok and slope >= 1.0 - 1e-9, "GB 55038-2025 4.1.9 / GB 50327-2001 6.3.2", "卫生间地面应设防水层和地漏，排水坡度不应小于 1％、坡向地漏；地漏、管根应先做附加层" + ("；本图已布置地漏并按 1％找坡" if drain_ok else "；本图未布置地漏")))
+        checks.append(_chk(sleeved or not drain_ok, "GB 50327-2001 14.3.1", "地面砖与地漏结合处应套割吻合；本图将地漏落在整砖中心套割" if sleeved else "地漏未落到整砖中心，现场须套割吻合"))
         step = float(wet.get("door_step_mm") or 99)
         ramp = wet.get("ramp")
         checks.append(_chk(step <= 15 + 1e-6 and bool(ramp), "GB 55038-2025 4.1.12", f"卫生间与相邻空间地面高差不应大于 15mm，并以斜坡过渡；本图门口高差按 {step:.0f}mm、斜坡长 {float((ramp or {}).get('d') or 0)*1000:.0f}mm"))
@@ -66,10 +84,19 @@ def check_wall(room, tile, walls: list[dict]) -> list[dict[str, Any]]:
     min_edge = min((w["min_edge"] for w in walls), default=0)
     min_ok = min(tile["w"], tile["h"]) / 3
     holes = sum(len(w.get("holes") or []) for w in walls)
+    cut_cols = max((w.get("n_cut_cols") or 0) for w in walls)
+    sleeved = sum(w.get("sleeved") or 0 for w in walls)
     checks = [
-        _chk(min_edge >= min_ok - 1e-6, "排砖工艺", f"墙砖边条最小 {min_edge*1000:.0f}mm，不宜小于整砖 1/3；非整砖放阴角", hard=False, kind="craft"),
-        _chk(holes >= 1 or room.kind in ("走廊",), "GB 50210-2018 10.2.6", "墙面凸出物及门窗洞口四周饰面砖应整砖套割吻合、边缘整齐；本图已按门洞套割" if holes else "未识别门洞，按南墙预留门洞套割"),
-        _chk(True, "GB 50210-2018 10.2.4", "满粘法大面和阳角空鼓须敲击检查；阳角宜采用阳角条。本图无法判定空鼓", hard=False, kind="site"),
+        _chk(min_edge >= min_ok - 1e-6, "GB 50327-2001 12.3.1", f"非整砖宽度不宜小于整砖的 1/3；本图最小边条 {min_edge*1000:.0f}mm（1/3＝{min_ok*1000:.0f}mm）"),
+        _chk(cut_cols <= 2, "GB 50327-2001 12.3.1", f"每面墙不宜有两列非整砖；本图最多切割列 {cut_cols}"),
+        _chk(all(w.get("cuts_at_corner") for w in walls), "GB 50327-2001 12.3.1", "非整砖应排放在次要部位或阴角处"),
+        _chk(
+            (sleeved > 0) if holes else True,
+            "GB 50327-2001 12.3.1 / GB 50210-2018 10.2.6",
+            "门窗洞口四周应整砖套割吻合，不得用非整砖拼凑；" + (f"本图套割 {sleeved} 块" if sleeved else "有门窗洞口但未套割"),
+        ),
+        _chk(True, "GB 50327-2001 12.3.1", "阴角砖应压向正确，阳角宜做 45°对接或阳角条。本图立面两端按阳角条收口", hard=False, kind="note"),
+        _chk(True, "GB 50210-2018 10.2.4", "满粘法大面和阳角空鼓须敲击检查。本图无法判定空鼓", hard=False, kind="site"),
         _chk(True, "GB 50210-2018 10.2.8", "内墙饰面砖允许偏差：立面垂直 2mm、表面平整 3mm、接缝直线 2mm、接缝宽度 1mm，须现场尺量", hard=False, kind="site"),
     ]
     if room.kind in ("卧室", "客厅"):
@@ -96,7 +123,8 @@ def check_ceiling(room, ceil: dict, project_type: str = "既有") -> list[dict[s
         _chk(ceil["secondary_spacing"] <= sec_limit + 1e-6, "GB 50327-2001 8.3.1", f"次龙骨间距 {ceil['secondary_spacing']}m（不得大于 {int(sec_limit*1000)}mm" + ("；潮湿场所以 300～400mm" if wet else "") + "）"),
         _chk(0.001 * ceil.get("span_m", 1) - 1e-9 <= ceil.get("camber_m", 0) <= 0.003 * ceil.get("span_m", 1) + 1e-9, "GB 50327-2001 8.3.1", f"短向跨度 {ceil.get('span_m')}m，起拱 {ceil.get('camber_m', 0)*1000:.1f}mm（按短跨 1‰～3‰，本图取 2‰）"),
         _chk(ceil.get("stagger", True), "GB 50210-2018 吊顶", "石膏板应错缝安装，不得出现通缝"),
-        _chk(len(ceil.get("extras") or []) >= 1, "GB 50210-2018 吊顶", "灯具、喷淋、检修口处应设附加龙骨；重型灯具不得直接吊挂在吊顶龙骨上"),
+        _chk(len(ceil.get("extras") or []) >= 1, "GB 50210-2018 吊顶 / GB 50327-2001 8.1.4", "灯具、喷淋、检修口处应设附加龙骨；重型灯具、电扇严禁安装在吊顶龙骨上"),
+        _chk(len(ceil.get("edges") or []) >= 4, "GB 50327-2001 8.3.1-6", "边龙骨应按设计要求弹线，固定在四周墙上；本图已布置边龙骨"),
         _chk(not ceil.get("hanger_need_brace"), "GB 50210-2018 吊顶", "吊杆长度大于 1.5m 时应设反支撑；本方案吊杆长度按吊顶下降 " + f"{ceil.get('drop_m', 0)}m 计" + ("，须加反支撑" if ceil.get("hanger_need_brace") else "，不必设反支撑")),
     ]
     if project_type == "新建":
@@ -158,6 +186,7 @@ def quantities(task: str, room, payload: dict, tile=None, ceil=None) -> list[dic
             {"name": "主龙骨", "qty": len(payload["mains"]), "unit": "根"},
             {"name": "次龙骨", "qty": len(payload["seconds"]), "unit": "根"},
             {"name": "吊杆", "qty": payload["hanger_count"], "unit": "套"},
+            {"name": "边龙骨", "qty": len(payload.get("edges") or []), "unit": "段"},
             {"name": "灯位附骨", "qty": len(payload.get("extras") or []), "unit": "处"},
             {"name": "检修口", "qty": 1, "unit": "个"},
             {"name": "起拱（短跨 2‰）", "qty": round(payload.get("camber_m", 0) * 1000, 1), "unit": "mm"},
