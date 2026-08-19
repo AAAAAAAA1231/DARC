@@ -63,17 +63,29 @@ def svg_floor(room, layout: dict[str, Any]) -> str:
         fill = "#fca5a5" if t.get("sleeve") else ("#e8eef6" if t["full"] else "#fed7aa")
         p.rect(t["x"], t["y"], t["w"], t["h"], fill=fill, stroke="#3b5b7a", sw=0.8)
     wet = layout.get("wet_features") or {}
-    door = next((o for o in getattr(room, "openings", []) or [] if getattr(o, "wall", "") == "S"), None)
+    doors = [o for o in getattr(room, "openings", []) or [] if getattr(o, "kind", "door") == "door"]
+    main_door = max(doors, key=lambda o: float(getattr(o, "width", 0))) if doors else None
+    door_wall = layout.get("door_wall") or (getattr(main_door, "wall", "S") if main_door else "S")
     cx = wet.get("cross_x")
+    if cx is None and main_door:
+        if door_wall in ("S", "N"):
+            cx = main_door.offset + main_door.width / 2
+        elif door_wall == "W":
+            cx = 0.12
+        else:
+            cx = room.width - 0.12
     if cx is None:
-        cx = (door.offset + door.width / 2) if door else room.width / 2
+        cx = room.width / 2
+    cy = wet.get("cross_y")
+    if cy is None:
+        cy = room.depth / 2
     p.line(cx, 0, cx, room.depth, stroke="#b45309", sw=1, dash="6 4")
-    p.line(0, room.depth / 2, room.width, room.depth / 2, stroke="#b45309", sw=1, dash="6 4")
-    p.text(cx + 0.12, room.depth / 2 + 0.12, "十字控制线", 10, fill="#92400e", anchor="start")
+    p.line(0, cy, room.width, cy, stroke="#b45309", sw=1, dash="6 4")
+    p.text(cx + 0.12, cy + 0.12, "十字控制线", 10, fill="#92400e", anchor="start")
     ramp = wet.get("ramp")
     if ramp:
-        p.rect(ramp["x"], ramp["y"], ramp["w"], ramp["d"], fill="#fde68a", stroke="#b45309", sw=1.2, opacity=0.85)
-        p.text(ramp["x"] + ramp["w"] / 2, ramp["y"] + ramp["d"] / 2, "斜坡≤15mm", 10, fill="#92400e")
+        p.rect(ramp["x"], ramp["y"], ramp["w"], ramp.get("d") or 0.3, fill="#fde68a", stroke="#b45309", sw=1.2, opacity=0.85)
+        p.text(ramp["x"] + ramp["w"] / 2, ramp["y"] + (ramp.get("d") or 0.3) / 2, "斜坡≤15mm", 10, fill="#92400e")
     drain = wet.get("drain")
     if drain:
         p.circle(drain["x"], drain["y"], 0.08, fill="#0ea5e9", stroke="#0c4a6e")
@@ -81,9 +93,23 @@ def svg_floor(room, layout: dict[str, Any]) -> str:
         for tx, ty in ((0.25, 0.25), (room.width - 0.25, 0.25), (0.25, room.depth - 0.25), (room.width - 0.25, room.depth - 0.25)):
             p.line(tx, ty, drain["x"], drain["y"], stroke="#38bdf8", sw=0.8, dash="4 3")
     for o in getattr(room, "openings", []) or []:
+        if getattr(o, "kind", "door") != "door":
+            continue
+        label = "门口整砖" if o.wall == door_wall and layout.get("pattern") != "laminate" else "门"
+        if layout.get("pattern") == "laminate" and o.wall == door_wall:
+            label = "门口起铺"
         if o.wall == "S":
             p.rect(o.offset, 0, o.width, 0.06, fill="#f7f4ea", stroke="#b91c1c", sw=2)
-            p.text(o.offset + o.width / 2, 0.18, "门口整砖", 10, fill="#b91c1c")
+            p.text(o.offset + o.width / 2, 0.18, label, 10, fill="#b91c1c")
+        elif o.wall == "N":
+            p.rect(o.offset, room.depth - 0.06, o.width, 0.06, fill="#f7f4ea", stroke="#b91c1c", sw=2)
+            p.text(o.offset + o.width / 2, room.depth - 0.18, label, 10, fill="#b91c1c")
+        elif o.wall == "W":
+            p.rect(0, o.offset, 0.06, o.width, fill="#f7f4ea", stroke="#b91c1c", sw=2)
+            p.text(0.22, o.offset + o.width / 2, label, 10, fill="#b91c1c", anchor="start")
+        elif o.wall == "E":
+            p.rect(room.width - 0.06, o.offset, 0.06, o.width, fill="#f7f4ea", stroke="#b91c1c", sw=2)
+            p.text(room.width - 0.22, o.offset + o.width / 2, label, 10, fill="#b91c1c")
     p.text(room.width / 2, -0.15, f"{room.width:.2f}m", 11)
     p.text(0.15, room.depth / 2, f"{room.depth:.2f}m", 11, anchor="start")
     return p.finish()
@@ -133,6 +159,10 @@ def svg_ceiling(room, ceil: dict[str, Any]) -> str:
         p.line(s["x1"], s["y1"], s["x2"], s["y2"], stroke="#0369a1", sw=1, dash="6 4")
     for e in ceil.get("extras") or []:
         p.line(e["x1"], e["y1"], e["x2"], e["y2"], stroke="#15803d", sw=1.5)
+    for b in ceil.get("braces") or []:
+        p.line(b["x1"], b["y1"], b["x2"], b["y2"], stroke="#dc2626", sw=1.4)
+    if ceil.get("hanger_need_brace"):
+        p.text(room.width / 2, 0.18, f"反支撑 GB 50210 7.1.11  吊杆{ceil.get('hanger_len_m', 0):.2f}m", 11, fill="#b91c1c")
     for h in ceil["hangers"]:
         p.circle(h["x"], h["y"], 0.06, fill="#111")
     for L in ceil["lights"]:
@@ -151,7 +181,18 @@ def svg_furniture(room, furn: dict[str, Any]) -> str:
         p.rect(it["x"], it["y"], it["w"], it["d"], fill=colors[i % len(colors)], stroke="#1e3a5f", sw=1, opacity=0.9)
         p.text(it["x"] + it["w"] / 2, it["y"] + it["d"] / 2, it["name"], 11)
     for o in room.openings:
+        if getattr(o, "kind", "door") != "door":
+            continue
         if o.wall == "S":
             p.rect(o.offset, 0, o.width, 0.08, fill="#f7f4ea", stroke="#b91c1c", sw=2)
             p.text(o.offset + o.width / 2, 0.25, "门", 10, fill="#b91c1c")
+        elif o.wall == "N":
+            p.rect(o.offset, room.depth - 0.08, o.width, 0.08, fill="#f7f4ea", stroke="#b91c1c", sw=2)
+            p.text(o.offset + o.width / 2, room.depth - 0.25, "门", 10, fill="#b91c1c")
+        elif o.wall == "W":
+            p.rect(0, o.offset, 0.08, o.width, fill="#f7f4ea", stroke="#b91c1c", sw=2)
+            p.text(0.25, o.offset + o.width / 2, "门", 10, fill="#b91c1c", anchor="start")
+        elif o.wall == "E":
+            p.rect(room.width - 0.08, o.offset, 0.08, o.width, fill="#f7f4ea", stroke="#b91c1c", sw=2)
+            p.text(room.width - 0.25, o.offset + o.width / 2, "门", 10, fill="#b91c1c")
     return p.finish()

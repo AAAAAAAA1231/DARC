@@ -159,6 +159,7 @@ def test_api_and_dxf_upload(tmp_path):
     r = client.get("/api/health").json()
     assert r["offline"] is True
     doc = ezdxf.new()
+    doc.header["$INSUNITS"] = 4
     msp = doc.modelspace()
     msp.add_lwpolyline([(0, 0), (5000, 0), (5000, 4000), (0, 4000)], close=True)
     path = tmp_path / "r.dxf"
@@ -171,3 +172,76 @@ def test_api_and_dxf_upload(tmp_path):
     z = client.get("/api/download/zip")
     assert z.status_code == 200
     assert z.content[:2] == b"PK"
+
+
+def test_north_door_whole_tiles_on_door_wall():
+    from paiban.engine.parse import Opening
+
+    lay = layout_floor(
+        4.8,
+        6.2,
+        0.8,
+        0.8,
+        0.002,
+        "straight",
+        openings=[Opening("N", 2.0, 0.9, 2.1, "door")],
+    )
+    assert lay["door_wall"] == "N"
+    assert lay["first_row_whole_from_door"] is True
+    north = [t for t in lay["tiles"] if abs(t["y"] + t["h"] - 6.2) < 0.02]
+    assert north
+    assert all(abs(t["h"] - 0.8) < 0.01 for t in north)
+    doc = generate_layout({"text": "客厅 4.8x6.2 北墙开门 地砖800x800", "task": "floor"})
+    assert "门口整砖" in doc["svg"]
+    assert doc["summary"]["door_wall"] == "N"
+
+
+def test_laminate_end_joints_stagger_over_300mm():
+    lay = layout_floor(4.8, 6.2, 0.191, 1.2, 0.0, "straight", kind="强化地板")
+    assert lay["pattern"] == "laminate"
+    assert lay["stagger_m"] > 0.300
+    doc = generate_layout({"text": "客厅 4.8x6.2 强化地板", "task": "floor"})
+    assert any("14.3.3" in c["code"] and c["ok"] for c in doc["checks"])
+    assert doc["pass"] is True
+
+
+def test_brick_pattern_edge_still_one_third():
+    lay = layout_floor(4.85, 6.1, 0.8, 0.8, 0.002, "brick")
+    assert lay["min_edge"] + 1e-6 >= 0.8 / 3
+    assert lay["pattern"] == "brick"
+
+
+def test_high_room_hanger_needs_reverse_brace():
+    cat = load_catalog()
+    spec = cat["ceilings"][0]
+    ceil = layout_ceiling(4.8, 6.2, spec, wet=False, room_height=4.50, room_kind="客厅")
+    assert ceil["hanger_need_brace"] is True
+    assert ceil["hanger_len_m"] > 1.50
+    assert ceil["braces"]
+    doc = generate_layout({"text": "客厅 4.8x6.2 层高4.5 吊顶石膏板", "task": "ceiling", "height": 4.5})
+    assert "反支撑" in doc["svg"]
+    assert any("7.1.11" in c["code"] and c["ok"] for c in doc["checks"])
+
+
+def test_kitchen_waterproof_is_mandatory():
+    doc = generate_layout({"text": "厨房 2.5x3.2 层高2.4 地砖", "task": "floor"})
+    assert any("6.1.1" in c["code"] and c["ok"] for c in doc["checks"])
+    assert "斜坡" in doc["svg"]
+
+
+def test_cad_line_on_north_wall_is_door(tmp_path):
+    from paiban.engine.parse import parse_dxf_bytes
+
+    doc = ezdxf.new()
+    doc.header["$INSUNITS"] = 4
+    msp = doc.modelspace()
+    msp.add_lwpolyline([(0, 0), (5000, 0), (5000, 4000), (0, 4000)], close=True)
+    msp.add_line((1000, 4000), (1900, 4000))
+    path = tmp_path / "door.dxf"
+    doc.saveas(path)
+    info = parse_dxf_bytes(path.read_bytes())
+    doors = [o for o in info["room"].openings if o.kind == "door"]
+    assert doors
+    assert doors[0].wall == "N"
+    assert abs(doors[0].width - 0.9) < 0.05
+

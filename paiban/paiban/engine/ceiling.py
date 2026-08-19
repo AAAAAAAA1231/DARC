@@ -54,7 +54,7 @@ def _frame_rect(
     """Main keels span the short direction of this rectangle (短跨承力)."""
     rw, rd = x1 - x0, y1 - y0
     if rw < 0.05 or rd < 0.05:
-        return {"mains": [], "seconds": [], "hangers": [], "span": min(rw, rd), "main_sp": main_sp, "sec_sp": sec_sp, "end_ok": True, "span_ok": True, "hanger_gaps": []}
+        return {"mains": [], "seconds": [], "hangers": [], "span": min(rw, rd), "main_sp": main_sp, "sec_sp": sec_sp, "end_ok": True, "span_ok": True, "hanger_gaps": [], "secondary_along": "y"}
     short_is_w = rw <= rd
     span = rw if short_is_w else rd
     long = rd if short_is_w else rw
@@ -102,24 +102,55 @@ def _frame_rect(
         "end_ok": end_ok,
         "span_ok": span_ok,
         "hanger_gaps": hanger_gaps,
+        "secondary_along": "y" if short_is_w else "x",
     }
 
 
-def _gypsum_panels(room_w: float, room_d: float, pw: float, ph: float, clip: dict | None = None) -> list[dict[str, Any]]:
+def _gypsum_panels(
+    room_w: float,
+    room_d: float,
+    pw: float,
+    ph: float,
+    clip: dict | None = None,
+    secondary_along: str = "y",
+) -> list[dict[str, Any]]:
+    """GB 50210-2018 6.2.7：石膏板长边应垂直于次龙骨；相邻板端缝错开 ≥300mm。"""
+    short_s, long_s = min(pw, ph), max(pw, ph)
+    along_step, across_step = max(0.30, long_s), max(0.30, short_s)
+    stagger = 0.30
     panels: list[dict[str, Any]] = []
-    y = 0.0
-    row = 0
-    while y < room_d - 1e-9:
-        h = min(ph, room_d - y)
-        x = 0.6 if row % 2 else 0.0
-        if x > 0:
-            panels.append({"x": 0.0, "y": y, "w": min(x, room_w), "h": h, "cut": True})
+    if secondary_along == "y":
+        along, across = along_step, across_step
+        y = 0.0
+        row = 0
+        while y < room_d - 1e-9:
+            h = min(across, room_d - y)
+            xoff = stagger if row % 2 else 0.0
+            if xoff > 0:
+                panels.append({"x": 0.0, "y": y, "w": min(xoff, room_w), "h": h, "cut": True})
+            x = xoff
+            while x < room_w - 1e-9:
+                w = min(along, room_w - x)
+                panels.append({"x": x, "y": y, "w": w, "h": h, "cut": w < along - 0.01 or h < across - 0.01})
+                x += along
+            y += across
+            row += 1
+    else:
+        along, across = along_step, across_step
+        x = 0.0
+        col = 0
         while x < room_w - 1e-9:
-            w = min(pw, room_w - x)
-            panels.append({"x": x, "y": y, "w": w, "h": h, "cut": w < pw - 0.01 or h < ph - 0.01})
-            x += pw
-        y += ph
-        row += 1
+            w = min(across, room_w - x)
+            yoff = stagger if col % 2 else 0.0
+            if yoff > 0:
+                panels.append({"x": x, "y": 0.0, "w": w, "h": min(yoff, room_d), "cut": True})
+            y = yoff
+            while y < room_d - 1e-9:
+                h = min(along, room_d - y)
+                panels.append({"x": x, "y": y, "w": w, "h": h, "cut": w < across - 0.01 or h < along - 0.01})
+                y += along
+            x += across
+            col += 1
     if clip:
         cx, cy, cw, ch = clip["x"], clip["y"], clip["w"], clip["h"]
         kept = []
@@ -179,6 +210,13 @@ def _local_drop_rect(room_w: float, room_d: float) -> dict[str, float]:
     return {"x": room_w - band, "y": 0.0, "w": band, "h": room_d}
 
 
+def _hanger_length_m(room_height: float, drop: float, hmin: float) -> float:
+    """吊杆长度按空腔计。高大空间做到规范净高时，空腔可超过 1.5m，须反支撑。"""
+    if room_height >= hmin + 1.51:
+        return round(max(drop, room_height - hmin), 3)
+    return round(drop, 3)
+
+
 def layout_ceiling(
     room_w: float,
     room_d: float,
@@ -201,6 +239,8 @@ def layout_ceiling(
     drop = 0.20 if kind == "石膏板" else 0.12
     living = room_kind in ("客厅", "卧室", "餐厅", "书房")
     hmin = 2.60 if living else 2.20
+    hanger_len = _hanger_length_m(room_height, drop, hmin)
+    need_brace = hanger_len > 1.50 + 1e-9
     net_full = round(room_height - drop, 3)
     mode = "full"
     drop_rects: list[dict[str, float]] = [{"x": 0.0, "y": 0.0, "w": room_w, "h": room_d}]
@@ -217,12 +257,6 @@ def layout_ceiling(
     elif net_full + 1e-6 < hmin:
         reason = f"吊顶后净高 {net_full}m 低于 {hmin:.2f}m 下限"
 
-    clip = drop_rects[0] if mode == "local" else None
-    if kind == "石膏板":
-        panels = _gypsum_panels(room_w, room_d, pw, ph, clip)
-    else:
-        panels = _tile_panels(room_w, room_d, pw, ph, clip)
-
     mains: list[dict[str, float]] = []
     seconds: list[dict[str, float]] = []
     hangers: list[dict[str, float]] = []
@@ -232,6 +266,7 @@ def layout_ceiling(
     actual_main = main_sp
     actual_sec = sec_sp
     span = min(room_w, room_d)
+    secondary_along = "y"
     for r in drop_rects:
         fr = _frame_rect(r["x"], r["y"], r["x"] + r["w"], r["y"] + r["h"], main_sp, sec_sp, hanger_max, end)
         mains.extend(fr["mains"])
@@ -243,6 +278,13 @@ def layout_ceiling(
         actual_main = fr["main_sp"]
         actual_sec = fr["sec_sp"]
         span = fr["span"]
+        secondary_along = fr.get("secondary_along") or secondary_along
+
+    clip = drop_rects[0] if mode == "local" else None
+    if kind == "石膏板":
+        panels = _gypsum_panels(room_w, room_d, pw, ph, clip, secondary_along=secondary_along)
+    else:
+        panels = _tile_panels(room_w, room_d, pw, ph, clip)
 
     n_light = lights if lights is not None else max(1, round(room_w * room_d / 8))
     if mode == "local":
@@ -280,6 +322,21 @@ def layout_ceiling(
         if hatch_rect["h"] < 0.62:
             hatch["h"] = max(0.4, hatch_rect["h"] - 0.1)
             hatch["w"] = max(0.4, min(0.6, hatch_rect["w"] - 0.1))
+    extras.extend([
+        {"x1": hatch["x"] - 0.05, "y1": hatch["y"] - 0.05, "x2": hatch["x"] + hatch["w"] + 0.05, "y2": hatch["y"] - 0.05},
+        {"x1": hatch["x"] - 0.05, "y1": hatch["y"] + hatch["h"] + 0.05, "x2": hatch["x"] + hatch["w"] + 0.05, "y2": hatch["y"] + hatch["h"] + 0.05},
+        {"x1": hatch["x"] - 0.05, "y1": hatch["y"] - 0.05, "x2": hatch["x"] - 0.05, "y2": hatch["y"] + hatch["h"] + 0.05},
+        {"x1": hatch["x"] + hatch["w"] + 0.05, "y1": hatch["y"] - 0.05, "x2": hatch["x"] + hatch["w"] + 0.05, "y2": hatch["y"] + hatch["h"] + 0.05},
+    ])
+    braces: list[dict[str, float]] = []
+    for i, h in enumerate(hangers):
+        h["length_m"] = hanger_len
+        h["need_brace"] = need_brace
+        if need_brace and i % 2 == 0:
+            braces.append({
+                "x1": h["x"], "y1": h["y"],
+                "x2": min(room_w, h["x"] + 0.22), "y2": min(room_d, h["y"] + 0.22),
+            })
     camber = round(span * 0.002, 4)
     stagger = kind != "石膏板" or _has_stagger(panels)
     local_area = sum(r["w"] * r["h"] for r in drop_rects)
@@ -305,6 +362,7 @@ def layout_ceiling(
         "seconds": seconds,
         "edges": edges,
         "extras": extras,
+        "braces": braces,
         "hangers": hangers,
         "lights": light_pts,
         "hatch": hatch,
@@ -317,6 +375,7 @@ def layout_ceiling(
         "camber_m": camber,
         "span_m": round(span, 3),
         "drop_m": drop,
+        "hanger_len_m": hanger_len,
         "net_height": net_height,
         "net_full": net_full,
         "net_local": net_local,
@@ -324,12 +383,15 @@ def layout_ceiling(
         "local_area_ratio": round(local_area / room_area, 3) if room_area else 1,
         "wet": wet,
         "stagger": stagger,
+        "stagger_m": 0.30 if kind == "石膏板" else 0.0,
+        "secondary_along": secondary_along,
         "panel_count": len(panels),
         "hanger_count": len(hangers),
         "sec_limit": sec_limit,
         "hmin": hmin,
         "room_kind": room_kind,
-        "hanger_need_brace": drop > 1.5,
+        "hanger_need_brace": need_brace,
+        "need_expansion_joint": max(room_w, room_d) > 12.0 - 1e-6,
     }
 
 

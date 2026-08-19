@@ -38,6 +38,9 @@ def generate_layout(params: dict[str, Any], file_bytes: bytes | None = None, fil
         room.depth = float(params["depth"])
     if params.get("height"):
         room.height = float(params["height"])
+    if max(room.width, room.depth) >= 80:
+        room.width /= 1000.0
+        room.depth /= 1000.0
     if params.get("room_kind"):
         room.kind = params["room_kind"]
         room.name = params.get("room_name") or params["room_kind"]
@@ -100,8 +103,17 @@ def generate_layout(params: dict[str, Any], file_bytes: bytes | None = None, fil
         qty = quantities("furniture", room, payload)
     else:
         task = "floor"
-        payload = layout_floor(room.width, room.depth, floor_tile["w"], floor_tile["h"], floor_tile["grout"], pattern, openings=room.openings)
-        if room.kind in ("卫生间", "厨房"):
+        payload = layout_floor(
+            room.width,
+            room.depth,
+            floor_tile["w"],
+            floor_tile["h"],
+            floor_tile["grout"],
+            pattern,
+            openings=room.openings,
+            kind=floor_tile.get("kind") or floor_tile.get("name") or room.kind,
+        )
+        if room.kind in ("卫生间", "厨房", "阳台"):
             payload["wet_features"] = wet_floor_features(room.width, room.depth, room.openings, room.kind, tiles=payload["tiles"])
         checks = check_floor(room, floor_tile, payload)
         svg = svg_floor(room, payload)
@@ -156,11 +168,16 @@ def _all_walls(room: Room, tile: dict) -> list[dict]:
             if o.wall == wall
         ]
 
+    door_walls = {o.wall for o in room.openings if getattr(o, "kind", "door") == "door"}
+
+    def wall_name(label: str, key: str) -> str:
+        return label + ("（开门）" if key in door_walls else "")
+
     walls_meta = [
-        ("南墙（开门）", room.width, holes_on("S")),
-        ("北墙", room.width, holes_on("N")),
-        ("西墙", room.depth, holes_on("W")),
-        ("东墙", room.depth, holes_on("E")),
+        (wall_name("南墙", "S"), room.width, holes_on("S")),
+        (wall_name("北墙", "N"), room.width, holes_on("N")),
+        (wall_name("西墙", "W"), room.depth, holes_on("W")),
+        (wall_name("东墙", "E"), room.depth, holes_on("E")),
     ]
     out = []
     for name, length, holes in walls_meta:
@@ -173,13 +190,23 @@ def _all_walls(room: Room, tile: dict) -> list[dict]:
                 {"h": 0.25, "label": "泛水翻起 ≥0.25m"},
                 {"h": 0.10, "label": "地面防水上翻 ≥100mm（GB 50327 6.3.3）"},
             ]
+        elif room.kind in ("厨房", "阳台"):
+            lay["waterproof"] = [
+                {"h": 0.10, "label": "地面防水上翻 ≥100mm（GB 50327 6.1.1 / 6.3.3）"},
+            ]
         out.append(lay)
     return out
 
 
 def _summary(task: str, payload: Any) -> dict[str, Any]:
     if task == "floor":
-        return {"count": payload["count"], "cuts": payload["cuts"], "min_edge_mm": int(payload["min_edge"] * 1000)}
+        return {
+            "count": payload["count"],
+            "cuts": payload["cuts"],
+            "min_edge_mm": int(payload["min_edge"] * 1000),
+            "door_wall": payload.get("door_wall"),
+            "pattern": payload.get("pattern"),
+        }
     if task == "wall":
         return {"count": sum(w["count"] for w in payload), "cuts": sum(w["cuts"] for w in payload)}
     if task == "ceiling":
@@ -209,7 +236,7 @@ def _to_dxf(room: Room, task: str, payload: Any, path: Path) -> None:
         for pan in payload["panels"]:
             x, y, w, h = pan["x"] * k, pan["y"] * k, pan["w"] * k, pan["h"] * k
             msp.add_lwpolyline([(x, y), (x + w, y), (x + w, y + h), (x, y + h)], close=True, dxfattribs={"layer": "PANEL"})
-        for ln in payload["mains"] + payload["seconds"] + list(payload.get("extras") or []) + list(payload.get("edges") or []):
+        for ln in payload["mains"] + payload["seconds"] + list(payload.get("extras") or []) + list(payload.get("edges") or []) + list(payload.get("braces") or []):
             msp.add_line((ln["x1"] * k, ln["y1"] * k), (ln["x2"] * k, ln["y2"] * k), dxfattribs={"layer": "KEEL"})
         for h in payload.get("hangers") or []:
             msp.add_circle((h["x"] * k, h["y"] * k), 25, dxfattribs={"layer": "HANGER"})

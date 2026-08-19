@@ -15,28 +15,50 @@ def check_floor(room, tile: dict, layout: dict) -> list[dict[str, Any]]:
     wet = layout.get("wet_features") or {}
     gy = layout.get("gy") or {}
     first_row = (gy.get("widths") or [th])[0]
-    door_whole = abs(first_row - th) < 0.006
-    checks = [
-        _chk(
-            layout["min_edge"] + 1e-6 >= min_ok,
-            "GB 50327-2001 12.3.1",
-            f"非整砖宽度不宜小于整砖的 1/3；本图最小边砖 {layout['min_edge']*1000:.0f}mm（整砖 1/3＝{min_ok*1000:.0f}mm）",
-        ),
-        _chk(
-            layout.get("n_cut_cols", 99) <= 2 and layout.get("n_cut_rows", 99) <= 2,
-            "GB 50327-2001 12.3.1",
-            f"每面不宜有两列/两行以上非整砖；本图开间切割列 {layout.get('n_cut_cols')}，进深切割行 {layout.get('n_cut_rows')}",
-        ),
-        _chk(
-            bool(layout.get("cuts_at_corner", True)),
-            "GB 50327-2001 12.3.1",
-            "非整砖应排放在次要部位或阴角处，不得放在门口等主要部位",
-        ),
-        _chk(
-            door_whole,
-            "GB 50327-2001 12.3.1 / 14.3.1",
-            "弹线从门口开始，进口处应为整砖，非整砖置于远端阴角；本图门口第一皮" + ("为整砖" if door_whole else "不是整砖"),
-        ),
+    ref_h = float(layout.get("tile_h") or th)
+    door_whole = abs(first_row - ref_h) < 0.006
+    laminate = layout.get("pattern") == "laminate" or "地板" in (tile.get("kind") or "")
+    checks: list[dict[str, Any]] = []
+    if laminate:
+        stag = float(layout.get("stagger_m") or layout.get("min_end_joint_stagger_m") or 0)
+        checks.append(
+            _chk(
+                stag > 0.300 - 1e-9,
+                "GB 50327-2001 14.3.3",
+                f"强化地板相邻条板端头错缝距离应大于 300mm；本图错缝 {stag*1000:.0f}mm",
+            )
+        )
+        checks.append(
+            _chk(
+                door_whole,
+                "GB 50327-2001 14.3.1",
+                "地面应从门口弹线；本图长边垂直于开口方向铺设，进口第一皮" + ("对缝整齐" if door_whole else "未从门口起铺"),
+            )
+        )
+    else:
+        checks += [
+            _chk(
+                layout["min_edge"] + 1e-6 >= min_ok,
+                "GB 50327-2001 12.3.1",
+                f"非整砖宽度不宜小于整砖的 1/3；本图最小边砖 {layout['min_edge']*1000:.0f}mm（整砖 1/3＝{min_ok*1000:.0f}mm）",
+            ),
+            _chk(
+                layout.get("n_cut_cols", 99) <= 2 and layout.get("n_cut_rows", 99) <= 2,
+                "GB 50327-2001 14.3.1",
+                f"地面拉十字线、宜对称或单边阴角收头；本图开间切割列 {layout.get('n_cut_cols')}，进深切割行 {layout.get('n_cut_rows')}",
+            ),
+            _chk(
+                bool(layout.get("cuts_at_corner", True)),
+                "GB 50327-2001 12.3.1",
+                "非整砖应排放在次要部位或阴角处，不得放在门口等主要部位",
+            ),
+            _chk(
+                door_whole,
+                "GB 50327-2001 12.3.1 / 14.3.1",
+                "弹线从门口开始，进口处应为整砖，非整砖置于远端阴角；本图门口第一皮" + ("为整砖" if door_whole else "不是整砖"),
+            ),
+        ]
+    checks += [
         _chk(
             0.001 <= grout <= 0.005 or grout == 0,
             "GB 50209-2010 砖面层",
@@ -72,11 +94,18 @@ def check_floor(room, tile: dict, layout: dict) -> list[dict[str, Any]]:
                     kind="note",
                 )
             )
-    if room.kind == "厨房":
+    if room.kind in ("厨房", "阳台"):
         wetk = layout.get("wet_features") or {}
         step = float(wetk.get("door_step_mm") or 15)
         ramp = wetk.get("ramp")
-        checks.append(_chk(step <= 15 + 1e-6 and bool(ramp), "GB 55038-2025 4.1.12", f"厨房与相邻空间地面高差不应大于 15mm，并以斜坡过渡；本图门口高差按 {step:.0f}mm"))
+        checks.append(
+            _chk(
+                True,
+                "GB 50327-2001 6.1.1 / 6.3.3",
+                f"{room.kind}地面必须做防水层，并应在墙面翻起不小于 100mm；本图按防水地面排版，密实度、闭水须现场做",
+            )
+        )
+        checks.append(_chk(step <= 15 + 1e-6 and bool(ramp), "GB 55038-2025 4.1.12", f"{room.kind}与相邻空间地面高差不应大于 15mm，并以斜坡过渡；本图门口高差按 {step:.0f}mm"))
     return checks
 
 
@@ -88,7 +117,7 @@ def check_wall(room, tile, walls: list[dict]) -> list[dict[str, Any]]:
     sleeved = sum(w.get("sleeved") or 0 for w in walls)
     checks = [
         _chk(min_edge >= min_ok - 1e-6, "GB 50327-2001 12.3.1", f"非整砖宽度不宜小于整砖的 1/3；本图最小边条 {min_edge*1000:.0f}mm（1/3＝{min_ok*1000:.0f}mm）"),
-        _chk(cut_cols <= 2, "GB 50327-2001 12.3.1", f"每面墙不宜有两列非整砖；本图最多切割列 {cut_cols}"),
+        _chk(cut_cols <= 1, "GB 50327-2001 12.3.1", f"每面墙不宜有两列非整砖（即最多一列阴角收头）；本图最多切割列 {cut_cols}"),
         _chk(all(w.get("cuts_at_corner") for w in walls), "GB 50327-2001 12.3.1", "非整砖应排放在次要部位或阴角处"),
         _chk(
             (sleeved > 0) if holes else True,
@@ -122,10 +151,19 @@ def check_ceiling(room, ceil: dict, project_type: str = "既有") -> list[dict[s
         _chk(ceil.get("hanger_end_ok", False), "GB 50327-2001 8.3.1 / GB 50210-2018", "吊杆距主龙骨端部不得超过 300mm；与设备相遇时应调整吊点或增设吊杆"),
         _chk(ceil["secondary_spacing"] <= sec_limit + 1e-6, "GB 50327-2001 8.3.1", f"次龙骨间距 {ceil['secondary_spacing']}m（不得大于 {int(sec_limit*1000)}mm" + ("；潮湿场所以 300～400mm" if wet else "") + "）"),
         _chk(0.001 * ceil.get("span_m", 1) - 1e-9 <= ceil.get("camber_m", 0) <= 0.003 * ceil.get("span_m", 1) + 1e-9, "GB 50327-2001 8.3.1", f"短向跨度 {ceil.get('span_m')}m，起拱 {ceil.get('camber_m', 0)*1000:.1f}mm（按短跨 1‰～3‰，本图取 2‰）"),
-        _chk(ceil.get("stagger", True), "GB 50210-2018 吊顶", "石膏板应错缝安装，不得出现通缝"),
-        _chk(len(ceil.get("extras") or []) >= 1, "GB 50210-2018 吊顶 / GB 50327-2001 8.1.4", "灯具、喷淋、检修口处应设附加龙骨；重型灯具、电扇严禁安装在吊顶龙骨上"),
+        _chk(
+            ceil.get("stagger", True),
+            "GB 50210-2018 6.2.7",
+            "纸面石膏板长边应垂直于次龙骨，相邻板端缝应错开（本图错缝 ≥300mm），不得通缝",
+        ),
+        _chk(len(ceil.get("extras") or []) >= 1, "GB 50210-2018 7.1.12 / GB 50327-2001 8.3.1", "灯具、喷淋、检修口处应设附加龙骨；重型灯具、电扇严禁安装在吊顶龙骨上，须独立吊杆锚入结构"),
         _chk(len(ceil.get("edges") or []) >= 4, "GB 50327-2001 8.3.1-6", "边龙骨应按设计要求弹线，固定在四周墙上；本图已布置边龙骨"),
-        _chk(not ceil.get("hanger_need_brace"), "GB 50210-2018 吊顶", "吊杆长度大于 1.5m 时应设反支撑；本方案吊杆长度按吊顶下降 " + f"{ceil.get('drop_m', 0)}m 计" + ("，须加反支撑" if ceil.get("hanger_need_brace") else "，不必设反支撑")),
+        _chk(
+            (not ceil.get("hanger_need_brace")) or bool(ceil.get("braces")),
+            "GB 50210-2018 7.1.11",
+            f"吊杆长度大于 1.5m 时应设反支撑；本方案吊杆按空腔 {ceil.get('hanger_len_m', ceil.get('drop_m', 0))}m 计"
+            + ("，图中已示意反支撑" if ceil.get("hanger_need_brace") else "，不必设反支撑"),
+        ),
     ]
     if project_type == "新建":
         checks.insert(0, _chk(room.height >= 3.00 - 1e-6, "GB 55038-2025 4.1.2-1", f"新建住宅层高不应低于 3.00m；当前层高 {room.height}m"))
@@ -139,6 +177,10 @@ def check_ceiling(room, ceil: dict, project_type: str = "既有") -> list[dict[s
         checks.append(_chk(net + 1e-6 >= hmin, "GB 55038-2025 4.1.2", f"吊顶后估算净高 {net}m（{room.kind}不应低于 {hmin:.2f}m；层高不足时应改为局部吊顶或降低龙骨）"))
     ht = ceil["hatch"]
     checks.append(_chk(ht["w"] >= 0.4 - 1e-6 and ht["h"] >= 0.4 - 1e-6, "检修", "检修口常见不宜小于 600×600mm，并应设附加龙骨、避开主视面", hard=False, kind="craft"))
+    if ceil.get("need_expansion_joint"):
+        checks.append(_chk(True, "GB 50210-2018 吊顶", "吊顶连续长度大于 12m 时应设分缝/转换；本图仅提示，须在施工图中断开龙骨", hard=False, kind="note"))
+    if ceil.get("hanger_len_m", 0) > 2.50:
+        checks.append(_chk(True, "GB 50210-2018 7.1.11", f"吊杆长度 {ceil.get('hanger_len_m')}m 大于 2.5m 时尚应设钢制转换层", hard=False, kind="note"))
     return checks
 
 
@@ -161,8 +203,11 @@ def quantities(task: str, room, payload: dict, tile=None, ceil=None) -> list[dic
                 {"name": "防水层+地漏找坡 1%", "qty": round(room.area, 2), "unit": "㎡"},
                 {"name": "门口斜坡过渡 ≤15mm", "qty": 1, "unit": "处"},
             ]
-        if room.kind == "厨房":
-            rows.append({"name": "门口斜坡过渡 ≤15mm", "qty": 1, "unit": "处"})
+        if room.kind in ("厨房", "阳台"):
+            rows += [
+                {"name": "地面防水+上翻 100mm", "qty": round(room.area, 2), "unit": "㎡"},
+                {"name": "门口斜坡过渡 ≤15mm", "qty": 1, "unit": "处"},
+            ]
     if task == "wall" and tile:
         n = sum(w["count"] for w in payload)
         cuts = sum(w["cuts"] for w in payload)
