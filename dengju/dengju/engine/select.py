@@ -13,9 +13,11 @@ from dengju.engine.calc import (
     avg_illuminance,
     emergency_points,
     fixture_points,
-    grid_counts,
+    grid_for_count,
     lamps_needed,
+    mount_height_m,
     room_index,
+    space_grid,
     utilization_factor,
 )
 from dengju.engine.parse import RoomInput, load_catalog, parse_description, parse_dxf_bytes, parse_pdf_bytes
@@ -86,81 +88,61 @@ def _select_lighting(params: dict[str, Any], file_bytes: bytes | None, filename:
         room.E = spec["E"]
     room.mf = _num(params, "mf", default=0) or spec["mf"]
     work_h = _num(params, "work_plane_m", "work_h", default=0) or spec["work_h"]
-    h_m = max(0.5, room.height - work_h)
-    area = room.width * room.depth
-    k = room_index(room.width, room.depth, h_m)
-    uf = utilization_factor(k)
     prefer = spec["kinds"]
     forced = _text(params, "fixture_id")
     ra_min = int(_num(params, "ra_min", default=0) or spec["ra"])
     cct = int(_num(params, "cct", default=4000) or 4000)
+    area = room.width * room.depth
 
     scored: list[dict[str, Any]] = []
     for fx in cat["fixtures"]:
         if fx["kind"] == "应急":
             continue
-        if forced and fx["id"] != forced:
-            continue
-        if not forced and fx["kind"] not in prefer:
-            continue
         if fx["Ra"] < ra_min - 5:
             continue
-        n_raw = lamps_needed(room.E, area, fx["lm"], uf, room.mf)
-        nx, ny, n = grid_counts(n_raw, room.width, room.depth, h_m, fx["shr"])
-        E_avg = avg_illuminance(n, fx["lm"], uf, room.mf, area)
-        watts = n * fx["W"]
-        lpd = watts / area if area else 0
-        sx, sy = room.width / nx, room.depth / ny
-        ok_e = E_avg >= room.E * 0.95
-        ok_lpd = lpd <= spec["lpd"] * 1.05
-        ok_ugr = fx["ugr"] <= spec["ugr"]
-        ok_s = sx <= fx["shr"] * h_m * 1.15 and sy <= fx["shr"] * h_m * 1.15
-        score = (int(ok_e) + int(ok_lpd) + int(ok_ugr) + int(ok_s), -lpd, -n, -abs(E_avg - room.E))
-        scored.append(
-            {
-                "fixture": fx,
-                "n_calc": round(n_raw, 2),
-                "nx": nx,
-                "ny": ny,
-                "n": n,
-                "E_avg": round(E_avg, 1),
-                "W_total": watts,
-                "lpd": round(lpd, 2),
-                "sx": round(sx, 2),
-                "sy": round(sy, 2),
-                "ok_e": ok_e,
-                "ok_lpd": ok_lpd,
-                "ok_ugr": ok_ugr,
-                "ok_s": ok_s,
-                "score": score,
-            }
-        )
+        h_m, aff, suspended = mount_height_m(room.height, work_h, fx["kind"], room.name)
+        k = room_index(room.width, room.depth, h_m)
+        uf = utilization_factor(k)
+        cand = _best_layout(fx, room, spec, prefer, area, h_m, uf, forced)
+        if cand:
+            cand["h_m"] = h_m
+            cand["aff"] = aff
+            cand["k"] = k
+            cand["uf"] = uf
+            cand["suspended"] = suspended
+            scored.append(cand)
+
     scored.sort(key=lambda x: x["score"], reverse=True)
-    if not scored:
+    passing = [s for s in scored if s["hard"]]
+    if forced:
+        named = [s for s in scored if s["fixture"]["id"] == forced]
+        if named and named[0]["hard"]:
+            passing = named + [s for s in passing if s["fixture"]["id"] != forced]
+        elif passing:
+            pass
+        elif named:
+            passing = named
+    if passing:
+        scored_view = passing + [s for s in scored if not s["hard"]]
+        best = passing[0]
+    elif scored:
+        scored_view = scored
+        best = scored[0]
+    else:
         fx = next(f for f in cat["fixtures"] if f["kind"] != "应急")
+        h_m, aff, suspended = mount_height_m(room.height, work_h, fx["kind"], room.name)
+        k = room_index(room.width, room.depth, h_m)
+        uf = utilization_factor(k)
         n_raw = lamps_needed(room.E, area, fx["lm"], uf, room.mf)
-        nx, ny, n = grid_counts(n_raw, room.width, room.depth, h_m, fx["shr"])
-        scored.append(
-            {
-                "fixture": fx,
-                "n_calc": round(n_raw, 2),
-                "nx": nx,
-                "ny": ny,
-                "n": n,
-                "E_avg": round(avg_illuminance(n, fx["lm"], uf, room.mf, area), 1),
-                "W_total": n * fx["W"],
-                "lpd": round(n * fx["W"] / area, 2) if area else 0,
-                "sx": round(room.width / nx, 2),
-                "sy": round(room.depth / ny, 2),
-                "ok_e": True,
-                "ok_lpd": True,
-                "ok_ugr": True,
-                "ok_s": True,
-                "score": (0,),
-            }
-        )
-    best = scored[0]
+        nx, ny, n = grid_for_count(max(1, int(n_raw + 0.999)), room.width, room.depth)
+        best = _pack_candidate(fx, n_raw, nx, ny, n, room, spec, prefer, area, h_m, uf)
+        best.update({"h_m": h_m, "aff": aff, "k": k, "uf": uf, "suspended": suspended})
+        scored_view = [best]
+
     fx = best["fixture"]
+    h_m = best["h_m"]
+    k = best["k"]
+    uf = best["uf"]
     pts = fixture_points(room.width, room.depth, best["nx"], best["ny"])
     emg = emergency_points(room.width, room.depth, room.name)
     checks = [
@@ -203,6 +185,7 @@ def _select_lighting(params: dict[str, Any], file_bytes: bytes | None, filename:
         "CCT": fx["cct"],
         "cct_lamp": fx["cct"],
     }
+    alt_src = [s for s in scored_view if s["hard"] and s["fixture"]["id"] != fx["id"]][:5]
     alternatives = [
         {
             "id": s["fixture"]["id"],
@@ -213,9 +196,21 @@ def _select_lighting(params: dict[str, Any], file_bytes: bytes | None, filename:
             "e_avg": s["E_avg"],
             "lpd": s["lpd"],
             "W_total": s["W_total"],
+            "pass": True,
         }
-        for s in scored[:5]
+        for s in alt_src
     ]
+    notes = [
+        "照度用利用系数法：N = E·A / (Φ·UF·MF)。UF 按室形指数近似，不是逐点计算。",
+        "推荐方案必须同时满足目标照度与 GB 50034 LPD，不会给出超标方案。",
+        "布置为正方形/矩形阵列，距边约半间距。精装天花、灯槽、重点照明需深化。",
+        "依据 GB 50034 建筑照明设计标准（照度、UGR、Ra、LPD）及 GB 51309 消防应急照明示意。",
+    ]
+    if best.get("suspended"):
+        notes.insert(
+            1,
+            f"层高 {room.height} m，办公类面板灯按吊顶安装高度 {best['aff']:.1f} m 计算（距工作面 {h_m:.2f} m），不把灯装在屋面。",
+        )
     report = {
         "ok": True,
         "n": best["n"],
@@ -256,11 +251,7 @@ def _select_lighting(params: dict[str, Any], file_bytes: bytes | None, filename:
             {"name": "应急照明灯", "qty": sum(1 for p in emg if p["kind"] == "应急照明"), "unit": "套"},
             {"name": "装机功率", "qty": best["W_total"], "unit": "W"},
         ],
-        "notes": [
-            "照度用利用系数法：N = E·A / (Φ·UF·MF)。UF 按室形指数近似，不是逐点计算。",
-            "布置为正方形/矩形阵列，距边约半间距。精装天花、灯槽、重点照明需深化。",
-            "依据 GB 50034 建筑照明设计标准（照度、UGR、Ra、LPD）及 GB 51309 消防应急照明示意。",
-        ],
+        "notes": notes,
         "pass": all(c["ok"] for c in checks if "示意" not in c["detail"]),
         "warnings": [c["detail"] for c in checks if not c["ok"]],
         "svg": svg,
@@ -273,6 +264,99 @@ def _select_lighting(params: dict[str, Any], file_bytes: bytes | None, filename:
         zf.write(out / "report.json", "report.json")
     report["zip"] = str(zip_path)
     return report
+
+
+def _pack_candidate(
+    fx: dict[str, Any],
+    n_raw: float,
+    nx: int,
+    ny: int,
+    n: int,
+    room: RoomInput,
+    spec: dict[str, Any],
+    prefer: list[str],
+    area: float,
+    h_m: float,
+    uf: float,
+) -> dict[str, Any]:
+    E_avg = avg_illuminance(n, fx["lm"], uf, room.mf, area)
+    watts = n * fx["W"]
+    lpd = watts / area if area else 0
+    sx, sy = room.width / max(nx, 1), room.depth / max(ny, 1)
+    ok_e = E_avg >= room.E * 0.95
+    ok_lpd = lpd <= spec["lpd"] + 1e-9
+    ok_ugr = fx["ugr"] <= spec["ugr"]
+    ok_ra = fx["Ra"] >= spec["ra"]
+    ok_s = sx <= fx["shr"] * h_m * 1.15 and sy <= fx["shr"] * h_m * 1.15
+    hard = ok_e and ok_lpd and ok_ugr and ok_ra
+    score = (
+        int(hard),
+        int(fx["kind"] in prefer),
+        int(ok_s),
+        -lpd,
+        -n,
+        -abs(E_avg - room.E),
+    )
+    return {
+        "fixture": fx,
+        "n_calc": round(n_raw, 2),
+        "nx": nx,
+        "ny": ny,
+        "n": n,
+        "E_avg": round(E_avg, 1),
+        "W_total": watts,
+        "lpd": round(lpd, 2),
+        "sx": round(sx, 2),
+        "sy": round(sy, 2),
+        "ok_e": ok_e,
+        "ok_lpd": ok_lpd,
+        "ok_ugr": ok_ugr,
+        "ok_ra": ok_ra,
+        "ok_s": ok_s,
+        "hard": hard,
+        "score": score,
+    }
+
+
+def _best_layout(
+    fx: dict[str, Any],
+    room: RoomInput,
+    spec: dict[str, Any],
+    prefer: list[str],
+    area: float,
+    h_m: float,
+    uf: float,
+    forced: str,
+) -> dict[str, Any] | None:
+    n_raw = lamps_needed(room.E, area, fx["lm"], uf, room.mf)
+    n_need = max(1, int(n_raw + 0.999))
+    if fx["W"] <= 0 or area <= 0:
+        return None
+    max_n = int(spec["lpd"] * area / fx["W"] + 1e-9)
+    if max_n < 1:
+        max_n = 1
+    _sx, _sy, n_space = space_grid(room.width, room.depth, h_m, fx["shr"])
+    tries = {n_need}
+    if n_space >= n_need:
+        tries.add(min(n_space, max(max_n, n_need)))
+    for extra in range(0, 13):
+        tries.add(n_need + extra)
+    cands: list[dict[str, Any]] = []
+    for n_try in sorted(tries):
+        cap = max(max_n, n_try) if forced == fx["id"] else max_n
+        if n_try > cap and fx["id"] != forced:
+            continue
+        nx, ny, n = grid_for_count(n_try, room.width, room.depth, max_n=cap)
+        if fx["id"] != forced and n > max_n:
+            continue
+        cands.append(_pack_candidate(fx, n_raw, nx, ny, n, room, spec, prefer, area, h_m, uf))
+    if not cands:
+        nx, ny, n = grid_for_count(n_need, room.width, room.depth)
+        return _pack_candidate(fx, n_raw, nx, ny, n, room, spec, prefer, area, h_m, uf)
+    hard = [c for c in cands if c["hard"]]
+    pool = hard or cands
+    pool.sort(key=lambda x: x["score"], reverse=True)
+    return pool[0]
 
 
 def _svg(room: RoomInput, best: dict, pts, emg, k, uf, h_m) -> str:

@@ -11,7 +11,10 @@ async function loadCatalog() {
   roomSel.value = "普通办公室";
   fixSel.innerHTML =
     `<option value="">自动推荐</option>` +
-    data.fixtures.map((x) => `<option value="${x.id}">${x.name} ${x.P}W ${x.Phi}lm</option>`).join("");
+    data.fixtures
+      .filter((x) => x.kind !== "应急")
+      .map((x) => `<option value="${x.id}">${x.name} ${x.P}W ${x.Phi}lm</option>`)
+      .join("");
 }
 
 function payload() {
@@ -45,7 +48,10 @@ function render(data) {
     .map(([k, v]) => `<div class="kpi"><b>${v}</b><span>${k}</span></div>`)
     .join("");
   const f = data.fixture;
-  $("fixture").innerHTML = `<b>${f.name}</b> · ${f.P}W · ${f.Phi}lm · Ra${f.Ra} · ${f.CCT}K · ${data.nx}×${data.ny} 布置 · 间距 ${data.spacing_m} m · 房间 ${data.room.width_m}×${data.room.depth_m} m（${data.room.source}）`;
+  const pass = data.pass !== false && (data.checks || []).every((c) => c.ok || c.name === "应急照明");
+  $("fixture").innerHTML =
+    `<div class="${pass ? "ok" : "bad"}" style="margin-bottom:8px">${pass ? "校核全部通过" : "仍有未通过项，请检查输入"}</div>` +
+    `<b>${f.name}</b> · ${f.P}W · ${f.Phi}lm · Ra${f.Ra} · ${f.CCT}K · ${data.nx}×${data.ny} 布置 · 间距 ${data.spacing_m} m · 房间 ${data.room.width_m}×${data.room.depth_m} m（${data.room.source}）`;
   $("checks").innerHTML = data.checks
     .map(
       (c) =>
@@ -53,8 +59,9 @@ function render(data) {
     )
     .join("");
   $("alts").innerHTML = (data.alternatives || [])
-    .map((a) => `<li>${a.name} ${a.P}W ${a.Phi}lm ×${a.n} · ${a.e_avg}lx · LPD ${a.lpd}</li>`)
-    .join("");
+    .map((a) => `<li>${a.name} ${a.P}W ${a.Phi}lm ×${a.n} · ${a.e_avg}lx · LPD ${a.lpd}（通过）</li>`)
+    .join("") || "<li>无其他同时满足照度与 LPD 的备选</li>";
+  $("notes").innerHTML = (data.notes || []).map((n) => `<li>${n}</li>`).join("");
   $("preview").innerHTML = data.svg || "";
 }
 

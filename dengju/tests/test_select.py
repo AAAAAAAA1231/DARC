@@ -21,6 +21,21 @@ def test_parse_office_text():
     assert room.room_type == "普通办公室"
 
 
+def _mandatory_pass(result: dict) -> None:
+    assert result["ok"] is True
+    assert result["pass"] is True
+    for check in result["checks"]:
+        if check["name"] == "应急照明":
+            continue
+        assert check["ok"] is True, check
+    assert result["lpd"] <= 9.0001 or result["room"]["name"] not in (
+        "普通办公室",
+        "会议室",
+        "普通教室",
+        "教室",
+    )
+
+
 def test_select_office_qty():
     result = select_lighting(
         {
@@ -30,11 +45,34 @@ def test_select_office_qty():
             "height_m": 0,
         }
     )
-    assert result["ok"] is True
+    _mandatory_pass(result)
     assert result["n"] >= 4
     assert result["e_avg"] >= 280
     assert "<svg" in result["svg"]
-    assert result["fixture"]["id"] == "panel36"
+    assert result["lpd"] <= 9.0
+
+
+def test_six_by_six_office_meets_lpd():
+    result = select_lighting({"description": "普通办公室 6x6 300lx"})
+    _mandatory_pass(result)
+    assert result["e_avg"] >= 285
+    assert result["lpd"] <= 9.0
+
+
+def test_tall_office_not_over_lpd():
+    result = select_lighting(
+        {
+            "description": "普通办公室 6x6 层高6.0 300lx",
+            "width_m": 6,
+            "depth_m": 6,
+            "height_m": 6,
+            "illuminance_lx": 300,
+        }
+    )
+    _mandatory_pass(result)
+    assert result["lpd"] <= 9.0
+    assert result["e_avg"] >= 285
+    assert result["n"] < 12
 
 
 def test_classroom_via_room_type():
@@ -49,6 +87,8 @@ def test_classroom_via_room_type():
     assert result["ok"] is True
     assert result["n"] >= 6
     assert result["checks"][0]["ok"] is True
+    assert result["pass"] is True
+    assert result["lpd"] <= 9.0
 
 
 def test_api_select_and_zip():
@@ -60,6 +100,7 @@ def test_api_select_and_zip():
     assert r.status_code == 200
     data = r.json()
     assert data["ok"] is True
+    assert data["pass"] is True
     z = client.get("/api/download/zip")
     assert z.status_code == 200
     assert z.content[:2] == b"PK"
@@ -92,6 +133,8 @@ def test_cad_upload_closed_polyline():
     assert abs(data["room"]["width_m"] - 8.0) < 0.05
     assert abs(data["room"]["depth_m"] - 6.0) < 0.05
     assert data["n"] >= 4
+    assert data["pass"] is True
+    assert data["lpd"] <= 9.0
     z = client.get("/api/download/zip")
     assert z.content[:2] == b"PK"
 
