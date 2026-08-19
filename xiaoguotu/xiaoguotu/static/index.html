@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>建筑效果图生成器</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <h1>建筑效果图生成器</h1>
+      <p>按 3ds Max + V-Ray 常用相机、日光、GI、出图参数生成室内 / 外观 / 总平面 / 鸟瞰 / 夜景 · 本机运行</p>
+    </div>
+    <div>
+      <span class="badge">Physical Camera · VRaySun</span>
+      <span class="status" id="statusLine">就绪</span>
+    </div>
+  </header>
+  <main>
+    <div class="card hint">
+      选一种模式即可出图，建筑体量、镜头、时段、采样都已按效果图公司常用 3ds Max 设置填好。
+      可导出 PNG 效果图，以及一份能对照着进 3ds Max 的 V-Ray 参数单。实时预览是实时光栅，不是照片级终渲。
+    </div>
+
+    <div class="modes" id="modes"></div>
+
+    <div class="layout">
+      <section class="card side">
+        <h2>3ds Max 场景参数</h2>
+        <div class="grid2">
+          <label>工程名称 <input id="name" value="××办公楼效果图" /></label>
+          <label>建筑性质
+            <select id="building_type"></select>
+          </label>
+          <label>层数 <input id="floors" type="number" value="18" min="1" max="80" /></label>
+          <label>层高 m <input id="floor_h" type="number" step="0.1" value="3.6" /></label>
+          <label>面宽 m <input id="length" type="number" step="0.1" value="48" /></label>
+          <label>进深 m <input id="width" type="number" step="0.1" value="24" /></label>
+          <label>外立面
+            <select id="facade"></select>
+          </label>
+          <label>室内房间
+            <select id="interior_room"></select>
+          </label>
+          <label>室内风格
+            <select id="interior_style"></select>
+          </label>
+          <label>时段（VRaySun）
+            <select id="time"></select>
+          </label>
+          <label>镜头 mm
+            <select id="lens_mm">
+              <option>14</option><option>24</option><option selected>35</option>
+              <option>50</option><option>85</option>
+            </select>
+          </label>
+          <label>相机高度 m <input id="camera_h" type="number" step="0.1" value="1.7" /></label>
+          <label>出图尺寸
+            <select id="output"></select>
+          </label>
+          <label>质量（采样）
+            <select id="quality"></select>
+          </label>
+        </div>
+        <div class="row checks">
+          <label class="chk"><input type="checkbox" id="two_point" checked /> 两点透视（竖直校正）</label>
+          <label class="chk"><input type="checkbox" id="entourage" checked /> 配景（树/车）</label>
+          <label class="chk"><input type="checkbox" id="bloom" /> 夜景发光</label>
+        </div>
+        <div class="row">
+          <button class="btn primary" id="run">生成效果图</button>
+          <button class="btn" id="shot">导出 PNG</button>
+          <a class="btn" id="dlSheet" href="/api/download/max-sheet">下载 3ds Max 参数单</a>
+        </div>
+        <pre class="sheet" id="sheet"></pre>
+      </section>
+      <section class="view card">
+        <div class="viewbar">
+          <span id="camLabel">相机</span>
+          <span class="muted" id="sizeLabel"></span>
+        </div>
+        <div id="viewport"></div>
+      </section>
+    </div>
+  </main>
+  <script type="module" src="/static/js/app.js"></script>
+</body>
+</html>
