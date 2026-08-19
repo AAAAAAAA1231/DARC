@@ -47,7 +47,8 @@ def generate_layout(params: dict[str, Any], file_bytes: bytes | None = None, fil
     project_type = params.get("project_type") or parsed.get("project_type") or "既有"
     if project_type not in ("既有", "新建"):
         project_type = "既有"
-    task = params.get("task") or parsed["task"]
+    asked = (params.get("task") or "").strip()
+    task = asked if asked in ("floor", "wall", "ceiling", "furniture") else parsed["task"]
     pattern = params.get("pattern") or parsed["pattern"]
     floor_tile = _pick(cat["tile_floors"], params.get("floor_tile"), parsed["floor_tile"])
     wall_tile = _pick(cat["tile_walls"], params.get("wall_tile"), parsed["wall_tile"])

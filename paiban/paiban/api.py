@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from fastapi import FastAPI, File, Form, UploadFile
-from fastapi.responses import FileResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -35,7 +35,7 @@ class LayoutBody(BaseModel):
 
 @app.get("/")
 async def index() -> FileResponse:
-    return FileResponse(STATIC_DIR / "index.html")
+    return FileResponse(STATIC_DIR / "index.html", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/api/health")
@@ -46,6 +46,13 @@ async def health() -> dict[str, Any]:
 @app.get("/api/catalog")
 async def catalog() -> dict[str, Any]:
     return load_catalog()
+
+
+def _safe(params: dict[str, Any], blob: bytes | None = None, filename: str = "") -> dict[str, Any] | JSONResponse:
+    try:
+        return _run(params, blob, filename)
+    except Exception as exc:
+        return JSONResponse({"ok": False, "error": str(exc) or exc.__class__.__name__}, status_code=500)
 
 
 def _run(params: dict[str, Any], blob: bytes | None = None, filename: str = "") -> dict[str, Any]:
@@ -72,12 +79,12 @@ def _run(params: dict[str, Any], blob: bytes | None = None, filename: str = "") 
     }
 
 
-@app.post("/api/layout")
-async def layout(body: LayoutBody) -> dict[str, Any]:
-    return _run(body.model_dump())
+@app.post("/api/layout", response_model=None)
+async def layout(body: LayoutBody):
+    return _safe(body.model_dump())
 
 
-@app.post("/api/upload")
+@app.post("/api/upload", response_model=None)
 async def upload(
     file: UploadFile = File(...),
     task: str = Form(""),
@@ -91,7 +98,7 @@ async def upload(
     wall_tile: str = Form(""),
     ceiling: str = Form(""),
     pattern: str = Form(""),
-) -> dict[str, Any]:
+):
     blob = await file.read()
     params = {
         "text": text,
@@ -109,7 +116,7 @@ async def upload(
         params["depth"] = float(depth)
     if height:
         params["height"] = float(height)
-    return _run(params, blob, file.filename or "")
+    return _safe(params, blob, file.filename or "")
 
 
 @app.get("/api/download/svg")

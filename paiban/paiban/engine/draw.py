@@ -12,7 +12,7 @@ class PlanSvg:
     def __init__(self, room_w: float, room_d: float, title: str, pad: float = 40):
         self.W, self.D, self.title = room_w, room_d, title
         self.pad = pad
-        self.scale = (860 - 2 * pad) / max(room_w, 0.5)
+        self.scale = (860 - 2 * pad) / max(room_w, room_d, 0.5)
         self.parts: list[str] = []
 
     def px(self, x: float, y: float) -> tuple[float, float]:
@@ -116,28 +116,83 @@ def svg_floor(room, layout: dict[str, Any]) -> str:
 
 
 def svg_walls(room, walls: list[dict[str, Any]]) -> str:
-    # unfold 4 walls in a row conceptually - draw as 4 stacked elevations in one svg via multiple plan strips
-    total_h = sum(w["wall_h"] + 0.4 for w in walls)
-    max_l = max(w["wall_len"] for w in walls)
-    # use a fake "room" canvas: width=max_l, depth=total_h
-    p = PlanSvg(max_l, total_h, f"{room.name} 墙砖展开排版")
-    y0 = 0.0
-    for w in walls:
-        p.text(0.05, y0 + w["wall_h"] + 0.15, w["name"], 11, anchor="start")
-        p.rect(0, y0, w["wall_len"], w["wall_h"], fill="#f3f4f6", stroke="#111", sw=1.5)
-        for t in w["tiles"]:
-            fill = "#fca5a5" if t.get("sleeve") else ("#dbeafe" if t["full"] else "#fed7aa")
-            p.rect(t["x"], y0 + t["y"], t["w"], t["h"], fill=fill, stroke="#1e3a5f", sw=0.6)
-        p.line(0.02, y0, 0.02, y0 + w["wall_h"], stroke="#a16207", sw=3)
-        p.line(w["wall_len"] - 0.02, y0, w["wall_len"] - 0.02, y0 + w["wall_h"], stroke="#a16207", sw=3)
-        p.text(0.08, y0 + 0.12, "阳角条", 9, fill="#854d0e", anchor="start")
+    """Four elevations in a 2×2 grid so 墙砖/吊顶一样，打开就能看见，不用往下翻。"""
+    walls = list(walls or [])[:4]
+    while len(walls) < 4:
+        walls.append({"name": "墙", "wall_len": 1, "wall_h": 1, "tiles": [], "holes": []})
+    pad, gap, title_h, label_h = 18, 20, 32, 22
+    cell_w, cell_h = 500, 310
+    cols, rows = 2, 2
+    bw = pad * 2 + cols * cell_w + gap
+    bh = title_h + pad * 2 + rows * (cell_h + label_h) + gap + 28
+    parts: list[str] = [
+        f'<rect width="100%" height="100%" fill="#f7f4ea"/>',
+        f'<text x="{bw/2:.0f}" y="22" text-anchor="middle" font-size="16" fill="#1b4f8a" '
+        f'font-family="Microsoft YaHei, sans-serif">{_esc(room.name)} 墙砖四面展开（蓝=整砖　橙=收头　红=门窗套割　褐=阳角条）</text>',
+    ]
+    for i, w in enumerate(walls):
+        col, row = i % 2, i // 2
+        ox = pad + col * (cell_w + gap)
+        oy = title_h + pad + row * (cell_h + label_h + gap)
+        wl, wh = max(0.4, float(w.get("wall_len") or 1)), max(0.4, float(w.get("wall_h") or 1))
+        s = min((cell_w - 16) / wl, (cell_h - 16) / wh)
+        x0 = ox + (cell_w - wl * s) / 2
+        y_floor = oy + label_h + 8 + wh * s  # screen y of floor line
+
+        def sx(x: float) -> float:
+            return x0 + x * s
+
+        def sy(y: float) -> float:
+            return y_floor - y * s
+
+        parts.append(
+            f'<text x="{ox + 8:.1f}" y="{oy + 16:.1f}" font-size="13" fill="#1b4f8a" '
+            f'font-family="Microsoft YaHei, sans-serif">{_esc(w.get("name") or f"墙{i+1}")}　{wl:.2f}×{wh:.2f}m</text>'
+        )
+        parts.append(
+            f'<rect x="{sx(0):.1f}" y="{sy(wh):.1f}" width="{wl*s:.1f}" height="{wh*s:.1f}" '
+            f'fill="#f3f4f6" stroke="#111" stroke-width="1.5"/>'
+        )
+        for t in w.get("tiles") or []:
+            fill = "#fca5a5" if t.get("sleeve") else ("#dbeafe" if t.get("full") else "#fed7aa")
+            parts.append(
+                f'<rect x="{sx(t["x"]):.1f}" y="{sy(t["y"]+t["h"]):.1f}" width="{t["w"]*s:.1f}" height="{t["h"]*s:.1f}" '
+                f'fill="{fill}" stroke="#1e3a5f" stroke-width="0.6"/>'
+            )
+        parts.append(f'<line x1="{sx(0.02):.1f}" y1="{sy(0):.1f}" x2="{sx(0.02):.1f}" y2="{sy(wh):.1f}" stroke="#a16207" stroke-width="4"/>')
+        parts.append(f'<line x1="{sx(wl-0.02):.1f}" y1="{sy(0):.1f}" x2="{sx(wl-0.02):.1f}" y2="{sy(wh):.1f}" stroke="#a16207" stroke-width="4"/>')
+        parts.append(
+            f'<text x="{sx(0.08):.1f}" y="{sy(0.16):.1f}" font-size="11" fill="#854d0e" '
+            f'font-family="Microsoft YaHei, sans-serif">阳角条</text>'
+        )
         for h in w.get("holes") or []:
-            p.rect(h["x"], y0 + h["y"], h["w"], h["h"], fill="#f7f4ea", stroke="#b91c1c", sw=1.5, dash="4 3")
+            parts.append(
+                f'<rect x="{sx(h["x"]):.1f}" y="{sy(h["y"]+h["h"]):.1f}" width="{h["w"]*s:.1f}" height="{h["h"]*s:.1f}" '
+                f'fill="#f7f4ea" stroke="#b91c1c" stroke-width="1.6" stroke-dasharray="5 3"/>'
+            )
+            parts.append(
+                f'<text x="{sx(h["x"]+h["w"]/2):.1f}" y="{sy(h["h"]/2):.1f}" font-size="11" fill="#b91c1c" '
+                f'text-anchor="middle" font-family="Microsoft YaHei, sans-serif">门窗套割</text>'
+            )
         for band in w.get("waterproof") or []:
-            p.line(0, y0 + band["h"], w["wall_len"], y0 + band["h"], stroke="#0369a1", sw=1, dash="5 3")
-            p.text(0.08, y0 + band["h"] + 0.08, band["label"], 10, fill="#0c4a6e", anchor="start")
-        y0 += w["wall_h"] + 0.4
-    return p.finish()
+            hy = float(band.get("h") or 0)
+            parts.append(
+                f'<line x1="{sx(0):.1f}" y1="{sy(hy):.1f}" x2="{sx(wl):.1f}" y2="{sy(hy):.1f}" '
+                f'stroke="#0369a1" stroke-width="1" stroke-dasharray="5 3"/>'
+            )
+            parts.append(
+                f'<text x="{sx(0.08):.1f}" y="{sy(hy)+12:.1f}" font-size="10" fill="#0c4a6e" '
+                f'font-family="Microsoft YaHei, sans-serif">{_esc(band.get("label") or "")}</text>'
+            )
+    parts.append(
+        f'<text x="{bw/2:.0f}" y="{bh-10:.0f}" text-anchor="middle" font-size="11" fill="#57534e" '
+        f'font-family="Microsoft YaHei, sans-serif">GB 50327-2001 12.3.1：非整砖放阴角、每面不宜两列、边砖≥1/3、突出物整砖套割</text>'
+    )
+    body = "".join(parts)
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{bw:.0f}" height="{bh:.0f}" viewBox="0 0 {bw:.0f} {bh:.0f}">'
+        f"{body}</svg>"
+    )
 
 
 def svg_ceiling(room, ceil: dict[str, Any]) -> str:
@@ -170,6 +225,7 @@ def svg_ceiling(room, ceil: dict[str, Any]) -> str:
     ht = ceil["hatch"]
     p.rect(ht["x"], ht["y"], ht["w"], ht["h"], fill="none", stroke="#dc2626", sw=1.5, dash="5 3")
     p.text(ht["x"] + ht["w"] / 2, ht["y"] + ht["h"] / 2, "检修口", 10, fill="#dc2626")
+    p.text(0.12, 0.12, "图例：棕实线=主龙骨　蓝虚线=次龙骨　黑点=吊杆　黄圈=灯　绿线=附加龙骨　红虚框=检修口", 10, fill="#334155", anchor="start")
     return p.finish()
 
 
@@ -183,16 +239,19 @@ def svg_furniture(room, furn: dict[str, Any]) -> str:
     for o in room.openings:
         if getattr(o, "kind", "door") != "door":
             continue
+        label = f"门 {o.width*1000:.0f}"
         if o.wall == "S":
             p.rect(o.offset, 0, o.width, 0.08, fill="#f7f4ea", stroke="#b91c1c", sw=2)
-            p.text(o.offset + o.width / 2, 0.25, "门", 10, fill="#b91c1c")
+            p.text(o.offset + o.width / 2, 0.25, label, 10, fill="#b91c1c")
         elif o.wall == "N":
             p.rect(o.offset, room.depth - 0.08, o.width, 0.08, fill="#f7f4ea", stroke="#b91c1c", sw=2)
-            p.text(o.offset + o.width / 2, room.depth - 0.25, "门", 10, fill="#b91c1c")
+            p.text(o.offset + o.width / 2, room.depth - 0.25, label, 10, fill="#b91c1c")
         elif o.wall == "W":
             p.rect(0, o.offset, 0.08, o.width, fill="#f7f4ea", stroke="#b91c1c", sw=2)
-            p.text(0.25, o.offset + o.width / 2, "门", 10, fill="#b91c1c", anchor="start")
+            p.text(0.25, o.offset + o.width / 2, label, 10, fill="#b91c1c", anchor="start")
         elif o.wall == "E":
             p.rect(room.width - 0.08, o.offset, 0.08, o.width, fill="#f7f4ea", stroke="#b91c1c", sw=2)
-            p.text(room.width - 0.25, o.offset + o.width / 2, "门", 10, fill="#b91c1c")
+            p.text(room.width - 0.25, o.offset + o.width / 2, label, 10, fill="#b91c1c")
+    p.text(room.width / 2, -0.15, f"{room.width:.2f}m", 11)
+    p.text(0.12, room.depth / 2, f"{room.depth:.2f}m", 11, anchor="start")
     return p.finish()

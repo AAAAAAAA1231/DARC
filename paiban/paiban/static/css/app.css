@@ -22,9 +22,11 @@ main { max-width: 1360px; margin: 0 auto; padding: 16px; }
 .hint { background: #eef4fb; border-left: 3px solid #2b6cb0; font-size: 13px; line-height: 1.6; }
 .modes { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
 .mode { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px; cursor: pointer; text-align: left; }
-.mode.on { border-color: var(--blue); background: #e8eef6; }
+.mode.on { border-color: var(--blue); background: #1b4f8a; color: #fff; }
+.mode.on span { color: #dbe7f6; }
 .mode b { display: block; }
 .mode span { color: var(--muted); font-size: 12px; }
+.mode-hint { margin: 0 0 12px; font-size: 13px; color: #1b4f8a; font-weight: 600; }
 .layout { display: grid; grid-template-columns: 420px 1fr; gap: 12px; }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 8px; }
 label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--muted); }
@@ -40,11 +42,13 @@ textarea { min-height: 72px; }
 .chk.note { background: #f8fafc; color: #475569; }
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { border-bottom: 1px solid var(--line); padding: 5px 6px; text-align: left; }
-.view { padding: 0; overflow: hidden; }
-.viewbar { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; }
+.view { padding: 0; overflow: auto; min-height: 680px; }
+.viewbar { display: flex; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: 13px; gap: 12px; }
 .muted { color: var(--muted); }
-#preview { min-height: 640px; overflow: auto; padding: 8px; background: #f7f4ea; }
+#preview { min-height: 640px; max-height: calc(100vh - 160px); overflow: auto; padding: 8px; background: #f7f4ea; }
 #preview svg { max-width: 100%; height: auto; display: block; margin: 0 auto; }
+.wait, .errbox { padding: 28px 16px; font-size: 14px; line-height: 1.6; }
+.errbox { color: #991b1b; background: #fef2f2; border-radius: 8px; margin: 12px; }
 @media (max-width: 1000px) {
   .layout, .modes { grid-template-columns: 1fr; }
 }

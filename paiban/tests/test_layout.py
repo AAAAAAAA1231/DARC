@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import ezdxf
 from fastapi.testclient import TestClient
 
@@ -227,6 +229,29 @@ def test_kitchen_waterproof_is_mandatory():
     doc = generate_layout({"text": "厨房 2.5x3.2 层高2.4 地砖", "task": "floor"})
     assert any("6.1.1" in c["code"] and c["ok"] for c in doc["checks"])
     assert "斜坡" in doc["svg"]
+
+
+def test_api_all_four_tasks_work_even_if_text_says_floor():
+    """界面默认文案是地砖，点墙砖/吊顶/家具必须仍按按钮出图。"""
+    text = "客厅 4.8x6.2 层高2.8米，铺 800x800 抛光砖，正铺十字缝。"
+    js = (Path(__file__).resolve().parents[1] / "paiban" / "static" / "js" / "app.js").read_text(encoding="utf-8")
+    assert "setMode(btn.dataset.t, true)" in js
+    assert 'b.task = want' in js or "task: TASK" in js
+    cases = [
+        ("floor", "十字控制线"),
+        ("wall", "阳角条"),
+        ("ceiling", "吊顶"),
+        ("furniture", "三人沙发"),
+    ]
+    for task, needle in cases:
+        res = client.post("/api/layout", json={"text": text, "task": task})
+        assert res.status_code == 200, res.text
+        data = res.json()
+        assert data.get("ok") is True
+        assert data["task"] == task, data["task"]
+        assert "<svg" in data["svg"]
+        assert needle in data["svg"], task
+        assert len(data["svg"]) > 400
 
 
 def test_cad_line_on_north_wall_is_door(tmp_path):
