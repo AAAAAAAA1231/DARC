@@ -84,6 +84,45 @@ def test_project_launch_not_cex_listing():
     assert merged[-1]["fallback"] is True
 
 
+def test_solana_follow_launch_timing():
+    from web3_radar.collectors.solana_watch import (
+        diff_new_follows,
+        extract_launch_when,
+        extract_mentions,
+        looks_like_launch_alert,
+        to_item,
+    )
+
+    posted = datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 8, 20, 10, 5, tzinfo=timezone.utc)
+    rel = extract_launch_when("TGE in 6 hours, get ready", posted, now=now)
+    assert rel["status"] == "即将发射"
+    assert "北京时间" in rel["when_cn"]
+    today = extract_launch_when("We launch today at 8pm UTC", posted, now=now)
+    assert today["source"] in {"relative", "date"}
+    dated = extract_launch_when("Launching August 21 at 8pm UTC", posted, now=now)
+    assert dated["when_utc"].startswith("2026-08-21T20:00")
+    posted_only = extract_launch_when("our token launch is live now!!!", posted, now=now)
+    assert "发现时间" in posted_only["label"] or posted_only["relation"] in {"now", "posted"}
+    assert looks_like_launch_alert("发射时间今晚，TGE now live")
+    assert not looks_like_launch_alert("we shipped a blog post")
+    assert extract_mentions("Welcome @FooBar to Solana", ["solana"]) == ["foobar"]
+    assert "solana" not in extract_mentions("gm @solana @NewThing")
+    assert diff_new_follows(["alpha", "beta"], ["alpha"]) == {"beta"}
+    assert diff_new_follows(["alpha"], None) == set()
+    row = to_item(
+        {"username": "alpha", "name": "Alpha", "description": "TGE on Solana", "public_metrics": {"followers_count": 3000}},
+        True,
+        {"text": "launch in 2 hours", "created_at": posted.isoformat(), "url": "https://x.com/alpha/status/1",
+         "timing": extract_launch_when("launch in 2 hours", posted, now=now)},
+        "following",
+        rank=1,
+    )
+    assert row["alert"] is True
+    assert row["watch_kind"] == "solana_follow"
+    assert "北京时间" in row["launch_when_label"]
+
+
 def test_collect_social_without_bearer_does_not_crash():
     import asyncio
     rows = asyncio.run(collect_social(["ambassador"], "", 7))

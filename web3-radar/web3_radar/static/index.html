@@ -142,10 +142,11 @@
 
     <section id="view-launch" class="view hidden">
       <div class="toolbar">
-        <span class="pill">只盯 Solana 生态</span>
-        <span class="pill">新项目 Presale / 白名单 / TGE</span>
+        <span class="pill">先盯 @solana 最近关注</span>
+        <span class="pill">出现 launch / 发射 立刻标时间</span>
         <span class="pill">不是交易所上新</span>
       </div>
+      <div id="launchAlerts"></div>
       <p class="muted" id="launchMsg"></p>
       <div class="cards" id="launchCards"></div>
     </section>
@@ -210,7 +211,7 @@
         <label>止盈 ATR 倍数<input id="s_atr_tp_mult" type="number" step="0.1" /></label>
         <label>妖币最小流动性 USD<input id="s_meme_min_liquidity_usd" type="number" /></label>
         <label>空投最小融资 USD<input id="s_airdrop_min_funding_usd" type="number" /></label>
-        <label>Twitter Bearer Token<input id="s_twitter_bearer_token" type="password" placeholder="填写后才能检索 X 上的新项目打新/大使" /></label>
+        <label>Twitter Bearer Token<input id="s_twitter_bearer_token" type="password" placeholder="填写后才能读 @solana 最近关注并跟踪发射" /></label>
         <label>OKX API Key（合约跟单可选）<input id="s_okx_api_key" type="password" /></label>
         <label>OKX Secret<input id="s_okx_api_secret" type="password" /></label>
         <label>OKX Passphrase<input id="s_okx_passphrase" type="password" /></label>

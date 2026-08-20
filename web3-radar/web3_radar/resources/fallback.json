@@ -29,22 +29,23 @@
   ],
   "launches": [
     {
-      "key": "seed-sol-x-search-launch",
-      "name": "X 检索：Sol 白名单 / Presale / TGE",
-      "kind": "社媒打新（方法）",
+      "key": "seed-solana-follow-watch",
+      "name": "盯 @solana 最近关注",
+      "kind": "打新流程（方法）",
       "chain": "Solana",
-      "text": "搜 solana whitelist、solana presale、pump.fun migrate、raydium launchlab、jup launchpad。只打 Sol 生态新项目，不是币安/OKX 上新。",
-      "url": "https://x.com/search?q=solana%20whitelist%20TGE&src=typed_query&f=live",
+      "text": "先看 Solana 官方推特最近 follow 的项目，再跟踪它们的推文。出现 launch、发射、TGE、now live 时，卡片顶部会标北京时间。填写 Twitter Bearer 后才会拉真实关注列表。",
+      "url": "https://x.com/solana",
+      "twitter": "https://x.com/solana",
       "source": "观察池",
       "price_usd": null
     },
     {
-      "key": "seed-sol-new-protocol-watch",
-      "name": "Sol 新协议刚上线（跟 X + 官网）",
-      "kind": "Sol 新项目上线",
+      "key": "seed-sol-x-search-launch",
+      "name": "X 检索：Sol 白名单 / Presale / TGE",
+      "kind": "社媒打新（方法）",
       "chain": "Solana",
-      "text": "DefiLlama 近几周新上线且 chains 含 Solana 的协议。优先看有 X 账号和官网的项目，参加测试网/积分/白名单。",
-      "url": "https://defillama.com/chain/Solana",
+      "text": "作为补充：搜 solana whitelist、presale、pump.fun、raydium launchlab。主流程仍是跟踪 @solana 关注的项目。",
+      "url": "https://x.com/search?q=solana%20whitelist%20TGE&src=typed_query&f=live",
       "source": "观察池",
       "price_usd": null
     },
@@ -53,7 +54,7 @@
       "name": "Pump.fun / Raydium LaunchLab",
       "kind": "Sol 发射台",
       "chain": "Solana",
-      "text": "Sol 打新主战场：pump.fun 迁池、Raydium LaunchLab、Jupiter 发射台。先看流动性与合约，再考虑白名单/公售。",
+      "text": "Sol 发射台补充源。优先仍看 Solana 官方新关注的项目有没有自己官宣发射时间。",
       "url": "https://pump.fun/",
       "source": "观察池",
       "price_usd": null

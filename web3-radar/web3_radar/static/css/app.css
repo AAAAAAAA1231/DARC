@@ -79,6 +79,14 @@ th { color: var(--muted); font-weight: 600; background: #0e141c; position: stick
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
   padding: 14px; box-shadow: var(--shadow);
 }
+.card.alert-card { border-color: #c9a227; box-shadow: 0 0 0 1px #c9a22755; }
+.launch-when { color: var(--accent-2); font-size: 15px; font-weight: 650; }
+.alerts { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+.alert-banner {
+  background: #2a220e; border: 1px solid #c9a227; border-radius: 12px;
+  padding: 10px 12px; color: var(--text);
+}
+.alert-banner strong { color: var(--accent-2); }
 .card h3, .panel h3 { margin: 0 0 8px; font-size: 16px; }
 .card p { margin: 0 0 8px; color: var(--muted); font-size: 13px; line-height: 1.45; }
 .row-actions, .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }

@@ -3,7 +3,7 @@ const views = {
   meme: ["妖币监控", "只保留池子≥$20k、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
   copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
-  launch: ["打新监测", "只盯 Solana 生态新项目：白名单 / Presale / TGE / pump / LaunchLab，不是交易所上新。"],
+  launch: ["打新监测", "先看 Solana 官方推特最近关注的项目并跟踪；出现 launch / 发射 时标出北京时间。"],
   airdrop: ["空投雷达", "只盯比特币生态与 ETH 生态。知名机构、融资 > $2000 万、优先未发币。"],
   wallet: ["钱包执行", "连接 OKX 等钱包，将空投 / 打新 / 妖币 / 合约加入确认队列"],
   settings: ["设置", "权重模拟次数、阈值、API Token 与自动参加上限"],
@@ -143,16 +143,31 @@ async function loadView(name, refresh) {
       }).join("") || "<p class='muted'>暂无新项目大使。可填 Twitter Bearer 拉 X 动态，或手动添加。</p>";
       setStatus(`招募信息 ${items.length} 条` + ((data.note && " · " + data.note) || ""));
     } else if (name === "launch") {
-      setStatus("正在监测打新…");
+      setStatus("正在看 @solana 最近关注的项目…");
       $("launchCards").innerHTML = "<p class='muted'>加载中…</p>";
+      if ($("launchAlerts")) $("launchAlerts").innerHTML = "";
       const data = await api("/api/launches" + q);
       store.launch = {};
+      const alerts = data.alerts || (data.items || []).filter((x) => x.alert);
+      if ($("launchAlerts")) {
+        $("launchAlerts").innerHTML = alerts.slice(0, 6).map((a) => `
+          <div class="alert-banner">
+            <strong>发射提醒 · ${escapeHtml(a.launch_status || "")}</strong>
+            <div>${escapeHtml(a.name)} ${a.username ? "(@" + escapeHtml(a.username) + ")" : ""}</div>
+            <div class="launch-when">${escapeHtml(a.launch_when_label || a.launch_when || "时间待确认")}</div>
+          </div>`).join("");
+      }
       $("launchCards").innerHTML = (data.items || []).map((a) => {
         store.launch[a.key] = a;
         return launchCard(a);
-      }).join("") || "<p class='muted'>暂无打新信息</p>";
+      }).join("") || "<p class='muted'>暂无打新信息。填写 Twitter Bearer 后才能读 @solana 关注列表。</p>";
       if ($("launchMsg")) $("launchMsg").textContent = data.note || "";
-      setStatus(`Sol 打新 ${data.count} 条` + (data.live_count ? ` · 实时 ${data.live_count}` : "") + (data.social_skipped ? " · 未配置 X Token" : ""));
+      const bits = [`跟踪 ${data.follow_count || 0} 个 Solana 关注项目`];
+      if (data.new_follow_count) bits.push(`新关注 ${data.new_follow_count}`);
+      if (data.alert_count) bits.push(`发射提醒 ${data.alert_count}`);
+      if (data.social_skipped) bits.push("未配置 X Token");
+      setStatus(bits.join(" · "));
+      pingLaunchAlerts(alerts);
     } else if (name === "airdrop") {
       setStatus("正在扫描高融资未发币项目…");
       $("airdropRows").innerHTML = emptyRow(9, "加载中…");
@@ -339,11 +354,15 @@ function ambassadorCard(a) {
 
 function launchCard(a) {
   const id = encodeURIComponent(a.key);
-  return `<article class="card">
-    <h3>${sourceBadge(a)} ${escapeHtml(a.name)}</h3>
-    <p>${escapeHtml(a.kind)} · ${escapeHtml(a.chain || "")} · ${escapeHtml(a.source || "")}</p>
-    <p>${escapeHtml((a.text || "").slice(0, 200))}</p>
-    <p>${a.price_usd != null ? "价格 " + fmtUsd(a.price_usd) : ""}</p>
+  const klass = a.alert ? "card alert-card" : "card";
+  const when = a.launch_when_label || a.launch_when;
+  return `<article class="${klass}">
+    <h3>${sourceBadge(a)} ${escapeHtml(a.name)}${a.username ? " <span class='muted'>@" + escapeHtml(a.username) + "</span>" : ""}</h3>
+    <p>${escapeHtml(a.kind || "")} · ${escapeHtml(a.chain || "")} · ${escapeHtml(a.source || "")}</p>
+    ${a.launch_status ? `<p><span class="tag ${a.alert ? "range" : "wait"}">${escapeHtml(a.launch_status)}</span>${a.new_follow ? " <span class='tag live'>新关注</span>" : ""}</p>` : ""}
+    ${when ? `<p class="launch-when">${escapeHtml(when)}</p>` : ""}
+    <p>${escapeHtml((a.analysis || a.text || "").slice(0, 220))}</p>
+    ${a.analysis && a.text && a.alert ? `<p>${escapeHtml(a.text.slice(0, 160))}</p>` : ""}
     <p>标记：${markSelect("launch", a.key, a.mark_status)}</p>
     <div class="card-actions">
       ${a.twitter ? `<a class="btn" href="${escapeHtml(a.twitter)}" target="_blank">X</a>` : ""}
@@ -351,6 +370,14 @@ function launchCard(a) {
       <button class="btn" onclick="participate('launch','${id}')">加入打新队列</button>
     </div>
   </article>`;
+}
+
+function pingLaunchAlerts(alerts) {
+  if (!alerts || !alerts.length || !("Notification" in window)) return;
+  const body = alerts.slice(0, 3).map((a) => `${a.name} · ${a.launch_when_label || a.launch_status || ""}`).join("；");
+  const send = () => { try { new Notification("链上雷达 · Sol 发射提醒", { body }); } catch (e) {} };
+  if (Notification.permission === "granted") send();
+  else if (Notification.permission !== "denied") Notification.requestPermission().then((p) => { if (p === "granted") send(); });
 }
 
 function airdropRow(a) {
