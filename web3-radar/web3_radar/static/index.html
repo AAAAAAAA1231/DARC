@@ -143,27 +143,31 @@
 
     <section id="view-launch" class="view hidden">
       <div class="toolbar">
-        <span class="pill">只显示官方关注列表里核实过的账号</span>
-        <span class="pill">标出官方关注数 1/3、2/3</span>
-        <span class="pill">出现 launch / 发射 立刻标时间</span>
+        <span class="pill">默认看链上新开盘，不用推特账号</span>
+        <span class="pill">来源：GeckoTerminal / Pump.fun / DexScreener</span>
+        <span class="pill">不会把链上新池写成官方关注</span>
       </div>
       <div class="panel" id="launchTokenBox">
-        <h3>X 接口令牌（读 @solana 关注必须填）</h3>
-        <p>这个东西<strong>不在软件里</strong>，也不是钱包密码。要去 X 开发者网站自己申请，复制过来。</p>
-        <ol>
-          <li>浏览器打开 <a href="https://developer.x.com/en/portal/dashboard" target="_blank" rel="noopener">https://developer.x.com/en/portal/dashboard</a> 并登录 X 账号</li>
-          <li>点 <strong>Create Project</strong> 建一个项目，再 <strong>Create App</strong> 建一个应用（免费档 Free 即可）</li>
-          <li>进入这个 App → <strong>Keys and tokens</strong>（密钥和令牌）</li>
-          <li>找到 <strong>Bearer Token</strong>，点 Reveal 后复制整串（通常以 AAAA 开头）</li>
-          <li>粘贴到下面，点保存。令牌只存在你这台电脑，软件不会上传。</li>
-        </ol>
-        <label>把 Bearer Token 粘贴到这里
-          <input id="launch_twitter_bearer" type="password" placeholder="AAAA 开头的一长串，从 X 开发者后台复制" autocomplete="off" />
-        </label>
-        <div class="card-actions">
-          <button class="btn primary" id="saveLaunchToken">保存并立即跟踪</button>
-        </div>
-        <p class="muted" id="launchTokenStatus"></p>
+        <h3>打新不用申请推特接口</h3>
+        <p>打开这一页就会拉 <strong>Solana 链上刚开的池子</strong>。这是链上数据，不是 @solana / @toly 的关注列表。</p>
+        <details>
+          <summary>可选：如果以后会申请 X 令牌，才能额外核对官方关注</summary>
+          <p>这个东西<strong>不在软件里</strong>，也不是钱包密码。要去 X 开发者网站自己申请。</p>
+          <ol>
+            <li>浏览器打开 <a href="https://developer.x.com/en/portal/dashboard" target="_blank" rel="noopener">https://developer.x.com/en/portal/dashboard</a> 并登录 X 账号</li>
+            <li>点 <strong>Create Project</strong> 建一个项目，再 <strong>Create App</strong> 建一个应用（免费档 Free 即可）</li>
+            <li>进入这个 App → <strong>Keys and tokens</strong>（密钥和令牌）</li>
+            <li>找到 <strong>Bearer Token</strong>，点 Reveal 后复制整串（通常以 AAAA 开头）</li>
+            <li>粘贴到下面，点保存。令牌只存在你这台电脑，软件不会上传。</li>
+          </ol>
+          <label>把 Bearer Token 粘贴到这里
+            <input id="launch_twitter_bearer" type="password" placeholder="AAAA 开头的一长串，从 X 开发者后台复制" autocomplete="off" />
+          </label>
+          <div class="card-actions">
+            <button class="btn" id="saveLaunchToken">保存并核对官方关注</button>
+          </div>
+          <p class="muted" id="launchTokenStatus"></p>
+        </details>
       </div>
       <div id="launchAlerts"></div>
       <p class="muted" id="launchMsg"></p>
@@ -230,7 +234,7 @@
         <label>止盈 ATR 倍数<input id="s_atr_tp_mult" type="number" step="0.1" /></label>
         <label>妖币最小流动性 USD<input id="s_meme_min_liquidity_usd" type="number" /></label>
         <label>空投最小融资 USD<input id="s_airdrop_min_funding_usd" type="number" /></label>
-        <label>X 接口令牌 Bearer（打新读 @solana 关注用，去 developer.x.com 申请，不是软件自带）<input id="s_twitter_bearer_token" type="password" placeholder="在 X 开发者后台 Keys and tokens 里复制 Bearer Token" /></label>
+        <label>X 接口令牌 Bearer（可选，只有想核对 @solana 关注才需要）<input id="s_twitter_bearer_token" type="password" placeholder="可留空。链上打新不需要这个" /></label>
         <label>OKX API Key（合约跟单可选）<input id="s_okx_api_key" type="password" /></label>
         <label>OKX Secret<input id="s_okx_api_secret" type="password" /></label>
         <label>OKX Passphrase<input id="s_okx_passphrase" type="password" /></label>

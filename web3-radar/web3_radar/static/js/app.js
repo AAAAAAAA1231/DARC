@@ -3,7 +3,7 @@ const views = {
   meme: ["妖币监控", "只保留池子≥$20k、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
   copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
-  launch: ["打新监测", "先填 X 接口令牌，再读 @solana 最近关注的项目；出现 launch / 发射 时标出北京时间。"],
+  launch: ["打新监测", "默认看 Solana 链上新开盘，不用申请推特接口。官方关注是可选项，不会把链上新池写成关注。"],
   airdrop: ["空投雷达", "只盯比特币生态与 ETH 生态。知名机构、融资 > $2000 万、优先未发币。"],
   wallet: ["钱包执行", "连接 OKX 等钱包，将空投 / 打新 / 妖币 / 合约加入确认队列"],
   settings: ["设置", "X 接口令牌、权重模拟次数、阈值与自动参加上限"],
@@ -146,7 +146,7 @@ async function loadView(name, refresh) {
       }).join("") || "<p class='muted'>暂无新项目大使。可填 Twitter Bearer 拉 X 动态，或手动添加。</p>";
       setStatus(`招募信息 ${items.length} 条` + ((data.note && " · " + data.note) || ""));
     } else if (name === "launch") {
-      setStatus("正在看 @solana 最近关注的项目…");
+      setStatus("正在拉 Solana 链上新开盘…");
       $("launchCards").innerHTML = "<p class='muted'>加载中…</p>";
       if ($("launchAlerts")) $("launchAlerts").innerHTML = "";
       await fillLaunchTokenBox();
@@ -156,21 +156,23 @@ async function loadView(name, refresh) {
       if ($("launchAlerts")) {
         $("launchAlerts").innerHTML = alerts.slice(0, 6).map((a) => `
           <div class="alert-banner">
-            <strong>发射提醒 · ${escapeHtml(a.launch_status || "")}</strong>
+            <strong>${a.verified_follow ? "官方关注发射" : "链上新池"} · ${escapeHtml(a.launch_status || "")}</strong>
             <div>${escapeHtml(a.name)} ${a.username ? "(@" + escapeHtml(a.username) + ")" : ""}</div>
             <div class="launch-when">${escapeHtml(a.launch_when_label || a.launch_when || "时间待确认")}</div>
           </div>`).join("");
       }
-      const launchItems = (data.items || []).filter((x) => x.verified_follow && (x.followed_by || []).length);
+      const launchItems = (data.items || []).filter((x) => {
+        if (x.verified_follow) return (x.followed_by || []).length > 0;
+        return x.watch_kind === "onchain_pool";
+      });
       $("launchCards").innerHTML = launchItems.map((a) => {
         store.launch[a.key] = a;
         return launchCard(a);
-      }).join("") || "<p class='muted'>没有已核实被 @solana 或 @toly 关注的项目。填令牌后点保存并立即跟踪；宁可不显示，也不把观察池冒充成关注。</p>";
+      }).join("") || "<p class='muted'>暂时没有拉到 Solana 新池。点右上角刷新再试一次。</p>";
       if ($("launchMsg")) $("launchMsg").textContent = data.note || "";
-      const bits = [`跟踪 ${data.follow_count || 0} 个 Solana 关注项目`];
-      if (data.new_follow_count) bits.push(`新关注 ${data.new_follow_count}`);
-      if (data.alert_count) bits.push(`发射提醒 ${data.alert_count}`);
-      if (data.social_skipped) bits.push("未配置 X Token");
+      const bits = [`链上新池 ${data.onchain_count || 0}`];
+      if (data.follow_count) bits.push(`已核实官方关注 ${data.follow_count}`);
+      if (data.alert_count) bits.push(`提醒 ${data.alert_count}`);
       setStatus(bits.join(" · "));
       pingLaunchAlerts(alerts);
     } else if (name === "airdrop") {
@@ -376,15 +378,19 @@ function launchCard(a) {
   const id = encodeURIComponent(a.key);
   const klass = a.alert ? "card alert-card" : "card";
   const when = a.launch_when_label || a.launch_when;
+  const verified = !!a.verified_follow;
   const officialN = Number(a.official_follow_count || (a.followed_by || []).length || 0);
   const officialTotal = Number(a.official_follow_total || 3);
   const fans = Number(a.followers || 0);
+  const countLine = verified
+    ? `${escapeHtml(a.follow_count_label || ("官方关注 " + officialN + "/" + officialTotal))} · 粉丝 ${fans ? fans.toLocaleString() : "未知"}`
+    : `${escapeHtml(a.follow_count_label || "不是官方关注 · 链上新开盘")}${a.liquidity_usd ? " · 池子 $" + Number(a.liquidity_usd).toLocaleString(undefined, {maximumFractionDigits: 0}) : ""}`;
   return `<article class="${klass}">
     <h3>${sourceBadge(a)} ${escapeHtml(a.name)}${a.username ? " <span class='muted'>@" + escapeHtml(a.username) + "</span>" : ""}</h3>
     <p>${escapeHtml(a.kind || "")} · ${escapeHtml(a.chain || "")} · ${escapeHtml(a.source || "")}</p>
-    <p class="launch-when">${escapeHtml(a.follow_count_label || ("官方关注 " + officialN + "/" + officialTotal))} · 粉丝 ${fans ? fans.toLocaleString() : "未知"}</p>
+    <p class="launch-when">${countLine}</p>
     ${a.follow_proof ? `<p>${escapeHtml(a.follow_proof)}</p>` : ""}
-    ${a.followed_by && a.followed_by.length ? `<p>${(a.followed_by || []).map((n) => `<span class="tag live">@${escapeHtml(n)} 关注</span>`).join(" ")}</p>` : ""}
+    ${verified && a.followed_by && a.followed_by.length ? `<p>${(a.followed_by || []).map((n) => `<span class="tag live">@${escapeHtml(n)} 关注</span>`).join(" ")}</p>` : ""}
     ${a.launch_status ? `<p><span class="tag ${a.alert ? "range" : "wait"}">${escapeHtml(a.launch_status)}</span>${a.new_follow ? " <span class='tag live'>新关注</span>" : ""}</p>` : ""}
     ${when ? `<p class="launch-when">${escapeHtml(when)}</p>` : ""}
     <p>${escapeHtml((a.analysis || a.text || "").slice(0, 220))}</p>
@@ -521,8 +527,8 @@ async function fillLaunchTokenBox() {
   if ($("launch_twitter_bearer")) $("launch_twitter_bearer").value = token;
   if ($("launchTokenStatus")) {
     $("launchTokenStatus").textContent = token
-      ? "已保存令牌。点「保存并立即跟踪」会重新拉 @solana 最近关注。"
-      : "还没填。这串令牌要去 X 开发者网站申请，软件里不会自动出现。";
+      ? "已保存令牌。不填也能看链上新池；有令牌才会额外核对官方关注。"
+      : "可留空。链上新开盘不需要这串令牌。";
   }
 }
 

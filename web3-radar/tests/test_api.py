@@ -68,9 +68,13 @@ def test_modules_return_catalog():
     l = client.get("/api/launches")
     assert l.status_code == 200
     for x in l.json().get("items") or []:
-        assert x.get("followed_by"), x.get("name")
-        assert x.get("verified_follow") is True
-        assert int(x.get("official_follow_count") or 0) >= 1
+        if x.get("verified_follow"):
+            assert x.get("followed_by"), x.get("name")
+            assert int(x.get("official_follow_count") or 0) >= 1
+        else:
+            assert x.get("watch_kind") == "onchain_pool", x.get("name")
+            assert not x.get("followed_by")
+            assert "不是官方关注" in str(x.get("follow_count_label") or "")
     added = client.post("/api/ambassadors", json={"project": "测试项目", "url": "https://example.com"})
     assert added.status_code == 200
     assert added.json()["source"] == "手动"

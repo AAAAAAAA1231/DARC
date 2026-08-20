@@ -139,6 +139,40 @@ def test_solana_follow_launch_timing():
     assert verified_followers(["binance", "someone"]) == []
 
 
+def test_onchain_launch_is_not_official_follow():
+    from web3_radar.collectors.solana_onchain import parse_created, to_onchain_item
+
+    posted = datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc)
+    now = datetime(2026, 8, 20, 10, 20, tzinfo=timezone.utc)
+    assert parse_created(posted.timestamp() * 1000) is not None
+    row = to_onchain_item(
+        key="sol-pool:abc",
+        name="ALPHA / SOL",
+        symbol="ALPHA",
+        source="GeckoTerminal",
+        url="https://www.geckoterminal.com/solana/pools/abc",
+        created=posted,
+        liquidity_usd=8000,
+        now=now,
+    )
+    assert row is not None
+    assert row["verified_follow"] is False
+    assert row["watch_kind"] == "onchain_pool"
+    assert row["followed_by"] == []
+    assert "不是官方关注" in row["follow_count_label"]
+    assert row["alert"] is True
+    fake = to_onchain_item(
+        key="sol-pool:sol",
+        name="SOL / USDC",
+        symbol="SOL",
+        source="GeckoTerminal",
+        url="https://example.com",
+        created=posted,
+        now=now,
+    )
+    assert fake is None
+
+
 def test_collect_social_without_bearer_does_not_crash():
     import asyncio
     rows = asyncio.run(collect_social(["ambassador"], "", 7))
