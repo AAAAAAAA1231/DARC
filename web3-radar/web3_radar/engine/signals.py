@@ -8,6 +8,7 @@ import pandas as pd
 
 from web3_radar.config import INITIAL_INDICATOR_SHARES
 from web3_radar.engine.indicators import (
+    classify_regime,
     compute_all_indicators,
     historical_expectancy,
     last_atr,
@@ -127,28 +128,58 @@ def analyze_klines(
     signals = np.array([i.signal for i in indicators], dtype=np.float64)
     strengths = np.array([i.strength for i in indicators], dtype=np.float64)
     score = composite_score(signals, strengths, weights)
-    decision = decision_from_score(score, threshold)
+    raw_decision = decision_from_score(score, threshold)
+    regime_info = classify_regime(df)
+    regime = str(regime_info.get("regime") or "过渡")
+    sl_m, tp_m = float(atr_sl_mult), float(atr_tp_mult)
+    effective_threshold = float(threshold)
+
+    if regime == "震荡":
+        # Chop killed trend-follow yesterday: raise the bar and tighten targets.
+        effective_threshold = threshold * 1.8
+        sl_m, tp_m = min(sl_m, 1.0), min(tp_m, 1.2)
+        decision = decision_from_score(score, effective_threshold)
+        regime_info["playbook"] = "震荡短打" if decision != "观望" else "震荡观望"
+        if decision == "观望" and raw_decision != "观望":
+            sim_note = f"{sim_note} · 当前震荡，已忽略趋势向的{raw_decision}信号"
+    elif regime == "过渡":
+        effective_threshold = threshold * 1.35
+        tp_m = tp_m * 0.8
+        decision = decision_from_score(score, effective_threshold)
+        if decision == "观望" and raw_decision != "观望":
+            sim_note = f"{sim_note} · 趋势不明，暂不跟{raw_decision}"
+    else:
+        decision = raw_decision
+
     price = float(df["close"].iloc[-1])
     atr_v = last_atr(df)
     if not math.isfinite(atr_v) or atr_v <= 0:
         atr_v = price * 0.02
 
     if decision == "涨":
-        entry, sl, tp = price, price - atr_sl_mult * atr_v, price + atr_tp_mult * atr_v
+        entry, sl, tp = price, price - sl_m * atr_v, price + tp_m * atr_v
         side = "long"
     elif decision == "跌":
-        entry, sl, tp = price, price + atr_sl_mult * atr_v, price - atr_tp_mult * atr_v
+        entry, sl, tp = price, price + sl_m * atr_v, price - tp_m * atr_v
         side = "short"
     else:
-        entry, sl, tp = price, price - atr_sl_mult * atr_v, price + atr_tp_mult * atr_v
+        entry, sl, tp = price, price - sl_m * atr_v, price + tp_m * atr_v
         side = "flat"
 
     return {
         "symbol": symbol,
         "decision": decision,
+        "raw_decision": raw_decision,
+        "regime": regime,
+        "regime_code": regime_info.get("regime_code"),
+        "regime_detail": regime_info.get("detail"),
+        "regime_advice": regime_info.get("advice"),
+        "playbook": regime_info.get("playbook"),
+        "adx": regime_info.get("adx"),
+        "efficiency": regime_info.get("efficiency"),
         "side": side,
         "score": round(score, 4),
-        "confidence": round(min(1.0, abs(score) / max(threshold, 1e-6)), 4),
+        "confidence": round(min(1.0, abs(score) / max(effective_threshold, 1e-6)), 4),
         "price": price,
         "entry": round(entry, 8),
         "stop_loss": round(sl, 8),

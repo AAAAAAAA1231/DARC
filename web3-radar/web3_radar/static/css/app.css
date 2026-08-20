@@ -66,6 +66,12 @@ th { color: var(--muted); font-weight: 600; background: #0e141c; position: stick
 .tag { padding: 2px 8px; border-radius: 999px; font-size: 12px; }
 .tag.up { background: #123c31; color: var(--up); }
 .tag.down { background: #3c1218; color: var(--down); }
+.tag.wait { background: #2a2a32; color: #b8b8c0; }
+.tag.range { background: #3c2e12; color: #f0c674; }
+.tag.trend { background: #12303c; color: #7ec8e3; }
+.tag.mixed { background: #2a2a32; color: #b8b8c0; }
+.tag.btc { background: #3c2e12; color: #f5c16c; }
+.tag.eth { background: #1a2440; color: #9db7ff; }
 .tag.seed { background: #1c170c; color: var(--accent-2); }
 .tag.live { background: #123c31; color: var(--up); }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }

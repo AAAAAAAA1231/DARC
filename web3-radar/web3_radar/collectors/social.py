@@ -23,15 +23,16 @@ AMBASSADOR_QUERIES = [
     "\"content creator program\" web3 ambassador",
 ]
 
-# New project launches / TGE / whitelist — not CEX listings.
+# New project launches / TGE / whitelist on Solana — not CEX listings.
 LAUNCH_QUERIES = [
-    "presale live (token OR crypto) -binance -okx",
-    "whitelist open (TGE OR token) web3",
-    "\"fair launch\" (today OR tomorrow) crypto",
-    "IDO starts (token OR launchpad) -binance",
-    "\"public sale\" (crypto OR web3) whitelist",
-    "白名单 开启 (TGE OR 公售 OR 新项目)",
-    "\"testnet is live\" (points OR ambassador OR mint)",
+    "solana (presale OR whitelist OR TGE) -binance -okx",
+    "solana \"fair launch\" (token OR crypto)",
+    "solana IDO (token OR launchpad) -binance",
+    "\"pump.fun\" (migrate OR TGE OR whitelist)",
+    "solana \"public sale\" whitelist",
+    "sol 白名单 (TGE OR 公售 OR 新项目)",
+    "solana \"testnet is live\" (points OR whitelist)",
+    "(raydium launchlab OR jup launchpad OR \"pump.fun\") (live OR open)",
 ]
 
 MEGA_BRANDS = (
@@ -171,6 +172,12 @@ def looks_like_project_launch(text: str) -> bool:
     if looks_like_cex_listing(t):
         return False
     return any(h in t for h in LAUNCH_HINTS)
+
+
+def looks_like_solana_launch(text: str, chain: str = "") -> bool:
+    from web3_radar.collectors.ecosystem import is_solana
+
+    return is_solana(text, chain, chains=chain)
 
 
 def looks_like_ambassador_post(text: str, username: str = "") -> bool:

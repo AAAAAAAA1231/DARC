@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 
+from web3_radar.collectors.ecosystem import airdrop_eco_label, classify_btc_eth
 from web3_radar.config import FAMOUS_VCS
 from web3_radar.fallback import load_fallback, merge_items
 
@@ -98,7 +99,13 @@ def _token_status(name: str, gecko_ids: set[str], protocol_names: set[str]) -> s
     return "未发币（待核验）"
 
 
-def score_airdrop(amount: float, famous_n: int, token_status: str, valuation: float | None) -> tuple[int, str]:
+def score_airdrop(
+    amount: float,
+    famous_n: int,
+    token_status: str,
+    valuation: float | None,
+    eco: str = "",
+) -> tuple[int, str]:
     score = 0
     if amount >= 100_000_000:
         score += 40
@@ -120,8 +127,42 @@ def score_airdrop(amount: float, famous_n: int, token_status: str, valuation: fl
     if valuation and valuation >= 500_000_000:
         score += 10
         expect += " · 高估值"
-    score = min(100, score)
+    if eco in {"bitcoin", "ethereum", "btc-eth"}:
+        score += 18
+        expect += " · " + airdrop_eco_label(eco)
+    elif eco == "other":
+        score -= 28
+        expect += " · 非 BTC/ETH 生态，已降权"
+    score = max(0, min(100, score))
     return score, expect
+
+
+def _decorate_airdrop(item: dict[str, Any]) -> dict[str, Any]:
+    eco = classify_btc_eth(
+        item.get("name"),
+        item.get("sector"),
+        item.get("token_expect"),
+        chains=item.get("chains"),
+    )
+    item["ecosystem"] = eco
+    item["ecosystem_label"] = airdrop_eco_label(eco)
+    score, expect = score_airdrop(
+        float(item.get("total_funding_usd") or 0),
+        int(item.get("famous_count") or 0),
+        str(item.get("token_status") or ""),
+        item.get("valuation"),
+        eco=eco,
+    )
+    item["score"] = score
+    item["token_expect"] = expect
+    return item
+
+
+def _keep_airdrop_focus(item: dict[str, Any]) -> bool:
+    eco = item.get("ecosystem") or "other"
+    if eco != "other":
+        return True
+    return float(item.get("total_funding_usd") or 0) >= 100_000_000 and int(item.get("famous_count") or 0) >= 2
 
 
 async def scan_airdrops(min_funding_usd: float = 20_000_000) -> dict[str, Any]:
@@ -143,13 +184,27 @@ async def scan_airdrops(min_funding_usd: float = 20_000_000) -> dict[str, Any]:
             errors.append(f"cryptorank: {exc}")
     items.sort(key=lambda x: (x["score"], x["total_funding_usd"], x["famous_count"]), reverse=True)
     items = merge_items(items, load_fallback().get("airdrops") or [])
-    items.sort(key=lambda x: (x.get("score") or 0, x.get("total_funding_usd") or 0), reverse=True)
+    items = [_decorate_airdrop(dict(x)) for x in items]
+    focused = [x for x in items if _keep_airdrop_focus(x)]
+    dropped = len(items) - len(focused)
+    focused.sort(
+        key=lambda x: (
+            0 if x.get("ecosystem") == "other" else 1,
+            x.get("score") or 0,
+            x.get("total_funding_usd") or 0,
+        ),
+        reverse=True,
+    )
     return {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "min_funding_usd": min_funding_usd,
-        "count": len(items),
-        "items": items[:150],
+        "count": len(focused),
+        "items": focused[:150],
         "errors": errors,
+        "note": (
+            "空投雷达只盯比特币生态与 ETH 生态（含 L2 / restaking）。"
+            + (f" 已过滤 {dropped} 条其他链项目。" if dropped else "")
+        ),
     }
 
 
@@ -223,7 +278,8 @@ async def _scan_llama(min_funding_usd: float, errors: list[str]) -> list[dict[st
         token_status = _token_status(g["name"], gecko_ids, proto_names)
         if not token_status.startswith("未发币") and "疑似" not in token_status and total < 80_000_000:
             continue
-        score, expect = score_airdrop(total, famous_n, token_status, g.get("valuation"))
+        eco = classify_btc_eth(g["name"], g.get("sector"), chains=g.get("chains"))
+        score, expect = score_airdrop(total, famous_n, token_status, g.get("valuation"), eco=eco)
         date = g.get("date")
         date_iso = (
             datetime.fromtimestamp(date, tz=timezone.utc).date().isoformat()
@@ -247,6 +303,8 @@ async def _scan_llama(min_funding_usd: float, errors: list[str]) -> list[dict[st
                 "score": score,
                 "source": g.get("source") or "https://defillama.com/raises",
                 "valuation": g.get("valuation"),
+                "ecosystem": eco,
+                "ecosystem_label": airdrop_eco_label(eco),
             }
         )
     return items
@@ -306,10 +364,12 @@ async def _scan_cryptorank(min_funding_usd: float, errors: list[str]) -> list[di
             if not famous and amount < min_funding_usd * 2:
                 return None
             token_status = "未发币（待核验）" if detail.get("lifeCycle") == "funding" else "疑似已发币"
-            score, expect = score_airdrop(amount, len(famous), token_status, None)
+            cat = detail.get("category")
+            chains = [e.get("name") for e in (detail.get("coreEcosystems") or []) if isinstance(e, dict) and e.get("name")]
+            eco = classify_btc_eth(detail.get("name") or key, cat, chains=chains)
+            score, expect = score_airdrop(amount, len(famous), token_status, None, eco=eco)
             if inferred:
                 expect += " · 金额未披露，按知名机构覆盖计入"
-            cat = detail.get("category")
             return {
                 "key": _norm(detail.get("name") or key),
                 "name": detail.get("name") or key,
@@ -317,7 +377,7 @@ async def _scan_cryptorank(min_funding_usd: float, errors: list[str]) -> list[di
                 "latest_round": "funding",
                 "latest_date": "",
                 "sector": cat.get("name") if isinstance(cat, dict) else str(cat or ""),
-                "chains": [e.get("name") for e in (detail.get("coreEcosystems") or []) if isinstance(e, dict) and e.get("name")],
+                "chains": chains,
                 "famous_investors": famous[:12],
                 "famous_count": len(famous),
                 "investor_count": len(investors),
@@ -326,6 +386,8 @@ async def _scan_cryptorank(min_funding_usd: float, errors: list[str]) -> list[di
                 "score": score,
                 "source": f"https://cryptorank.io/price/{key}",
                 "valuation": None,
+                "ecosystem": eco,
+                "ecosystem_label": airdrop_eco_label(eco),
             }
 
         details = await asyncio.gather(*[detail_one(c) for c in coins[:48]])

@@ -1,10 +1,10 @@
 const views = {
-  contracts: ["合约分析", "100 万次只用于校准指标权重。校准完成后，刷新信号会直接套用模型告诉你涨/跌/观望。"],
+  contracts: ["合约分析", "先看是震荡还是单边。震荡默认不追突破；单边才跟涨跌。100 万次只用于校准权重。"],
   meme: ["妖币监控", "只保留池子≥$20k、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
   copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
-  launch: ["打新监测", "新项目白名单 / Presale / TGE / 新协议上线，不是交易所上新。"],
-  airdrop: ["空投雷达", "知名机构投资、融资 > $2000 万、优先未发币，可标记交互状态"],
+  launch: ["打新监测", "只盯 Solana 生态新项目：白名单 / Presale / TGE / pump / LaunchLab，不是交易所上新。"],
+  airdrop: ["空投雷达", "只盯比特币生态与 ETH 生态。知名机构、融资 > $2000 万、优先未发币。"],
   wallet: ["钱包执行", "连接 OKX 等钱包，将空投 / 打新 / 妖币 / 合约加入确认队列"],
   settings: ["设置", "权重模拟次数、阈值、API Token 与自动参加上限"],
 };
@@ -14,6 +14,7 @@ const store = { contracts: {}, meme: {}, ambassador: {}, launch: {}, airdrop: {}
 const fmtUsd = (n) => n == null || Number.isNaN(Number(n)) ? "-" : "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
 const fmtPx = (n) => n == null || n === "" ? "-" : Number(n).toPrecision(6);
 const tagClass = (d) => d === "涨" ? "up" : d === "跌" ? "down" : "wait";
+const regimeClass = (r) => r === "单边" ? "trend" : r === "震荡" ? "range" : "mixed";
 
 let currentView = "contracts";
 let analyzeJob = null;
@@ -105,6 +106,7 @@ async function loadView(name, refresh) {
             key: u.binance_symbol, symbol: u.binance_symbol, name: u.name, venue: u.venue,
             market_cap_rank: u.market_cap_rank, decision: "观望", score: 0,
             price: u.price, entry: u.price, stop_loss: "", take_profit: "", n_sims: 0, mode: "",
+            regime: "", playbook: "",
           };
           store.contracts[row.symbol] = row;
           return contractRow(row);
@@ -150,10 +152,10 @@ async function loadView(name, refresh) {
         return launchCard(a);
       }).join("") || "<p class='muted'>暂无打新信息</p>";
       if ($("launchMsg")) $("launchMsg").textContent = data.note || "";
-      setStatus(`新项目打新 ${data.count} 条` + (data.live_count ? ` · 实时 ${data.live_count}` : "") + (data.social_skipped ? " · 未配置 X Token" : ""));
+      setStatus(`Sol 打新 ${data.count} 条` + (data.live_count ? ` · 实时 ${data.live_count}` : "") + (data.social_skipped ? " · 未配置 X Token" : ""));
     } else if (name === "airdrop") {
       setStatus("正在扫描高融资未发币项目…");
-      $("airdropRows").innerHTML = emptyRow(8, "加载中…");
+      $("airdropRows").innerHTML = emptyRow(9, "加载中…");
       const data = await api("/api/airdrops" + q);
       const want = $("airdropStatusFilter").value;
       const items = (data.items || []).filter((x) => !want || x.mark_status === want);
@@ -161,8 +163,8 @@ async function loadView(name, refresh) {
       $("airdropRows").innerHTML = items.map((a) => {
         store.airdrop[a.key] = a;
         return airdropRow(a);
-      }).join("") || emptyRow(8, "暂无命中项目");
-      setStatus(`空投候选 ${items.length}` + ((data.errors && data.errors.length) ? " · 部分数据源失败已用观察池补齐" : ""));
+      }).join("") || emptyRow(9, "暂无 BTC/ETH 空投候选");
+      setStatus(`BTC/ETH 空投 ${items.length}` + ((data.errors && data.errors.length) ? " · 部分数据源失败已用观察池补齐" : "") + (data.note ? " · " + data.note : ""));
     } else if (name === "copytrade") {
       await loadCopytrade();
     } else if (name === "wallet") {
@@ -185,6 +187,7 @@ function contractRow(r) {
     <td><strong>${r.symbol}</strong><div class="muted">${r.name || ""} ${r.venue ? "· " + r.venue : ""}</div></td>
     <td>${r.market_cap_rank || "-"}</td>
     <td><span class="tag ${tagClass(r.decision)}">${r.decision || "观望"}</span></td>
+    <td><span class="tag ${regimeClass(r.regime)}">${r.regime || "-"}</span><div class="muted">${escapeHtml(r.playbook || r.regime_detail || "")}</div></td>
     <td>${r.score ?? "-"}</td>
     <td>${fmtPx(r.price)}</td>
     <td>${fmtPx(r.entry)}</td>
@@ -204,6 +207,8 @@ function showDetail(id) {
   const inds = r.indicators || [];
   $("contractDetail").innerHTML = `
     <div class="panel">
+      <h3>${r.symbol} · ${escapeHtml(r.regime || "行情未知")} · ${escapeHtml(r.playbook || "")}</h3>
+      <p class="muted">${escapeHtml(r.regime_advice || "")} ${escapeHtml(r.regime_detail || "")}${r.raw_decision && r.raw_decision !== r.decision ? " · 模型原结论 " + r.raw_decision + " 已被行情过滤" : ""}</p>
       <h3>${r.symbol} 指标权重（${r.mode === "infer" ? "套用已拟合模型" : "本次校准"} · 校准 ${Number(r.n_sims||0).toLocaleString()} 次）</h3>
       <div class="table-wrap"><table>
         <thead><tr><th>指标</th><th>信号</th><th>强度</th><th>期望</th><th>初始权重</th><th>优化权重</th><th>说明</th></tr></thead>
@@ -352,6 +357,7 @@ function airdropRow(a) {
   const id = encodeURIComponent(a.key);
   return `<tr>
     <td><strong>${escapeHtml(a.name)}</strong><div class="muted">${escapeHtml((a.chains||[]).slice(0,3).join(", "))}</div></td>
+    <td><span class="tag ${a.ecosystem === "bitcoin" ? "btc" : (a.ecosystem === "other" ? "mixed" : "eth")}">${escapeHtml(a.ecosystem_label || "")}</span></td>
     <td>${fmtUsd(a.total_funding_usd)}</td>
     <td>${a.famous_count} · ${escapeHtml((a.famous_investors||[]).slice(0,3).join(", "))}</td>
     <td>${escapeHtml(a.token_expect)}</td>

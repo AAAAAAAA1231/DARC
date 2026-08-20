@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable
+from typing import Any, Iterable
 
 import numpy as np
 import pandas as pd
@@ -612,3 +612,65 @@ def historical_expectancy(df: pd.DataFrame, horizon: int = 8) -> dict[str, float
 def last_atr(df: pd.DataFrame, period: int = 14) -> float:
     v = atr(df, period)
     return float(v[-1]) if len(v) else 0.0
+
+
+def efficiency_ratio(close: np.ndarray, period: int = 20) -> float:
+    if len(close) < period + 1:
+        return 0.0
+    window = close[-(period + 1) :]
+    change = abs(float(window[-1] - window[0]))
+    vol = float(np.sum(np.abs(np.diff(window))))
+    return change / max(vol, 1e-12)
+
+
+def classify_regime(df: pd.DataFrame) -> dict[str, Any]:
+    """Label the latest bar as 震荡 (range), 单边 (trend), or 过渡.
+
+    Mixes ADX, Kaufman efficiency ratio, and Bollinger bandwidth so the
+    contract board does not treat chop as a breakout.
+    """
+    close = _series(df, "close")
+    adx, pdi, mdi = adx_dmi(df)
+    adx_now = float(adx[-1]) if len(adx) else 0.0
+    er = efficiency_ratio(close, 20)
+    upper, mid, lower = bollinger(close)
+    bw = (upper - lower) / np.maximum(mid, 1e-12)
+    look = min(60, len(bw))
+    bw_now = float(bw[-1])
+    bw_med = float(np.median(bw[-look:])) if look else bw_now
+    compressed = bw_now < bw_med * 0.85
+    di_spread = abs(float(pdi[-1] - mdi[-1])) if len(pdi) else 0.0
+
+    # ADX stays high on regular swings; ER and DI spread catch the fake trend.
+    strong_trend = adx_now >= 25 and er >= 0.32 and di_spread >= 8
+    clear_range = (
+        er < 0.22
+        or (adx_now < 20 and er < 0.30)
+        or (di_spread < 6 and er < 0.28)
+        or (compressed and er < 0.30)
+    )
+    if strong_trend and not (er < 0.20):
+        regime, code = "单边", "trend"
+        advice = "单边行情：可按信号跟方向，用 ATR 止损止盈，不要逆势抄底摸顶。"
+        playbook = "单边趋势"
+    elif clear_range:
+        regime, code = "震荡", "range"
+        advice = "震荡行情：不要把来回当突破去追。默认观望；若仍给方向，只做短打、止盈收紧。"
+        playbook = "震荡观望"
+    else:
+        regime, code = "过渡", "mixed"
+        advice = "趋势不明：提高开仓门槛，优先观望，等单边或明确震荡再动手。"
+        playbook = "过渡谨慎"
+
+    return {
+        "regime": regime,
+        "regime_code": code,
+        "adx": round(adx_now, 1),
+        "efficiency": round(er, 3),
+        "bb_width": round(bw_now, 4),
+        "di_plus": round(float(pdi[-1]), 1) if len(pdi) else 0.0,
+        "di_minus": round(float(mdi[-1]), 1) if len(mdi) else 0.0,
+        "detail": f"ADX={adx_now:.1f} ER={er:.2f} 带宽={bw_now:.3f}",
+        "advice": advice,
+        "playbook": playbook,
+    }

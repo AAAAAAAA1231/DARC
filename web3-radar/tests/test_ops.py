@@ -5,6 +5,7 @@ from web3_radar.collectors.social import (
     looks_like_ambassador_post,
     looks_like_cex_listing,
     looks_like_project_launch,
+    looks_like_solana_launch,
 )
 from web3_radar.copytrade import halt_new_entries, position_size_usd, recently_closed, token_id, trail_stop, _exit_reason
 from web3_radar.db import analysis_is_fitted
@@ -71,6 +72,8 @@ def test_project_launch_not_cex_listing():
     assert looks_like_cex_listing("Binance will list ABCUSDT Launchpool")
     assert not looks_like_project_launch("OKX to list GRVT/USDT for spot trading")
     assert looks_like_project_launch("Whitelist is open for our TGE, presale live this week")
+    assert looks_like_solana_launch("Solana whitelist is open for our TGE, presale live this week")
+    assert not looks_like_solana_launch("Whitelist is open for our TGE, presale live this week")
     assert looks_like_ambassador_post("We're hiring regional ambassadors, apply via the form")
     assert not looks_like_ambassador_post("Join the Binance campus ambassador program", "binance")
     merged = merge_items(

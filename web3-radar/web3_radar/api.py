@@ -449,7 +449,7 @@ async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
 async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "launches_v2",
+        "launches_v3",
         "launch",
         180,
         refresh,
@@ -461,7 +461,7 @@ async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
 async def airdrops(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "airdrops",
+        "airdrops_v2",
         "airdrop",
         3600,
         refresh,

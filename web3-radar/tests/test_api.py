@@ -37,7 +37,9 @@ def test_wallet_participate_queue():
     data = load_fallback()
     assert data["ambassadors"]
     assert data["airdrops"]
+    assert all(any(str(c).lower() in {"ethereum", "bitcoin", "base", "arbitrum"} or "eth" in str(c).lower() or "bitcoin" in str(c).lower() for c in (x.get("chains") or [])) for x in data["airdrops"])
     assert data["launches"]
+    assert all((x.get("chain") or "") == "Solana" for x in data["launches"])
     merged = merge_items([], data["airdrops"])
     assert len(merged) == len(data["airdrops"])
     r = client.post(
@@ -60,9 +62,16 @@ def test_modules_return_catalog():
     d = client.get("/api/airdrops")
     assert d.status_code == 200
     assert d.json()["items"]
+    assert any(x.get("ecosystem") in {"bitcoin", "ethereum", "btc-eth"} for x in d.json()["items"])
     l = client.get("/api/launches")
     assert l.status_code == 200
     assert l.json()["items"]
+    assert all(
+        "sol" in (x.get("chain") or "").lower()
+        or "sol" in (x.get("text") or "").lower()
+        or "pump" in (x.get("text") or "").lower()
+        for x in l.json()["items"]
+    )
     added = client.post("/api/ambassadors", json={"project": "测试项目", "url": "https://example.com"})
     assert added.status_code == 200
     assert added.json()["source"] == "手动"

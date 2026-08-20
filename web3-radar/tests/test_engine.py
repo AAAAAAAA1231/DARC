@@ -4,10 +4,11 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from web3_radar.collectors.airdrop import score_airdrop, parse_raise_text
+from web3_radar.collectors.airdrop import score_airdrop, parse_raise_text, _keep_airdrop_focus, _decorate_airdrop
+from web3_radar.collectors.ecosystem import classify_btc_eth, is_solana
 from web3_radar.collectors.meme import _passes_meme_filter
-from web3_radar.collectors.social import extract_deadline, score_ambassador
-from web3_radar.engine.indicators import compute_all_indicators, rsi, td_sequential
+from web3_radar.collectors.social import extract_deadline, looks_like_solana_launch, score_ambassador
+from web3_radar.engine.indicators import classify_regime, compute_all_indicators, rsi, td_sequential
 from web3_radar.engine.monte_carlo import decision_from_score, monte_carlo_reweight
 from web3_radar.engine.signals import analyze_klines, average_weights_from_results, fit_global_weights, pool_expectancies
 
@@ -62,6 +63,7 @@ def test_analyze_klines_prices():
     out = analyze_klines(df, "BTCUSDT", n_sims=8_000, top_pct=5)
     assert out["symbol"] == "BTCUSDT"
     assert out["decision"] in ("涨", "跌", "观望")
+    assert out["regime"] in ("震荡", "单边", "过渡")
     assert out["entry"] > 0
     assert out["stop_loss"] > 0
     assert out["take_profit"] > 0
@@ -72,6 +74,40 @@ def test_analyze_klines_prices():
         assert out["stop_loss"] < out["entry"] < out["take_profit"]
     if out["decision"] == "跌":
         assert out["take_profit"] < out["entry"] < out["stop_loss"]
+
+
+def _range_ohlcv(n: int = 180, seed: int = 7) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    t = np.arange(n)
+    close = 100 + 1.2 * np.sin(2 * np.pi * t / 20) + rng.normal(0, 0.08, n)
+    high = close + rng.uniform(0.05, 0.25, n)
+    low = close - rng.uniform(0.05, 0.25, n)
+    open_ = np.roll(close, 1)
+    open_[0] = close[0]
+    volume = rng.uniform(1e5, 5e5, n)
+    return pd.DataFrame({"open": open_, "high": high, "low": low, "close": close, "volume": volume})
+
+
+def _trend_ohlcv(n: int = 180, seed: int = 3) -> pd.DataFrame:
+    rng = np.random.default_rng(seed)
+    close = 100 * np.cumprod(1 + 0.012 + rng.normal(0, 0.0015, n))
+    high = close * (1 + rng.uniform(0.001, 0.004, n))
+    low = close * (1 - rng.uniform(0.001, 0.004, n))
+    open_ = np.roll(close, 1)
+    open_[0] = close[0]
+    volume = rng.uniform(1e5, 5e5, n)
+    return pd.DataFrame({"open": open_, "high": high, "low": low, "close": close, "volume": volume})
+
+
+def test_regime_range_vs_trend():
+    ranging = classify_regime(_range_ohlcv())
+    trending = classify_regime(_trend_ohlcv())
+    assert ranging["regime"] == "震荡"
+    assert trending["regime"] == "单边"
+    chopped = analyze_klines(_range_ohlcv(), "RANGEUSDT", n_sims=2_000, top_pct=5, fitted_weights={"td13": 1})
+    assert chopped["regime"] == "震荡"
+    if chopped["raw_decision"] != "观望":
+        assert chopped["decision"] == "观望" or chopped["playbook"] == "震荡短打"
 
 
 def test_infer_uses_fitted_weights_without_resampling():
@@ -125,6 +161,28 @@ def test_parse_raise_text():
     low, _ = score_airdrop(5_000_000, 0, "可能已有协议/代币", None)
     assert high > low
     assert high >= 70
+    btc, _ = score_airdrop(80_000_000, 4, "未发币（待核验）", None, eco="bitcoin")
+    other, _ = score_airdrop(80_000_000, 4, "未发币（待核验）", None, eco="other")
+    assert btc > other
+    assert classify_btc_eth("MegaETH", "L2", chains=["Ethereum"]) == "ethereum"
+    assert classify_btc_eth("Babylon", "BTC staking", chains=["Bitcoin"]) == "bitcoin"
+    assert classify_btc_eth("Monad", "L1", chains=["Monad"]) == "other"
+    assert is_solana("Pump launch", "presale on solana")
+    assert not is_solana("MegaETH", chains=["Ethereum"])
+    mega = _decorate_airdrop({
+        "name": "MegaETH", "chains": ["Ethereum"], "sector": "L2",
+        "total_funding_usd": 450_000_000, "famous_count": 3,
+        "token_status": "未发币（待核验）", "valuation": None,
+    })
+    monad = _decorate_airdrop({
+        "name": "Monad", "chains": ["Monad"], "sector": "L1",
+        "total_funding_usd": 50_000_000, "famous_count": 1,
+        "token_status": "未发币（待核验）", "valuation": None,
+    })
+    assert _keep_airdrop_focus(mega)
+    assert not _keep_airdrop_focus(monad)
+    assert looks_like_solana_launch("Whitelist is open for our Solana TGE")
+    assert not looks_like_solana_launch("Whitelist is open for our TGE on Ethereum")
 
 
 def test_ambassador_priority_and_deadline():
