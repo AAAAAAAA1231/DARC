@@ -39,6 +39,17 @@ python run.py
 
 建议在「设置」中填写 Twitter Bearer Token，以提高大使/打新覆盖率。
 
+## 下载 Windows EXE（不要点小箭头）
+
+仓库文件旁的向下箭头对大文件经常没反应。用下面任一方式：
+
+1. 把这行复制到浏览器地址栏，按回车：  
+   https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
+2. 双击 `下载链上雷达.bat`
+3. 打开 `请用这个方式下载.txt` 按里面的链接
+
+下完后双击 `ChainRadar.exe`，浏览器打开 http://127.0.0.1:8787
+
 ## 打包 Windows EXE
 
 本机（需 Windows + Python 3.12）：

@@ -7,6 +7,9 @@ on:
       - "web3-radar/**"
       - ".github/workflows/build-web3-radar.yml"
 
+permissions:
+  contents: write
+
 jobs:
   windows-exe:
     runs-on: windows-latest
@@ -31,3 +34,17 @@ jobs:
         with:
           name: ChainRadar-windows
           path: web3-radar/dist/ChainRadar.exe
+      - name: Publish downloadable release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: chainradar
+          name: 链上雷达 ChainRadar
+          target_commitish: ${{ github.sha }}
+          files: web3-radar/dist/ChainRadar.exe
+          fail_on_unmatched_files: true
+          make_latest: true
+          body: |
+            直接点下面的 **ChainRadar.exe** 就会下载，不要点仓库文件旁的小箭头。
+
+            或把这行粘贴到浏览器地址栏回车：
+            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
