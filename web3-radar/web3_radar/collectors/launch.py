@@ -18,9 +18,16 @@ async def scan_launches(twitter_bearer: str = "", lookback_days: int = 7) -> dic
     alerts = [x for x in items if x.get("alert")]
     origin = str(watch.get("origin") or "")
     origin_note = {
-        "following": "已用 X 接口核实 @solana / @toly / @aeyakovenko 的关注列表。",
-        "nitter": "官方接口受限，已用公开镜像关注页核实，仍只保留列表里真实出现的账号。",
+        "following": "已用 X 官方关注接口核对 @solana / @toly / @aeyakovenko。",
     }.get(origin, "")
+    stat_bits = []
+    for row in watch.get("scan_stats") or []:
+        acc = row.get("account")
+        fetched = int(row.get("fetched") or 0)
+        total = int(row.get("following_total") or 0)
+        if acc:
+            stat_bits.append(f"@{acc} 共关注 {total} 人，本次读取最近 {fetched} 个")
+    stats_note = "；".join(stat_bits)
     return {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "lookback_days": lookback_days,
@@ -30,12 +37,14 @@ async def scan_launches(twitter_bearer: str = "", lookback_days: int = 7) -> dic
         "new_follow_count": int(watch.get("new_follow_count") or 0),
         "alert_count": len(alerts),
         "alerts": alerts[:12],
+        "scan_stats": watch.get("scan_stats") or [],
         "social_skipped": not bool((twitter_bearer or "").strip()),
         "items": items,
         "errors": errors,
         "note": (
-            "只显示已核实被 @solana 或 @toly 关注的项目。观察池、协议目录、随便搜到的推文都不会混进来。"
+            "只显示出现在官方关注列表里的项目，并标出官方关注数。观察池、协议目录、随便搜到的推文都不会混进来。"
             + (" " + origin_note if origin_note else "")
+            + ((" " + stats_note + "。") if stats_note else "")
             + (" 未填 X 接口令牌时无法核实关注。" if not twitter_bearer else "")
             + (" 当前没有核实到任何关注项目。" if not items else "")
         ),

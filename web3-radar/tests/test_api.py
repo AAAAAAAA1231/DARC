@@ -70,6 +70,7 @@ def test_modules_return_catalog():
     for x in l.json().get("items") or []:
         assert x.get("followed_by"), x.get("name")
         assert x.get("verified_follow") is True
+        assert int(x.get("official_follow_count") or 0) >= 1
     added = client.post("/api/ambassadors", json={"project": "测试项目", "url": "https://example.com"})
     assert added.status_code == 200
     assert added.json()["source"] == "手动"

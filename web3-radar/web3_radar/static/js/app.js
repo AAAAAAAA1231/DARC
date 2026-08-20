@@ -161,7 +161,8 @@ async function loadView(name, refresh) {
             <div class="launch-when">${escapeHtml(a.launch_when_label || a.launch_when || "时间待确认")}</div>
           </div>`).join("");
       }
-      $("launchCards").innerHTML = (data.items || []).map((a) => {
+      const launchItems = (data.items || []).filter((x) => x.verified_follow && (x.followed_by || []).length);
+      $("launchCards").innerHTML = launchItems.map((a) => {
         store.launch[a.key] = a;
         return launchCard(a);
       }).join("") || "<p class='muted'>没有已核实被 @solana 或 @toly 关注的项目。填令牌后点保存并立即跟踪；宁可不显示，也不把观察池冒充成关注。</p>";
@@ -375,10 +376,14 @@ function launchCard(a) {
   const id = encodeURIComponent(a.key);
   const klass = a.alert ? "card alert-card" : "card";
   const when = a.launch_when_label || a.launch_when;
+  const officialN = Number(a.official_follow_count || (a.followed_by || []).length || 0);
+  const officialTotal = Number(a.official_follow_total || 3);
+  const fans = Number(a.followers || 0);
   return `<article class="${klass}">
     <h3>${sourceBadge(a)} ${escapeHtml(a.name)}${a.username ? " <span class='muted'>@" + escapeHtml(a.username) + "</span>" : ""}</h3>
     <p>${escapeHtml(a.kind || "")} · ${escapeHtml(a.chain || "")} · ${escapeHtml(a.source || "")}</p>
-    ${a.follow_proof ? `<p class="launch-when">${escapeHtml(a.follow_proof)}</p>` : ""}
+    <p class="launch-when">${escapeHtml(a.follow_count_label || ("官方关注 " + officialN + "/" + officialTotal))} · 粉丝 ${fans ? fans.toLocaleString() : "未知"}</p>
+    ${a.follow_proof ? `<p>${escapeHtml(a.follow_proof)}</p>` : ""}
     ${a.followed_by && a.followed_by.length ? `<p>${(a.followed_by || []).map((n) => `<span class="tag live">@${escapeHtml(n)} 关注</span>`).join(" ")}</p>` : ""}
     ${a.launch_status ? `<p><span class="tag ${a.alert ? "range" : "wait"}">${escapeHtml(a.launch_status)}</span>${a.new_follow ? " <span class='tag live'>新关注</span>" : ""}</p>` : ""}
     ${when ? `<p class="launch-when">${escapeHtml(when)}</p>` : ""}

@@ -123,7 +123,11 @@ def test_solana_follow_launch_timing():
     assert row["watch_kind"] == "solana_follow"
     assert row["verified_follow"] is True
     assert "solana" in row["followed_by"] and "toly" in row["followed_by"]
+    assert row["official_follow_count"] == 2
+    assert row["official_follow_total"] == 3
+    assert row["follow_count_label"] == "官方关注 2/3"
     assert "@solana" in row["follow_proof"] and "@toly" in row["follow_proof"]
+    assert row["followers"] == 3000
     assert "北京时间" in row["launch_when_label"]
     fake = to_item(
         {"username": "pumpfun", "name": "Pump", "description": "not followed", "public_metrics": {}},
