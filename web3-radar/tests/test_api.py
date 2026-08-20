@@ -67,13 +67,9 @@ def test_modules_return_catalog():
     assert any(x.get("ecosystem") in {"bitcoin", "ethereum", "btc-eth"} for x in d.json()["items"])
     l = client.get("/api/launches")
     assert l.status_code == 200
-    assert l.json()["items"]
-    assert all(
-        "sol" in (x.get("chain") or "").lower()
-        or "sol" in (x.get("text") or "").lower()
-        or "pump" in (x.get("text") or "").lower()
-        for x in l.json()["items"]
-    )
+    for x in l.json().get("items") or []:
+        assert x.get("followed_by"), x.get("name")
+        assert x.get("verified_follow") is True
     added = client.post("/api/ambassadors", json={"project": "测试项目", "url": "https://example.com"})
     assert added.status_code == 200
     assert added.json()["source"] == "手动"

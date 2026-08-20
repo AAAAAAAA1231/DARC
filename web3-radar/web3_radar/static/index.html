@@ -50,15 +50,16 @@
             <option>1d</option>
           </select>
         </label>
-        <input id="contractFilter" placeholder="筛选币种 / 涨跌 / 震荡 / 单边" />
-        <span class="pill" id="simBadge">尚未拟合：先校准一次指标权重，之后刷新只出涨跌</span>
+        <label class="check"><input type="checkbox" id="onlyRecommend" checked /> 只看成功率 ≥ 80% 的推荐</label>
+        <input id="contractFilter" placeholder="筛选币种 / 涨跌 / 震荡 / 单边 / 推荐" />
+        <span class="pill" id="simBadge">尚未拟合：先校准一次指标权重，之后只出成功率≥80%的涨跌</span>
       </div>
       <div class="progress hidden" id="analyzeProgress"><div></div></div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>标的</th><th>市值排名</th><th>结论</th><th>行情</th><th>综合分</th><th>现价</th>
+              <th>标的</th><th>市值排名</th><th>结论</th><th>成功率</th><th>行情</th><th>综合分</th><th>现价</th>
               <th>建仓</th><th>止损</th><th>止盈</th><th>阶段</th><th>操作</th>
             </tr>
           </thead>

@@ -10,7 +10,7 @@ from web3_radar.collectors.meme import _passes_meme_filter
 from web3_radar.collectors.social import extract_deadline, looks_like_solana_launch, score_ambassador
 from web3_radar.engine.indicators import classify_regime, compute_all_indicators, rsi, td_sequential
 from web3_radar.engine.monte_carlo import decision_from_score, monte_carlo_reweight
-from web3_radar.engine.signals import analyze_klines, average_weights_from_results, fit_global_weights, pool_expectancies
+from web3_radar.engine.signals import analyze_klines, average_weights_from_results, apply_success_gate, fit_global_weights, pool_expectancies
 
 
 def _ohlcv(n: int = 180, trend: float = 0.002, seed: int = 1) -> pd.DataFrame:
@@ -70,6 +70,13 @@ def test_analyze_klines_prices():
     assert out["n_sims"] == 8_000
     assert out["mode"] == "fit"
     assert out["weights_adjusted"] is True
+    assert "success_rate" in out
+    assert "recommend" in out
+    if out["recommend"]:
+        assert out["success_rate"] >= 0.8
+        assert out["decision"] in ("涨", "跌")
+    else:
+        assert out["decision"] == "观望"
     if out["decision"] == "涨":
         assert out["stop_loss"] < out["entry"] < out["take_profit"]
     if out["decision"] == "跌":
@@ -139,6 +146,16 @@ def test_pool_and_global_fit():
         ]
     )
     assert avg["td13"] > avg["rsi"]
+
+
+def test_success_gate_requires_eighty_percent():
+    d, ok, note = apply_success_gate("涨", 0.79, 12)
+    assert d == "观望" and ok is False
+    assert "80%" in note
+    d, ok, _ = apply_success_gate("跌", 0.80, 12)
+    assert d == "跌" and ok is True
+    d, ok, _ = apply_success_gate("涨", 0.99, 3)
+    assert ok is False
 
 
 def test_meme_liquidity_filter():

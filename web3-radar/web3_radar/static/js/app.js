@@ -1,5 +1,5 @@
 const views = {
-  contracts: ["合约分析", "先看是震荡还是单边。震荡默认不追突破；单边才跟涨跌。100 万次只用于校准权重。"],
+  contracts: ["合约分析", "只推荐成功率 ≥ 80% 的涨/跌。震荡默认不追。100 万次只用于校准权重。"],
   meme: ["妖币监控", "只保留池子≥$20k、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
   copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
@@ -32,7 +32,8 @@ $("disconnectWallet").addEventListener("click", async () => {
   await api("/api/wallet/disconnect", { method: "POST" });
   loadWallet();
 });
-$("contractFilter").addEventListener("input", () => filterTable("contractRows", $("contractFilter").value));
+$("contractFilter").addEventListener("input", () => renderContracts());
+if ($("onlyRecommend")) $("onlyRecommend").addEventListener("change", () => renderContracts());
 $("memeFilter").addEventListener("input", () => filterTable("memeRows", $("memeFilter").value));
 $("ambStatusFilter").addEventListener("change", () => loadView("ambassador"));
 $("airdropStatusFilter").addEventListener("change", () => loadView("airdrop"));
@@ -82,7 +83,7 @@ async function loadView(name, refresh) {
         $("analyzeProgress").classList.remove("hidden");
         if (last.results && last.results.length) {
           last.results.forEach((r) => { store.contracts[r.symbol] = r; });
-          $("contractRows").innerHTML = last.results.map(contractRow).join("");
+          renderContracts();
         }
         if ($("simBadge")) $("simBadge").textContent = last.fitted_note;
         setStatus(last.fitted_note);
@@ -91,7 +92,7 @@ async function loadView(name, refresh) {
       }
       if (last.results && last.results.length) {
         last.results.forEach((r) => { store.contracts[r.symbol] = r; });
-        $("contractRows").innerHTML = last.results.map(contractRow).join("");
+        renderContracts();
         if ($("simBadge")) $("simBadge").textContent = last.fitted_note;
         setStatus(last.fitted_note);
         if (refresh && last.fitted) {
@@ -102,16 +103,17 @@ async function loadView(name, refresh) {
       if ($("simBadge")) $("simBadge").textContent = last.fitted_note || "尚未拟合";
       const uni = await api("/api/contracts/universe");
       if (!$("contractRows").children.length) {
-        $("contractRows").innerHTML = uni.items.map((u) => {
+        uni.items.forEach((u) => {
           const row = {
             key: u.binance_symbol, symbol: u.binance_symbol, name: u.name, venue: u.venue,
-            market_cap_rank: u.market_cap_rank, decision: "观望", score: 0,
+            market_cap_rank: u.market_cap_rank, decision: "观望", score: 0, recommend: false,
+            success_rate: 0, success_note: "未分析",
             price: u.price, entry: u.price, stop_loss: "", take_profit: "", n_sims: 0, mode: "",
             regime: "", playbook: "",
           };
           store.contracts[row.symbol] = row;
-          return contractRow(row);
-        }).join("");
+        });
+        renderContracts();
       }
       if (last.fitted) {
         setStatus(`标的 ${uni.items.length} 个。权重已校准，正在套用模型出信号…`);
@@ -162,7 +164,7 @@ async function loadView(name, refresh) {
       $("launchCards").innerHTML = (data.items || []).map((a) => {
         store.launch[a.key] = a;
         return launchCard(a);
-      }).join("") || "<p class='muted'>暂无打新信息。填写 Twitter Bearer 后才能读 @solana 关注列表。</p>";
+      }).join("") || "<p class='muted'>没有已核实被 @solana 或 @toly 关注的项目。填令牌后点保存并立即跟踪；宁可不显示，也不把观察池冒充成关注。</p>";
       if ($("launchMsg")) $("launchMsg").textContent = data.note || "";
       const bits = [`跟踪 ${data.follow_count || 0} 个 Solana 关注项目`];
       if (data.new_follow_count) bits.push(`新关注 ${data.new_follow_count}`);
@@ -198,12 +200,27 @@ function emptyRow(cols, text) {
   return `<tr><td colspan="${cols}" class="muted">${text}</td></tr>`;
 }
 
+function renderContracts() {
+  const only = $("onlyRecommend") && $("onlyRecommend").checked;
+  const q = (($("contractFilter") && $("contractFilter").value) || "").toLowerCase();
+  const rows = Object.values(store.contracts).filter((r) => r && r.symbol && r.symbol !== "?");
+  const shown = rows.filter((r) => {
+    if (only && !r.recommend) return false;
+    if (!q) return true;
+    return (r.symbol + " " + (r.name || "") + " " + (r.decision || "") + " " + (r.regime || "") + (r.recommend ? " 推荐" : "")).toLowerCase().includes(q);
+  });
+  $("contractRows").innerHTML = shown.map(contractRow).join("") || emptyRow(12, only ? "暂无成功率 ≥ 80% 的推荐" : "暂无标的");
+}
+
 function contractRow(r) {
   const id = encodeURIComponent(r.symbol);
+  const rate = r.success_rate == null ? null : Number(r.success_rate);
+  const rateText = rate == null ? "-" : Math.round(rate * 100) + "%";
   return `<tr>
     <td><strong>${r.symbol}</strong><div class="muted">${r.name || ""} ${r.venue ? "· " + r.venue : ""}</div></td>
     <td>${r.market_cap_rank || "-"}</td>
-    <td><span class="tag ${tagClass(r.decision)}">${r.decision || "观望"}</span></td>
+    <td><span class="tag ${tagClass(r.decision)}">${r.decision || "观望"}</span>${r.recommend ? " <span class='tag live'>推荐</span>" : ""}</td>
+    <td><span class="tag ${r.recommend ? "up" : "wait"}">${rateText}</span><div class="muted">${escapeHtml(r.success_note || "")}</div></td>
     <td><span class="tag ${regimeClass(r.regime)}">${r.regime || "-"}</span><div class="muted">${escapeHtml(r.playbook || r.regime_detail || "")}</div></td>
     <td>${r.score ?? "-"}</td>
     <td>${fmtPx(r.price)}</td>
@@ -224,8 +241,8 @@ function showDetail(id) {
   const inds = r.indicators || [];
   $("contractDetail").innerHTML = `
     <div class="panel">
-      <h3>${r.symbol} · ${escapeHtml(r.regime || "行情未知")} · ${escapeHtml(r.playbook || "")}</h3>
-      <p class="muted">${escapeHtml(r.regime_advice || "")} ${escapeHtml(r.regime_detail || "")}${r.raw_decision && r.raw_decision !== r.decision ? " · 模型原结论 " + r.raw_decision + " 已被行情过滤" : ""}</p>
+      <h3>${r.symbol} · ${escapeHtml(r.regime || "行情未知")} · ${escapeHtml(r.playbook || "")} · ${r.recommend ? "推荐" : "不推荐"}</h3>
+      <p class="muted">${escapeHtml(r.success_note || "")} ${escapeHtml(r.regime_advice || "")} ${escapeHtml(r.regime_detail || "")}${r.raw_decision && r.raw_decision !== r.decision ? " · 模型原结论 " + r.raw_decision + " 已被过滤" : ""}</p>
       <h3>${r.symbol} 指标权重（${r.mode === "infer" ? "套用已拟合模型" : "本次校准"} · 校准 ${Number(r.n_sims||0).toLocaleString()} 次）</h3>
       <div class="table-wrap"><table>
         <thead><tr><th>指标</th><th>信号</th><th>强度</th><th>期望</th><th>初始权重</th><th>优化权重</th><th>说明</th></tr></thead>
@@ -269,7 +286,7 @@ async function pollAnalyze() {
     $("analyzeProgress").querySelector("div").style.width = pct + "%";
     (data.results || []).forEach((r) => { if (r.symbol) store.contracts[r.symbol] = r; });
     const rows = (data.results || []).filter((r) => r.symbol && r.symbol !== "?");
-    if (rows.length) $("contractRows").innerHTML = rows.map(contractRow).join("");
+    if (rows.length) renderContracts();
     const note = (data.results || []).find((r) => r.sim_note);
     if (note && $("simBadge")) $("simBadge").textContent = note.sim_note;
     const phase = data.phase ? " · " + data.phase : "";
@@ -361,6 +378,8 @@ function launchCard(a) {
   return `<article class="${klass}">
     <h3>${sourceBadge(a)} ${escapeHtml(a.name)}${a.username ? " <span class='muted'>@" + escapeHtml(a.username) + "</span>" : ""}</h3>
     <p>${escapeHtml(a.kind || "")} · ${escapeHtml(a.chain || "")} · ${escapeHtml(a.source || "")}</p>
+    ${a.follow_proof ? `<p class="launch-when">${escapeHtml(a.follow_proof)}</p>` : ""}
+    ${a.followed_by && a.followed_by.length ? `<p>${(a.followed_by || []).map((n) => `<span class="tag live">@${escapeHtml(n)} 关注</span>`).join(" ")}</p>` : ""}
     ${a.launch_status ? `<p><span class="tag ${a.alert ? "range" : "wait"}">${escapeHtml(a.launch_status)}</span>${a.new_follow ? " <span class='tag live'>新关注</span>" : ""}</p>` : ""}
     ${when ? `<p class="launch-when">${escapeHtml(when)}</p>` : ""}
     <p>${escapeHtml((a.analysis || a.text || "").slice(0, 220))}</p>

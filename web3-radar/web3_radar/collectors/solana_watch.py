@@ -15,12 +15,20 @@ from web3_radar.http_util import client as http_client
 CN = timezone(timedelta(hours=8))
 TWITTER_API = "https://api.twitter.com/2"
 SOLANA_HANDLE = "solana"
+WATCH_ACCOUNTS = ("solana", "toly", "aeyakovenko")
+FOLLOW_LABEL = {
+    "solana": "@solana",
+    "toly": "@toly",
+    "aeyakovenko": "@aeyakovenko",
+}
 SKIP_HANDLES = {
     "solana",
     "solanalabs",
     "solanastatus",
     "solanafdsn",
     "solanafndn",
+    "toly",
+    "aeyakovenko",
     "binance",
     "binancezh",
     "coinbase",
@@ -276,6 +284,25 @@ def analyze_project(user: dict[str, Any], new_follow: bool, launch: dict[str, An
     return score, " · ".join(bits) or "待观察"
 
 
+def verified_followers(followed_by: list[str] | None) -> list[str]:
+    out: list[str] = []
+    seen: set[str] = set()
+    for raw in followed_by or []:
+        n = str(raw or "").lower().lstrip("@")
+        if n not in FOLLOW_LABEL or n in seen:
+            continue
+        seen.add(n)
+        out.append(n)
+    return out
+
+
+def follow_badge_text(followed_by: list[str] | None) -> str:
+    names = verified_followers(followed_by)
+    if not names:
+        return ""
+    return "已核实：" + "、".join(FOLLOW_LABEL[n] + " 正在关注" for n in names)
+
+
 def diff_new_follows(current: list[str], previous: list[str] | None) -> set[str]:
     cur = [c.lower() for c in current]
     if not previous:
@@ -315,10 +342,10 @@ def _user_from_api(row: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-async def _lookup_solana(bearer: str) -> dict[str, Any] | None:
+async def _lookup_user(bearer: str, username: str) -> dict[str, Any] | None:
     code, data = await _api_get(
         bearer,
-        "/users/by/username/solana",
+        f"/users/by/username/{username}",
         {"user.fields": "description,public_metrics,created_at"},
     )
     if code >= 400:
@@ -327,29 +354,35 @@ async def _lookup_solana(bearer: str) -> dict[str, Any] | None:
     return _user_from_api(row) if row.get("id") else None
 
 
-async def fetch_solana_following(bearer: str, limit: int = 40) -> tuple[list[dict[str, Any]], str]:
-    sol = await _lookup_solana(bearer)
-    if not sol:
-        return [], "无法读取 @solana 账号"
-    code, data = await _api_get(
-        bearer,
-        f"/users/{sol['id']}/following",
-        {
+async def fetch_account_following(bearer: str, username: str, limit: int = 50) -> tuple[list[dict[str, Any]], str]:
+    owner = await _lookup_user(bearer, username)
+    if not owner:
+        return [], f"无法读取 @{username}"
+    users: list[dict[str, Any]] = []
+    token = None
+    while len(users) < limit:
+        params: dict[str, Any] = {
             "max_results": "100",
             "user.fields": "description,public_metrics,created_at,username,protected,url,entities",
-        },
-    )
-    if code >= 400:
-        title = str((data.get("title") or data.get("detail") or code))
-        return [], f"关注列表接口 {code}: {title}"
-    users = []
-    for row in data.get("data") or []:
-        u = _user_from_api(row)
-        handle = u["username"].lower()
-        if not handle or handle in SKIP_HANDLES or u.get("protected") or is_mega_brand(u["name"], handle):
-            continue
-        users.append(u)
-        if len(users) >= limit:
+        }
+        if token:
+            params["pagination_token"] = token
+        code, data = await _api_get(bearer, f"/users/{owner['id']}/following", params)
+        if code >= 400:
+            title = str((data.get("title") or data.get("detail") or code))
+            if users:
+                break
+            return [], f"@{username} 关注列表 {code}: {title}"
+        for row in data.get("data") or []:
+            u = _user_from_api(row)
+            handle = u["username"].lower()
+            if not handle or handle in SKIP_HANDLES or u.get("protected") or is_mega_brand(u["name"], handle):
+                continue
+            users.append(u)
+            if len(users) >= limit:
+                break
+        token = (data.get("meta") or {}).get("next_token")
+        if not token:
             break
     return users, ""
 
@@ -477,17 +510,24 @@ def to_item(
     launch: dict[str, Any] | None,
     origin: str,
     rank: int = 0,
-) -> dict[str, Any]:
+    followed_by: list[str] | None = None,
+) -> dict[str, Any] | None:
     handle = (user.get("username") or "").lstrip("@")
+    verified = verified_followers(followed_by or user.get("followed_by"))
+    if not verified:
+        return None
+    proof = follow_badge_text(verified)
     score, analysis = analyze_project(user, new_follow, launch)
+    analysis = proof + (" · " + analysis if analysis else "")
     if rank:
         analysis = f"关注列表第 {rank} 位（越前越新） · {analysis}"
     timing = (launch or {}).get("timing") or {}
     alert = bool(launch)
-    kind = "Solana 新关注" if new_follow else ("Solana 最近点名" if origin == "mention" else "Solana 关注列表")
+    labels = " / ".join(FOLLOW_LABEL[n] for n in verified)
+    kind = f"{labels} 最近关注"
     when_label = timing.get("label") or "暂未提到 launch / 发射"
     status = timing.get("status") or "跟踪中"
-    text = (launch or {}).get("text") or (user.get("description") or "Solana 官方账号关注了该项目，持续跟踪发射动态。")
+    text = (launch or {}).get("text") or (user.get("description") or f"{proof}，持续跟踪发射动态。")
     return {
         "key": f"sol-watch:{handle.lower()}",
         "name": user.get("name") or handle,
@@ -504,15 +544,18 @@ def to_item(
         "alert_level": "high" if timing.get("relation") in {"upcoming", "now"} else ("mid" if alert else "low"),
         "new_follow": new_follow,
         "watch_kind": "solana_follow",
+        "followed_by": verified,
+        "follow_proof": proof,
+        "verified_follow": True,
         "url": (launch or {}).get("url") or twitter_url(handle),
         "twitter": twitter_url(handle),
         "created_at": (launch or {}).get("created_at") or user.get("created_at"),
-        "source": "Solana 关注",
+        "source": "已核实关注",
         "source_kind": "live",
         "score": score,
         "price_usd": None,
         "followers": int((user.get("public_metrics") or {}).get("followers_count") or 0),
-        "extra": {"origin": origin, "bio": user.get("description") or ""},
+        "extra": {"origin": origin, "bio": user.get("description") or "", "followed_by": verified},
     }
 
 
@@ -521,25 +564,59 @@ async def watch_solana_projects(twitter_bearer: str = "", lookback_days: int = 1
 
     errors: list[str] = []
     origin = "following"
-    users: list[dict[str, Any]] = []
     bearer = (twitter_bearer or "").strip()
+    merged: dict[str, dict[str, Any]] = {}
 
     if bearer:
-        users, err = await fetch_solana_following(bearer)
-        if err:
-            errors.append(err)
-        if not users:
-            mentioned = await fetch_solana_mentioned_projects(bearer, lookback_days)
-            if mentioned:
-                users = mentioned
-                origin = "mention"
-                errors.append("关注列表拉不到时，已改用 @solana 最近点名的账号")
-    if not users:
-        users = await nitter_following("solana")
-        if users:
+        for account in WATCH_ACCOUNTS:
+            users, err = await fetch_account_following(bearer, account, limit=50)
+            if err:
+                errors.append(err)
+                continue
+            for u in users:
+                handle = (u.get("username") or "").lower()
+                if not handle:
+                    continue
+                rec = merged.get(handle)
+                if rec is None:
+                    rec = dict(u)
+                    rec["followed_by"] = []
+                    merged[handle] = rec
+                if account not in rec["followed_by"]:
+                    rec["followed_by"].append(account)
+    else:
+        errors.append("未配置 X 接口令牌，无法核实 @solana / @toly 关注列表")
+
+    if not merged:
+        for account in WATCH_ACCOUNTS:
+            scraped = await nitter_following(account)
+            for u in scraped:
+                handle = (u.get("username") or "").lower()
+                if not handle:
+                    continue
+                rec = merged.get(handle)
+                if rec is None:
+                    rec = dict(u)
+                    rec["followed_by"] = []
+                    merged[handle] = rec
+                if account not in rec["followed_by"]:
+                    rec["followed_by"].append(account)
+        if merged:
             origin = "nitter"
-        elif not bearer:
-            errors.append("未配置 Twitter Bearer，无法读取 @solana 最近关注")
+            errors.append("官方关注接口不可用，已用公开镜像关注页核实，仍只保留列表里真实出现的账号")
+
+    users = [u for u in merged.values() if verified_followers(u.get("followed_by"))]
+    if not users:
+        errors.append("没有核实到 @solana 或 @toly 正在关注的项目，宁可不显示，避免把观察池/其它项目混进来")
+        return {
+            "items": [],
+            "alerts": [],
+            "follow_count": 0,
+            "new_follow_count": 0,
+            "alert_count": 0,
+            "origin": origin,
+            "errors": errors,
+        }
 
     handles = [u.get("username", "").lower() for u in users if u.get("username")]
     prev = await db.cache_get("solana_follow_snapshot") or {}
@@ -554,17 +631,18 @@ async def watch_solana_projects(twitter_bearer: str = "", lookback_days: int = 1
         except Exception as exc:
             errors.append(f"发射检索: {exc}")
 
-    items = [
-        to_item(
+    items: list[dict[str, Any]] = []
+    for i, u in enumerate(users):
+        row = to_item(
             u,
             u.get("username", "").lower() in new_set,
             launches.get((u.get("username") or "").lower()),
             origin,
             rank=i + 1,
+            followed_by=u.get("followed_by"),
         )
-        for i, u in enumerate(users)
-        if u.get("username")
-    ]
+        if row:
+            items.append(row)
     items.sort(key=lambda x: (not x.get("alert"), not x.get("new_follow"), -(x.get("score") or 0)))
     alerts = [x for x in items if x.get("alert")]
     return {

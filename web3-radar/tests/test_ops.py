@@ -117,10 +117,22 @@ def test_solana_follow_launch_timing():
          "timing": extract_launch_when("launch in 2 hours", posted, now=now)},
         "following",
         rank=1,
+        followed_by=["solana", "toly"],
     )
     assert row["alert"] is True
     assert row["watch_kind"] == "solana_follow"
+    assert row["verified_follow"] is True
+    assert "solana" in row["followed_by"] and "toly" in row["followed_by"]
+    assert "@solana" in row["follow_proof"] and "@toly" in row["follow_proof"]
     assert "北京时间" in row["launch_when_label"]
+    fake = to_item(
+        {"username": "pumpfun", "name": "Pump", "description": "not followed", "public_metrics": {}},
+        False, None, "seed", followed_by=[],
+    )
+    assert fake is None
+    from web3_radar.collectors.solana_watch import verified_followers
+    assert verified_followers(["solana"]) == ["solana"]
+    assert verified_followers(["binance", "someone"]) == []
 
 
 def test_collect_social_without_bearer_does_not_crash():
