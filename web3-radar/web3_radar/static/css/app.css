@@ -87,6 +87,9 @@ th { color: var(--muted); font-weight: 600; background: #0e141c; position: stick
   padding: 10px 12px; color: var(--text);
 }
 .alert-banner strong { color: var(--accent-2); }
+#launchTokenBox { margin-bottom: 14px; }
+#launchTokenBox input { width: 100%; max-width: 720px; margin: 6px 0 10px; }
+.panel ol a { word-break: break-all; }
 .card h3, .panel h3 { margin: 0 0 8px; font-size: 16px; }
 .card p { margin: 0 0 8px; color: var(--muted); font-size: 13px; line-height: 1.45; }
 .row-actions, .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }

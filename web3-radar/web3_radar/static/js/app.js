@@ -3,10 +3,10 @@ const views = {
   meme: ["妖币监控", "只保留池子≥$20k、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
   copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
-  launch: ["打新监测", "先看 Solana 官方推特最近关注的项目并跟踪；出现 launch / 发射 时标出北京时间。"],
+  launch: ["打新监测", "先填 X 接口令牌，再读 @solana 最近关注的项目；出现 launch / 发射 时标出北京时间。"],
   airdrop: ["空投雷达", "只盯比特币生态与 ETH 生态。知名机构、融资 > $2000 万、优先未发币。"],
   wallet: ["钱包执行", "连接 OKX 等钱包，将空投 / 打新 / 妖币 / 合约加入确认队列"],
-  settings: ["设置", "权重模拟次数、阈值、API Token 与自动参加上限"],
+  settings: ["设置", "X 接口令牌、权重模拟次数、阈值与自动参加上限"],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -40,6 +40,7 @@ $("autoParticipate").addEventListener("change", persistWalletFlags);
 $("autoMaxSpend").addEventListener("change", persistWalletFlags);
 if ($("copySave")) $("copySave").addEventListener("click", saveCopytrade);
 if ($("ambAdd")) $("ambAdd").addEventListener("click", addAmbassador);
+if ($("saveLaunchToken")) $("saveLaunchToken").addEventListener("click", saveLaunchToken);
 
 function showView(name) {
   currentView = name;
@@ -146,6 +147,7 @@ async function loadView(name, refresh) {
       setStatus("正在看 @solana 最近关注的项目…");
       $("launchCards").innerHTML = "<p class='muted'>加载中…</p>";
       if ($("launchAlerts")) $("launchAlerts").innerHTML = "";
+      await fillLaunchTokenBox();
       const data = await api("/api/launches" + q);
       store.launch = {};
       const alerts = data.alerts || (data.items || []).filter((x) => x.alert);
@@ -483,6 +485,35 @@ async function persistWalletFlags() {
     auto_participate: $("autoParticipate").checked,
     auto_max_spend_usd: Number($("autoMaxSpend").value || 50),
   }}});
+}
+
+async function fillLaunchTokenBox() {
+  try {
+    settingsCache = await api("/api/settings");
+  } catch (e) {
+    return;
+  }
+  const token = String(settingsCache.twitter_bearer_token || "");
+  if ($("launch_twitter_bearer")) $("launch_twitter_bearer").value = token;
+  if ($("launchTokenStatus")) {
+    $("launchTokenStatus").textContent = token
+      ? "已保存令牌。点「保存并立即跟踪」会重新拉 @solana 最近关注。"
+      : "还没填。这串令牌要去 X 开发者网站申请，软件里不会自动出现。";
+  }
+}
+
+async function saveLaunchToken() {
+  const token = (($("launch_twitter_bearer") && $("launch_twitter_bearer").value) || "").trim();
+  if (!token) {
+    setStatus("请先粘贴 Bearer Token");
+    if ($("launchTokenStatus")) $("launchTokenStatus").textContent = "空的。打开 developer.x.com → App → Keys and tokens → Bearer Token。";
+    return;
+  }
+  await api("/api/settings", { method: "POST", body: { settings: { twitter_bearer_token: token } } });
+  if ($("s_twitter_bearer_token")) $("s_twitter_bearer_token").value = token;
+  if ($("launchTokenStatus")) $("launchTokenStatus").textContent = "已保存，正在用这串令牌跟踪 @solana…";
+  setStatus("令牌已保存，正在拉 @solana 最近关注…");
+  await loadView("launch", true);
 }
 
 async function loadSettingsForm() {

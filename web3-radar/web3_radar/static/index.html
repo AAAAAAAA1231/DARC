@@ -146,6 +146,24 @@
         <span class="pill">出现 launch / 发射 立刻标时间</span>
         <span class="pill">不是交易所上新</span>
       </div>
+      <div class="panel" id="launchTokenBox">
+        <h3>X 接口令牌（读 @solana 关注必须填）</h3>
+        <p>这个东西<strong>不在软件里</strong>，也不是钱包密码。要去 X 开发者网站自己申请，复制过来。</p>
+        <ol>
+          <li>浏览器打开 <a href="https://developer.x.com/en/portal/dashboard" target="_blank" rel="noopener">https://developer.x.com/en/portal/dashboard</a> 并登录 X 账号</li>
+          <li>点 <strong>Create Project</strong> 建一个项目，再 <strong>Create App</strong> 建一个应用（免费档 Free 即可）</li>
+          <li>进入这个 App → <strong>Keys and tokens</strong>（密钥和令牌）</li>
+          <li>找到 <strong>Bearer Token</strong>，点 Reveal 后复制整串（通常以 AAAA 开头）</li>
+          <li>粘贴到下面，点保存。令牌只存在你这台电脑，软件不会上传。</li>
+        </ol>
+        <label>把 Bearer Token 粘贴到这里
+          <input id="launch_twitter_bearer" type="password" placeholder="AAAA 开头的一长串，从 X 开发者后台复制" autocomplete="off" />
+        </label>
+        <div class="card-actions">
+          <button class="btn primary" id="saveLaunchToken">保存并立即跟踪</button>
+        </div>
+        <p class="muted" id="launchTokenStatus"></p>
+      </div>
       <div id="launchAlerts"></div>
       <p class="muted" id="launchMsg"></p>
       <div class="cards" id="launchCards"></div>
@@ -211,7 +229,7 @@
         <label>止盈 ATR 倍数<input id="s_atr_tp_mult" type="number" step="0.1" /></label>
         <label>妖币最小流动性 USD<input id="s_meme_min_liquidity_usd" type="number" /></label>
         <label>空投最小融资 USD<input id="s_airdrop_min_funding_usd" type="number" /></label>
-        <label>Twitter Bearer Token<input id="s_twitter_bearer_token" type="password" placeholder="填写后才能读 @solana 最近关注并跟踪发射" /></label>
+        <label>X 接口令牌 Bearer（打新读 @solana 关注用，去 developer.x.com 申请，不是软件自带）<input id="s_twitter_bearer_token" type="password" placeholder="在 X 开发者后台 Keys and tokens 里复制 Bearer Token" /></label>
         <label>OKX API Key（合约跟单可选）<input id="s_okx_api_key" type="password" /></label>
         <label>OKX Secret<input id="s_okx_api_secret" type="password" /></label>
         <label>OKX Passphrase<input id="s_okx_passphrase" type="password" /></label>

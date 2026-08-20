@@ -16,6 +16,8 @@ def test_health_and_index():
     page = client.get("/")
     assert page.status_code == 200
     assert "链上雷达" in page.text
+    assert "接口令牌" in page.text
+    assert "developer.x.com" in page.text
 
 
 def test_settings_and_marks_roundtrip():
