@@ -170,7 +170,7 @@ async def update_settings(fields: dict[str, Any]) -> dict[str, Any]:
 
 
 def _should_enter(item: dict[str, Any], s: dict[str, Any]) -> tuple[bool, str]:
-    scored = item if "grade" in item else enrich_and_score(item, float(s.get("meme_min_liquidity_usd") or 20_000))
+    scored = item if "grade" in item else enrich_and_score(item, float(s.get("meme_min_liquidity_usd") or 1_000_000))
     if scored.get("grade") != "可跟":
         return False, f"评级 {scored.get('grade')}，不自动跟"
     if float(scored.get("heat") or 0) < float(s.get("copy_min_heat") or 65):

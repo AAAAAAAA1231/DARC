@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from web3_radar.collectors.airdrop import score_airdrop, parse_raise_text, _keep_airdrop_focus, _decorate_airdrop
+from web3_radar.collectors.airdrop import score_airdrop, parse_raise_text, _keep_airdrop_focus, _decorate_airdrop, _funding_ok
 from web3_radar.collectors.ecosystem import classify_btc_eth, is_solana
 from web3_radar.collectors.meme import _passes_meme_filter
 from web3_radar.collectors.social import extract_deadline, looks_like_solana_launch, score_ambassador
@@ -160,14 +160,14 @@ def test_success_gate_requires_eighty_percent():
 
 def test_meme_liquidity_filter():
     good = {
-        "liquidity_usd": 25_000,
+        "liquidity_usd": 1_200_000,
         "unique_buyers_est": 12,
         "buys": 20,
         "holder_growth_est": 6,
     }
     bad = dict(good, liquidity_usd=5_000)
-    assert _passes_meme_filter(good, 20_000, 8, 5)
-    assert not _passes_meme_filter(bad, 20_000, 8, 5)
+    assert _passes_meme_filter(good, 1_000_000, 8, 5)
+    assert not _passes_meme_filter(bad, 1_000_000, 8, 5)
 
 
 def test_parse_raise_text():
@@ -198,6 +198,18 @@ def test_parse_raise_text():
     })
     assert _keep_airdrop_focus(mega)
     assert not _keep_airdrop_focus(monad)
+    btc_ok = _decorate_airdrop({
+        "name": "Babylon", "chains": ["Bitcoin"], "sector": "BTC staking",
+        "total_funding_usd": 6_000_000, "famous_count": 2,
+        "token_status": "未发币（待核验）", "valuation": None,
+    })
+    assert _funding_ok(btc_ok, 20_000_000, 5_000_000)
+    eth_low = _decorate_airdrop({
+        "name": "MegaETH", "chains": ["Ethereum"], "sector": "L2",
+        "total_funding_usd": 6_000_000, "famous_count": 2,
+        "token_status": "未发币（待核验）", "valuation": None,
+    })
+    assert not _funding_ok(eth_low, 20_000_000, 5_000_000)
     assert looks_like_solana_launch("Whitelist is open for our Solana TGE")
     assert not looks_like_solana_launch("Whitelist is open for our TGE on Ethereum")
 

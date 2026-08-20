@@ -71,7 +71,7 @@
 
     <section id="view-meme" class="view hidden">
       <div class="toolbar">
-        <span class="pill">池子 ≥ $20k</span>
+        <span class="pill">池子 ≥ $1M</span>
         <span class="pill">5 分钟买压 + 持币增长</span>
         <span class="pill">过滤接盘 / 过新狙击盘</span>
         <input id="memeFilter" placeholder="筛选 可跟/观察/链" />
@@ -94,7 +94,7 @@
       <div class="grid-2">
         <div class="panel">
           <h3>跟单规则（针对妖币「可跟」）</h3>
-          <p class="muted">默认模拟盘：热度≥65、风险≤45、池子≥20k、不追涨幅过大的币。缓存刷新只盯市；点「刷新」才开新仓。止损 18%、止盈 40%；浮盈 25% 保本、50% 追踪。同币冷却 60 分钟，单笔不超过权益 5%。实盘只推到钱包确认队列。</p>
+          <p class="muted">默认模拟盘：热度≥65、风险≤45、池子≥$1M、不追涨幅过大的币。缓存刷新只盯市；点「刷新」才开新仓。止损 18%、止盈 40%；浮盈 25% 保本、50% 追踪。同币冷却 60 分钟，单笔不超过权益 5%。实盘只推到钱包确认队列。</p>
           <label class="check"><input type="checkbox" id="copyEnabled" checked /> 启用跟单</label>
           <label>模式
             <select id="copyMode">
@@ -143,13 +143,13 @@
 
     <section id="view-launch" class="view hidden">
       <div class="toolbar">
-        <span class="pill">只推 @solana / @toly 正在关注的</span>
-        <span class="pill">不是官方关注的一律不显示</span>
-        <span class="pill">不拿链上新池凑数</span>
+        <span class="pill">只推官方正在关注的</span>
+        <span class="pill">Solana：@solana / @toly</span>
+        <span class="pill">BSC：@cz_binance / @heyibinance</span>
       </div>
       <div class="panel" id="launchTokenBox">
         <h3>打新只看官方关注</h3>
-        <p>不是 <strong>@solana / @toly</strong> 正在关注的，不会出现在这里。读不到关注列表就空着，不会用 Pump 新盘来凑。</p>
+        <p><strong>Solana</strong> 必须被 @solana / @toly 关注；<strong>BSC</strong> 必须被 @cz_binance（CZ）或 @heyibinance（何一）关注。不是这些关注的一律不显示。</p>
         <p class="muted">一般不用填令牌：软件会去读公开关注页。填了 X 令牌更稳，还能扫他们关注的项目有没有发发射推文。</p>
         <details>
           <summary>可选：填 X 令牌（更稳，不是必须）</summary>
@@ -176,7 +176,8 @@
     <section id="view-airdrop" class="view hidden">
       <div class="toolbar">
         <span class="pill">比特币生态 + ETH 生态</span>
-        <span class="pill">融资 ≥ $2000 万</span>
+        <span class="pill">BTC 融资 ≥ $500 万</span>
+        <span class="pill">ETH 融资 ≥ $2000 万</span>
         <span class="pill">知名机构加权</span>
         <span class="pill">优先未发币</span>
         <select id="airdropStatusFilter">
@@ -232,7 +233,8 @@
         <label>止损 ATR 倍数<input id="s_atr_sl_mult" type="number" step="0.1" /></label>
         <label>止盈 ATR 倍数<input id="s_atr_tp_mult" type="number" step="0.1" /></label>
         <label>妖币最小流动性 USD<input id="s_meme_min_liquidity_usd" type="number" /></label>
-        <label>空投最小融资 USD<input id="s_airdrop_min_funding_usd" type="number" /></label>
+        <label>ETH 空投最小融资 USD<input id="s_airdrop_min_funding_usd" type="number" /></label>
+        <label>BTC 空投最小融资 USD<input id="s_airdrop_btc_min_funding_usd" type="number" /></label>
         <label>X 接口令牌 Bearer（可选，打新默认读公开关注页）<input id="s_twitter_bearer_token" type="password" placeholder="可留空" /></label>
         <label>OKX API Key（合约跟单可选）<input id="s_okx_api_key" type="password" /></label>
         <label>OKX Secret<input id="s_okx_api_secret" type="password" /></label>

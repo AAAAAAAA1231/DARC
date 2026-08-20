@@ -14,16 +14,16 @@ def test_meme_score_rejects_thin_and_late_pump():
         "fdv": 100000,
         "price_usd": 0.001,
     }
-    late = dict(thin, liquidity_usd=40000, price_change_h1=180, buys=30)
+    late = dict(thin, liquidity_usd=1_200_000, price_change_h1=180, buys=30)
     good = {
-        "liquidity_usd": 45000,
+        "liquidity_usd": 1_200_000,
         "buys": 40,
         "sells": 12,
         "unique_buyers_est": 28,
         "holder_growth_est": 12,
-        "volume_h1": 22000,
+        "volume_h1": 220_000,
         "price_change_h1": 28,
-        "fdv": 400000,
+        "fdv": 8_000_000,
         "price_usd": 0.002,
         "source": "gmgn+geckoterminal",
         "created_at": None,

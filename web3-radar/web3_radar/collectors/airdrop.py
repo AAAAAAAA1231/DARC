@@ -113,6 +113,8 @@ def score_airdrop(
         score += 32
     elif amount >= 20_000_000:
         score += 24
+    elif amount >= 5_000_000:
+        score += 16
     else:
         score += 8
     score += min(30, famous_n * 8)
@@ -158,6 +160,16 @@ def _decorate_airdrop(item: dict[str, Any]) -> dict[str, Any]:
     return item
 
 
+def _funding_ok(item: dict[str, Any], min_eth: float, min_btc: float) -> bool:
+    eco = str(item.get("ecosystem") or "other")
+    total = float(item.get("total_funding_usd") or 0)
+    if eco == "bitcoin":
+        return total >= min_btc
+    if eco in {"ethereum", "btc-eth"}:
+        return total >= min_eth
+    return total >= max(min_eth, 100_000_000)
+
+
 def _keep_airdrop_focus(item: dict[str, Any]) -> bool:
     eco = item.get("ecosystem") or "other"
     if eco != "other":
@@ -165,16 +177,20 @@ def _keep_airdrop_focus(item: dict[str, Any]) -> bool:
     return float(item.get("total_funding_usd") or 0) >= 100_000_000 and int(item.get("famous_count") or 0) >= 2
 
 
-async def scan_airdrops(min_funding_usd: float = 20_000_000) -> dict[str, Any]:
+async def scan_airdrops(
+    min_funding_usd: float = 20_000_000,
+    btc_min_funding_usd: float = 5_000_000,
+) -> dict[str, Any]:
     errors: list[str] = []
     items: list[dict[str, Any]] = []
+    floor = min(float(min_funding_usd), float(btc_min_funding_usd))
     try:
-        items = await _scan_llama(min_funding_usd, errors)
+        items = await _scan_llama(floor, errors, min_eth=min_funding_usd, min_btc=btc_min_funding_usd)
     except Exception as exc:
         errors.append(f"defillama: {exc}")
     if len(items) < 5:
         try:
-            cr = await _scan_cryptorank(min_funding_usd, errors)
+            cr = await _scan_cryptorank(floor, errors, min_eth=min_funding_usd, min_btc=btc_min_funding_usd)
             seen = {i["key"] for i in items}
             for row in cr:
                 if row["key"] not in seen:
@@ -185,7 +201,10 @@ async def scan_airdrops(min_funding_usd: float = 20_000_000) -> dict[str, Any]:
     items.sort(key=lambda x: (x["score"], x["total_funding_usd"], x["famous_count"]), reverse=True)
     items = merge_items(items, load_fallback().get("airdrops") or [])
     items = [_decorate_airdrop(dict(x)) for x in items]
-    focused = [x for x in items if _keep_airdrop_focus(x)]
+    focused = [
+        x for x in items
+        if _keep_airdrop_focus(x) and _funding_ok(x, min_funding_usd, btc_min_funding_usd)
+    ]
     dropped = len(items) - len(focused)
     focused.sort(
         key=lambda x: (
@@ -198,17 +217,23 @@ async def scan_airdrops(min_funding_usd: float = 20_000_000) -> dict[str, Any]:
     return {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "min_funding_usd": min_funding_usd,
+        "btc_min_funding_usd": btc_min_funding_usd,
         "count": len(focused),
         "items": focused[:150],
         "errors": errors,
         "note": (
-            "空投雷达只盯比特币生态与 ETH 生态（含 L2 / restaking）。"
-            + (f" 已过滤 {dropped} 条其他链项目。" if dropped else "")
+            "空投雷达只盯比特币生态与 ETH 生态。BTC 生态融资 ≥ $500 万，ETH 生态 ≥ $2000 万。"
+            + (f" 已过滤 {dropped} 条其他链或金额不够的项目。" if dropped else "")
         ),
     }
 
 
-async def _scan_llama(min_funding_usd: float, errors: list[str]) -> list[dict[str, Any]]:
+async def _scan_llama(
+    min_funding_usd: float,
+    errors: list[str],
+    min_eth: float | None = None,
+    min_btc: float | None = None,
+) -> list[dict[str, Any]]:
     async with httpx.AsyncClient(timeout=12.0, headers={"User-Agent": "ChainRadar/1.0"}) as client:
         raises_resp = await client.get(LLAMA_RAISES)
         if raises_resp.status_code in {401, 402, 403}:
@@ -267,18 +292,23 @@ async def _scan_llama(min_funding_usd: float, errors: list[str]) -> list[dict[st
             if amount >= cur.get("amount", 0):
                 cur.update({k: rec[k] for k in ("round", "date", "source", "amount")})
 
+    min_eth = float(min_eth if min_eth is not None else min_funding_usd)
+    min_btc = float(min_btc if min_btc is not None else min_funding_usd)
     items = []
     for key, g in grouped.items():
         total = g["total_amount"]
-        if total < min_funding_usd:
+        if total < min(min_eth, min_btc):
             continue
         famous_n = len(g["famous_investors"])
-        if famous_n <= 0 and total < min_funding_usd * 2:
+        eco = classify_btc_eth(g["name"], g.get("sector"), chains=g.get("chains"))
+        need = min_btc if eco == "bitcoin" else min_eth
+        if total < need:
+            continue
+        if famous_n <= 0 and total < need * 2:
             continue
         token_status = _token_status(g["name"], gecko_ids, proto_names)
         if not token_status.startswith("未发币") and "疑似" not in token_status and total < 80_000_000:
             continue
-        eco = classify_btc_eth(g["name"], g.get("sector"), chains=g.get("chains"))
         score, expect = score_airdrop(total, famous_n, token_status, g.get("valuation"), eco=eco)
         date = g.get("date")
         date_iso = (
@@ -310,7 +340,12 @@ async def _scan_llama(min_funding_usd: float, errors: list[str]) -> list[dict[st
     return items
 
 
-async def _scan_cryptorank(min_funding_usd: float, errors: list[str]) -> list[dict[str, Any]]:
+async def _scan_cryptorank(
+    min_funding_usd: float,
+    errors: list[str],
+    min_eth: float | None = None,
+    min_btc: float | None = None,
+) -> list[dict[str, Any]]:
     headers = {"User-Agent": "ChainRadar/1.0", "Accept": "application/json"}
     async with httpx.AsyncClient(timeout=30.0, headers=headers) as client:
         funds_resp = await client.get(CRYPTORANK_FUNDS, params={"limit": 200})
@@ -356,17 +391,20 @@ async def _scan_cryptorank(min_funding_usd: float, errors: list[str]) -> list[di
                 if fund.get("tier") == 1 or _is_famous(fund["name"]):
                     famous.append(fund["name"])
             famous = list(dict.fromkeys(famous))
-            inferred = amount <= 0 and len(famous) >= 1
-            if inferred:
-                amount = min_funding_usd
-            if amount < min_funding_usd:
-                return None
-            if not famous and amount < min_funding_usd * 2:
-                return None
-            token_status = "未发币（待核验）" if detail.get("lifeCycle") == "funding" else "疑似已发币"
+            min_eth_v = float(min_eth if min_eth is not None else min_funding_usd)
+            min_btc_v = float(min_btc if min_btc is not None else min_funding_usd)
             cat = detail.get("category")
             chains = [e.get("name") for e in (detail.get("coreEcosystems") or []) if isinstance(e, dict) and e.get("name")]
             eco = classify_btc_eth(detail.get("name") or key, cat, chains=chains)
+            need = min_btc_v if eco == "bitcoin" else min_eth_v
+            inferred = amount <= 0 and len(famous) >= 1
+            if inferred:
+                amount = need
+            if amount < need:
+                return None
+            if not famous and amount < need * 2:
+                return None
+            token_status = "未发币（待核验）" if detail.get("lifeCycle") == "funding" else "疑似已发币"
             score, expect = score_airdrop(amount, len(famous), token_status, None, eco=eco)
             if inferred:
                 expect += " · 金额未披露，按知名机构覆盖计入"

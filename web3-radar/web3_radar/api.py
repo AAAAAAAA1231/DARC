@@ -116,6 +116,15 @@ async def contract_universe() -> dict[str, Any]:
     return {"items": items, "cached": False}
 
 
+def _sort_contract_results(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def key(r: dict[str, Any]) -> tuple[float, float]:
+        if r.get("error") or not r.get("symbol") or r.get("symbol") == "?":
+            return (-1.0, 0.0)
+        return (float(r.get("success_rate") or 0.0), float(r.get("score") or 0.0))
+
+    return sorted(rows or [], key=key, reverse=True)
+
+
 async def _attach_marks(category: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
     marks = await db.marks_map(category)
     out = []
@@ -316,6 +325,7 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
 
             _jobs[job_id]["status"] = "done"
             _jobs[job_id]["n_sims"] = n_sims
+            _jobs[job_id]["results"] = _sort_contract_results(_jobs[job_id].get("results") or [])
             await db.save_analysis_run(_jobs[job_id])
         except Exception as exc:
             _jobs[job_id]["status"] = "error"
@@ -330,7 +340,7 @@ async def analyze_status(job_id: str) -> dict[str, Any]:
     job = _jobs.get(job_id)
     if not job:
         raise HTTPException(404, "job not found")
-    results = await _attach_marks("contract", job.get("results") or [])
+    results = await _attach_marks("contract", _sort_contract_results(job.get("results") or []))
     return {**job, "results": results}
 
 
@@ -358,10 +368,10 @@ async def contracts_fit_status() -> dict[str, Any]:
                 f"{running.get('done') or 0}/{running.get('total') or 0}"
                 + (f" · {running.get('phase')}" if running.get("phase") else "")
             ),
-            "results": await _attach_marks("contract", running.get("results") or []),
+            "results": await _attach_marks("contract", _sort_contract_results(running.get("results") or [])),
         }
     last = await db.latest_analysis_run()
-    results = await _attach_marks("contract", (last or {}).get("results") or [])
+    results = await _attach_marks("contract", _sort_contract_results((last or {}).get("results") or []))
     payload = {
         "fitted": fitted,
         "running": False,
@@ -410,12 +420,12 @@ async def _scan_or_cache(cache_key: str, category: str, ttl: int, refresh: bool,
 async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     data = await _scan_or_cache(
-        "meme",
+        "meme_v2",
         "meme",
         90,
         refresh,
         lambda: scan_meme_coins(
-            min_liquidity_usd=float(settings.get("meme_min_liquidity_usd") or 20_000),
+            min_liquidity_usd=float(settings.get("meme_min_liquidity_usd") or 1_000_000),
             min_unique_buyers=int(settings.get("meme_min_unique_buyers") or 8),
             min_holder_growth=int(settings.get("meme_min_holder_growth") or 5),
         ),
@@ -434,7 +444,7 @@ async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
 async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "ambassadors_v2",
+        "ambassadors_v3",
         "ambassador",
         300,
         refresh,
@@ -449,7 +459,7 @@ async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
 async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "launches_v8",
+        "launches_v9",
         "launch",
         180,
         refresh,
@@ -461,11 +471,14 @@ async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
 async def airdrops(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "airdrops_v2",
+        "airdrops_v3",
         "airdrop",
         3600,
         refresh,
-        lambda: scan_airdrops(min_funding_usd=float(settings.get("airdrop_min_funding_usd") or 20_000_000)),
+        lambda: scan_airdrops(
+            min_funding_usd=float(settings.get("airdrop_min_funding_usd") or 20_000_000),
+            btc_min_funding_usd=float(settings.get("airdrop_btc_min_funding_usd") or 5_000_000),
+        ),
     )
 
 

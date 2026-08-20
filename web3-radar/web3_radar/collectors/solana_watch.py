@@ -14,12 +14,20 @@ from web3_radar.http_util import client as http_client
 CN = timezone(timedelta(hours=8))
 TWITTER_API = "https://api.twitter.com/2"
 SOLANA_HANDLE = "solana"
-WATCH_ACCOUNTS = ("solana", "toly", "aeyakovenko")
+SOL_WATCH = ("solana", "toly", "aeyakovenko")
+BSC_WATCH = ("cz_binance", "heyibinance")
+WATCH_ACCOUNTS = SOL_WATCH
 WATCH_TOTAL = len(WATCH_ACCOUNTS)
+WATCH_GROUPS = {
+    "solana": {"chain": "Solana", "accounts": SOL_WATCH, "cache": "solana_follow_snapshot"},
+    "bsc": {"chain": "BSC", "accounts": BSC_WATCH, "cache": "bsc_follow_snapshot"},
+}
 FOLLOW_LABEL = {
     "solana": "@solana",
     "toly": "@toly",
     "aeyakovenko": "@aeyakovenko",
+    "cz_binance": "@cz_binance",
+    "heyibinance": "@heyibinance",
 }
 SKIP_HANDLES = {
     "solana",
@@ -29,6 +37,8 @@ SKIP_HANDLES = {
     "solanafndn",
     "toly",
     "aeyakovenko",
+    "cz_binance",
+    "heyibinance",
     "binance",
     "binancezh",
     "coinbase",
@@ -296,12 +306,33 @@ def verified_followers(followed_by: list[str] | None) -> list[str]:
     return out
 
 
+def official_follow_total(followed_by: list[str] | None) -> int:
+    names = set(verified_followers(followed_by))
+    n = 0
+    if names & set(SOL_WATCH):
+        n += len(SOL_WATCH)
+    if names & set(BSC_WATCH):
+        n += len(BSC_WATCH)
+    return n or len(names)
+
+
+def chain_for_follows(followed_by: list[str] | None, default: str = "Solana") -> str:
+    names = set(verified_followers(followed_by))
+    bits: list[str] = []
+    if names & set(SOL_WATCH):
+        bits.append("Solana")
+    if names & set(BSC_WATCH):
+        bits.append("BSC")
+    return " + ".join(bits) or default
+
+
 def follow_badge_text(followed_by: list[str] | None) -> str:
     names = verified_followers(followed_by)
     if not names:
         return ""
+    total = official_follow_total(names)
     return (
-        f"官方关注 {len(names)}/{WATCH_TOTAL} · "
+        f"官方关注 {len(names)}/{total} · "
         + "、".join(FOLLOW_LABEL[n] + " 正在关注" for n in names)
     )
 
@@ -590,6 +621,8 @@ def to_item(
     timing = (launch or {}).get("timing") or {}
     alert = bool(launch)
     labels = " / ".join(FOLLOW_LABEL[n] for n in verified)
+    chain = chain_for_follows(verified, default="Solana")
+    total = official_follow_total(verified)
     kind = f"{labels} 最近关注"
     when_label = timing.get("label") or "暂未提到 launch / 发射"
     status = timing.get("status") or "跟踪中"
@@ -600,7 +633,7 @@ def to_item(
         "name": user.get("name") or handle,
         "username": handle,
         "kind": kind,
-        "chain": "Solana",
+        "chain": chain,
         "text": text,
         "analysis": analysis,
         "launch_status": status if alert else "跟踪中（尚未提到发射）",
@@ -613,9 +646,9 @@ def to_item(
         "watch_kind": "solana_follow",
         "followed_by": verified,
         "official_follow_count": len(verified),
-        "official_follow_total": WATCH_TOTAL,
+        "official_follow_total": total,
         "follow_proof": proof,
-        "follow_count_label": f"官方关注 {len(verified)}/{WATCH_TOTAL}",
+        "follow_count_label": f"官方关注 {len(verified)}/{total}",
         "verified_follow": True,
         "url": (launch or {}).get("url") or twitter_url(handle),
         "twitter": twitter_url(handle),
@@ -629,9 +662,16 @@ def to_item(
     }
 
 
-async def watch_solana_projects(twitter_bearer: str = "", lookback_days: int = 14) -> dict[str, Any]:
+async def watch_solana_projects(
+    twitter_bearer: str = "",
+    lookback_days: int = 14,
+    group: str = "solana",
+) -> dict[str, Any]:
     from web3_radar import db
 
+    cfg = WATCH_GROUPS.get(group) or WATCH_GROUPS["solana"]
+    accounts = tuple(cfg["accounts"])
+    chain = str(cfg["chain"])
     errors: list[str] = []
     origin = "following"
     bearer = (twitter_bearer or "").strip()
@@ -652,7 +692,7 @@ async def watch_solana_projects(twitter_bearer: str = "", lookback_days: int = 1
                 rec["followed_by"].append(account)
 
     if bearer:
-        for account in WATCH_ACCOUNTS:
+        for account in accounts:
             users, err, stats = await fetch_account_following(bearer, account, limit=100)
             scan_stats.append(stats)
             if err:
@@ -661,7 +701,7 @@ async def watch_solana_projects(twitter_bearer: str = "", lookback_days: int = 1
             await _merge(account, users)
     if not merged:
         origin = "public_following"
-        for account in WATCH_ACCOUNTS:
+        for account in accounts:
             users, err, stats = await fetch_public_following(account)
             scan_stats.append(stats)
             if err:
@@ -684,10 +724,10 @@ async def watch_solana_projects(twitter_bearer: str = "", lookback_days: int = 1
         }
 
     handles = [u.get("username", "").lower() for u in users if u.get("username")]
-    prev = await db.cache_get("solana_follow_snapshot") or {}
+    prev = await db.cache_get(str(cfg["cache"])) or {}
     prev_handles = list(prev.get("handles") or [])
     new_set = diff_new_follows(handles, prev_handles)
-    await db.cache_set("solana_follow_snapshot", {"handles": handles, "origin": origin}, 180 * 86400)
+    await db.cache_set(str(cfg["cache"]), {"handles": handles, "origin": origin, "chain": chain}, 180 * 86400)
 
     launches: dict[str, dict[str, Any]] = {}
     if bearer and handles:

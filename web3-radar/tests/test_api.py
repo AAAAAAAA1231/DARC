@@ -17,13 +17,16 @@ def test_health_and_index():
     assert page.status_code == 200
     assert "链上雷达" in page.text
     assert "接口令牌" in page.text
-    assert "developer.x.com" in page.text
+    assert "cz_binance" in page.text
+    assert "$1M" in page.text or "$1,000,000" in page.text or "池子 ≥ $1M" in page.text
 
 
 def test_settings_and_marks_roundtrip():
     s = client.get("/api/settings")
     assert s.status_code == 200
     assert s.json()["monte_carlo_sims"] == 1_000_000
+    assert s.json()["meme_min_liquidity_usd"] == 1_000_000
+    assert s.json()["airdrop_btc_min_funding_usd"] == 5_000_000
     marked = client.post(
         "/api/marks",
         json={"category": "ambassador", "item_key": "demo-1", "status": "applied", "note": "test"},
@@ -41,7 +44,7 @@ def test_wallet_participate_queue():
     assert data["airdrops"]
     assert all(any(str(c).lower() in {"ethereum", "bitcoin", "base", "arbitrum"} or "eth" in str(c).lower() or "bitcoin" in str(c).lower() for c in (x.get("chains") or [])) for x in data["airdrops"])
     assert data["launches"]
-    assert all((x.get("chain") or "") == "Solana" for x in data["launches"])
+    assert all((x.get("chain") or "") in {"Solana", "BSC", "Solana + BSC"} for x in data["launches"])
     merged = merge_items([], data["airdrops"])
     assert len(merged) == len(data["airdrops"])
     r = client.post(
@@ -73,6 +76,12 @@ def test_modules_return_catalog():
         assert x.get("followed_by"), x.get("name")
         assert x.get("watch_kind") != "onchain_pool"
         assert int(x.get("official_follow_count") or 0) >= 1
+        chain = str(x.get("chain") or "")
+        names = set(x.get("followed_by") or [])
+        if "BSC" in chain:
+            assert names & {"cz_binance", "heyibinance"}
+        if chain == "Solana":
+            assert names & {"solana", "toly", "aeyakovenko"}
     added = client.post("/api/ambassadors", json={"project": "测试项目", "url": "https://example.com"})
     assert added.status_code == 200
     assert added.json()["source"] == "手动"

@@ -326,7 +326,7 @@ async def fetch_geckoterminal_new() -> list[dict[str, Any]]:
 
 
 async def scan_meme_coins(
-    min_liquidity_usd: float = 20_000,
+    min_liquidity_usd: float = 1_000_000,
     min_unique_buyers: int = 8,
     min_holder_growth: int = 5,
 ) -> dict[str, Any]:
@@ -374,5 +374,5 @@ async def scan_meme_coins(
         "followable_count": len(followable),
         "items": ranked,
         "errors": errors,
-        "method": "短期买压 + 持币增长 + 池子≥20k + 热度/风险评分，过滤接盘与过新狙击盘",
+        "method": "短期买压 + 持币增长 + 池子≥$1M + 热度/风险评分，过滤接盘与过新狙击盘",
     }

@@ -120,11 +120,12 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "signal_threshold": 0.18,
     "atr_sl_mult": 1.5,
     "atr_tp_mult": 2.5,
-    "meme_min_liquidity_usd": 20_000,
+    "meme_min_liquidity_usd": 1_000_000,
     "meme_buyer_window_minutes": 30,
     "meme_min_unique_buyers": 8,
     "meme_min_holder_growth": 5,
     "airdrop_min_funding_usd": 20_000_000,
+    "airdrop_btc_min_funding_usd": 5_000_000,
     "ambassador_lookback_days": 7,
     "twitter_bearer_token": "",
     "binance_api_key": "",
@@ -168,6 +169,8 @@ def load_settings() -> dict[str, Any]:
     raw = json.loads(SETTINGS_PATH.read_text(encoding="utf-8"))
     merged = dict(DEFAULT_SETTINGS)
     merged.update(raw)
+    if float(merged.get("meme_min_liquidity_usd") or 0) in {20_000, 20000}:
+        merged["meme_min_liquidity_usd"] = 1_000_000
     return merged
 
 

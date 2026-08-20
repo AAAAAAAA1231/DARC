@@ -137,6 +137,14 @@ def test_solana_follow_launch_timing():
     from web3_radar.collectors.solana_watch import verified_followers
     assert verified_followers(["solana"]) == ["solana"]
     assert verified_followers(["binance", "someone"]) == []
+    bsc = to_item(
+        {"username": "fourmeme", "name": "Four", "description": "BSC launch", "public_metrics": {"followers_count": 2000}},
+        True, None, "following", rank=2, followed_by=["cz_binance", "heyibinance"],
+    )
+    assert bsc["chain"] == "BSC"
+    assert bsc["official_follow_total"] == 2
+    assert bsc["follow_count_label"] == "官方关注 2/2"
+    assert "cz_binance" in bsc["followed_by"]
 
 
 def test_public_following_parser_requires_real_list():

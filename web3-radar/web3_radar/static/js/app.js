@@ -1,10 +1,10 @@
 const views = {
   contracts: ["合约分析", "只推荐成功率 ≥ 80% 的涨/跌。震荡默认不追。100 万次只用于校准权重。"],
-  meme: ["妖币监控", "只保留池子≥$20k、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
+  meme: ["妖币监控", "只保留池子≥$1M、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
   copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
-  launch: ["打新监测", "只推 @solana / @toly 正在关注的项目。不是官方关注的不显示，也不会用链上新池凑数。"],
-  airdrop: ["空投雷达", "只盯比特币生态与 ETH 生态。知名机构、融资 > $2000 万、优先未发币。"],
+  launch: ["打新监测", "Solana 只推 @solana/@toly 关注；BSC 只推 @cz_binance/@heyibinance 关注。不是官方关注的不显示。"],
+  airdrop: ["空投雷达", "只盯比特币生态与 ETH 生态。BTC 融资 ≥ $500 万，ETH 融资 ≥ $2000 万，优先未发币。"],
   wallet: ["钱包执行", "连接 OKX 等钱包，将空投 / 打新 / 妖币 / 合约加入确认队列"],
   settings: ["设置", "X 接口令牌、权重模拟次数、阈值与自动参加上限"],
 };
@@ -130,7 +130,7 @@ async function loadView(name, refresh) {
       $("memeRows").innerHTML = (data.items || []).map((m) => {
         store.meme[m.key] = m;
         return memeRow(m);
-      }).join("") || emptyRow(10, "暂无过线妖币（需要池子≥20k且短期买压）");
+      }).join("") || emptyRow(10, "暂无过线妖币（需要池子≥$1M且短期买压）");
       if ($("memeMsg")) $("memeMsg").textContent = (data.method || "") + ((data.errors || []).length ? "；部分源失败：" + data.errors.slice(0,2).join("；") : "");
       setStatus(`监控 ${data.count} · 可跟 ${data.followable_count || 0}`);
     } else if (name === "ambassador") {
@@ -138,15 +138,21 @@ async function loadView(name, refresh) {
       $("ambassadorCards").innerHTML = "<p class='muted'>加载中…</p>";
       const data = await api("/api/ambassadors" + q);
       const want = $("ambStatusFilter").value;
-      const items = (data.items || []).filter((x) => !want || (x.mark_status || "none") === want);
+      const items = (data.items || []).filter((x) => {
+        const st = x.mark_status || "none";
+        if (want === "rejected") return st === "rejected";
+        if (st === "rejected") return false;
+        if (!want) return true;
+        return st === want;
+      });
       store.ambassador = {};
       $("ambassadorCards").innerHTML = items.map((a) => {
         store.ambassador[a.key] = a;
         return ambassadorCard(a);
-      }).join("") || "<p class='muted'>暂无新项目大使。可填 Twitter Bearer 拉 X 动态，或手动添加。</p>";
+      }).join("") || "<p class='muted'>" + (want === "rejected" ? "没有标记为未通过的大使。" : "暂无新项目大使。标记未通过的下次不会再出现。") + "</p>";
       setStatus(`招募信息 ${items.length} 条` + ((data.note && " · " + data.note) || ""));
     } else if (name === "launch") {
-      setStatus("正在核对 @solana / @toly 关注列表…");
+      setStatus("正在核对 Solana / BSC 官方关注…");
       $("launchCards").innerHTML = "<p class='muted'>加载中…</p>";
       if ($("launchAlerts")) $("launchAlerts").innerHTML = "";
       await fillLaunchTokenBox();
@@ -165,9 +171,11 @@ async function loadView(name, refresh) {
       $("launchCards").innerHTML = launchItems.map((a) => {
         store.launch[a.key] = a;
         return launchCard(a);
-      }).join("") || "<p class='muted'>现在没有已核实被 @solana 或 @toly 关注的项目。不是官方关注的不会显示。</p>";
+      }).join("") || "<p class='muted'>现在没有已核实的官方关注项目。Solana 要 @solana/@toly 关注，BSC 要 CZ/何一关注。</p>";
       if ($("launchMsg")) $("launchMsg").textContent = data.note || "";
       const bits = [`已核实官方关注 ${data.follow_count || 0}`];
+      if (data.sol_count) bits.push(`Solana ${data.sol_count}`);
+      if (data.bsc_count) bits.push(`BSC ${data.bsc_count}`);
       if (data.alert_count) bits.push(`发射提醒 ${data.alert_count}`);
       setStatus(bits.join(" · "));
       pingLaunchAlerts(alerts);
@@ -207,7 +215,7 @@ function renderContracts() {
     if (only && !r.recommend) return false;
     if (!q) return true;
     return (r.symbol + " " + (r.name || "") + " " + (r.decision || "") + " " + (r.regime || "") + (r.recommend ? " 推荐" : "")).toLowerCase().includes(q);
-  });
+  }).sort((a, b) => Number(b.success_rate || 0) - Number(a.success_rate || 0));
   $("contractRows").innerHTML = shown.map(contractRow).join("") || emptyRow(12, only ? "暂无成功率 ≥ 80% 的推荐" : "暂无标的");
 }
 
@@ -443,6 +451,7 @@ async function mark(category, key, status) {
   key = decodeURIComponent(key);
   await api("/api/marks", { method: "POST", body: { category, item_key: key, status } });
   setStatus("已标记 " + status);
+  if (category === "ambassador") loadView("ambassador");
 }
 
 async function participate(category, key) {
@@ -544,7 +553,7 @@ async function saveLaunchToken() {
 
 async function loadSettingsForm() {
   settingsCache = await api("/api/settings");
-  ["monte_carlo_sims","signal_threshold","atr_sl_mult","atr_tp_mult","meme_min_liquidity_usd","airdrop_min_funding_usd","twitter_bearer_token","okx_api_key","okx_api_secret","okx_passphrase"].forEach((k) => {
+  ["monte_carlo_sims","signal_threshold","atr_sl_mult","atr_tp_mult","meme_min_liquidity_usd","airdrop_min_funding_usd","airdrop_btc_min_funding_usd","twitter_bearer_token","okx_api_key","okx_api_secret","okx_passphrase"].forEach((k) => {
     const el = $("s_" + k);
     if (el) el.value = settingsCache[k] ?? "";
   });
@@ -552,7 +561,7 @@ async function loadSettingsForm() {
 
 async function saveSettings() {
   const settings = {};
-  ["monte_carlo_sims","signal_threshold","atr_sl_mult","atr_tp_mult","meme_min_liquidity_usd","airdrop_min_funding_usd","twitter_bearer_token","okx_api_key","okx_api_secret","okx_passphrase"].forEach((k) => {
+  ["monte_carlo_sims","signal_threshold","atr_sl_mult","atr_tp_mult","meme_min_liquidity_usd","airdrop_min_funding_usd","airdrop_btc_min_funding_usd","twitter_bearer_token","okx_api_key","okx_api_secret","okx_passphrase"].forEach((k) => {
     const el = $("s_" + k);
     let v = el.value;
     if (el.type === "number") v = Number(v);

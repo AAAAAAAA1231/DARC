@@ -32,7 +32,7 @@ def _age_minutes(item: dict[str, Any]) -> float | None:
         return None
 
 
-def enrich_and_score(item: dict[str, Any], min_liq: float = 20_000) -> dict[str, Any]:
+def enrich_and_score(item: dict[str, Any], min_liq: float = 1_000_000) -> dict[str, Any]:
     """Rank a meme by short-term crowd buying quality vs rug/chase risk."""
     out = dict(item)
     liq = _n(out, "liquidity_usd")
@@ -138,7 +138,7 @@ def enrich_and_score(item: dict[str, Any], min_liq: float = 20_000) -> dict[str,
     return out
 
 
-def select_watchlist(items: list[dict[str, Any]], min_liq: float = 20_000) -> list[dict[str, Any]]:
+def select_watchlist(items: list[dict[str, Any]], min_liq: float = 1_000_000) -> list[dict[str, Any]]:
     scored = [enrich_and_score(it, min_liq) for it in items]
     kept = [x for x in scored if x["grade"] != "避开" or (x["liquidity_usd"] >= min_liq and x["heat"] >= 40)]
     # 避开但仍过流动性的，保留少量供人工看，但排后面
