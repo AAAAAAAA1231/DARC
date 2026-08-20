@@ -139,38 +139,25 @@ def test_solana_follow_launch_timing():
     assert verified_followers(["binance", "someone"]) == []
 
 
-def test_onchain_launch_is_not_official_follow():
-    from web3_radar.collectors.solana_onchain import parse_created, to_onchain_item
+def test_public_following_parser_requires_real_list():
+    from web3_radar.collectors.solana_watch import parse_public_following
 
-    posted = datetime(2026, 8, 20, 10, 0, tzinfo=timezone.utc)
-    now = datetime(2026, 8, 20, 10, 20, tzinfo=timezone.utc)
-    assert parse_created(posted.timestamp() * 1000) is not None
-    row = to_onchain_item(
-        key="sol-pool:abc",
-        name="ALPHA / SOL",
-        symbol="ALPHA",
-        source="GeckoTerminal",
-        url="https://www.geckoterminal.com/solana/pools/abc",
-        created=posted,
-        liquidity_usd=8000,
-        now=now,
-    )
-    assert row is not None
-    assert row["verified_follow"] is False
-    assert row["watch_kind"] == "onchain_pool"
-    assert row["followed_by"] == []
-    assert "不是官方关注" in row["follow_count_label"]
-    assert row["alert"] is True
-    fake = to_onchain_item(
-        key="sol-pool:sol",
-        name="SOL / USDC",
-        symbol="SOL",
-        source="GeckoTerminal",
-        url="https://example.com",
-        created=posted,
-        now=now,
-    )
-    assert fake is None
+    page = """
+Title: People followed by @solana
+[@solana](https://nitter.example/solana "@solana")
+[@toly](https://nitter.example/toly "@toly")
+[@staratlas](https://nitter.example/staratlas "@staratlas")
+[@orca_so](https://nitter.example/orca_so "@orca_so")
+[@solanamobile](https://nitter.example/solanamobile "@solanamobile")
+[@therealchaseeb](https://nitter.example/therealchaseeb "@therealchaseeb")
+[@Austin_Federa](https://nitter.example/Austin_Federa "@Austin_Federa")
+"""
+    rows = parse_public_following(page, "solana")
+    names = {r["username"] for r in rows}
+    assert "staratlas" in names and "orca_so" in names
+    assert "solana" not in names and "toly" not in names
+    assert parse_public_following("Loading...\nAnubis is a compromise", "solana") == []
+    assert parse_public_following("random @pumpfun @meme coin page", "solana") == []
 
 
 def test_collect_social_without_bearer_does_not_crash():

@@ -5,7 +5,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from web3_radar.collectors.social import (
-    NITTER_INSTANCES,
     is_mega_brand,
     parse_time,
     twitter_url,
@@ -445,26 +444,74 @@ async def fetch_solana_mentioned_projects(bearer: str, lookback_days: int = 14) 
     return ranked[:30]
 
 
-async def nitter_following(handle: str = "solana") -> list[dict[str, Any]]:
-    async with http_client(timeout=5.0) as c:
-        for base in NITTER_INSTANCES:
+FOLLOW_CARD = re.compile(
+    r'\[@([A-Za-z0-9_]{2,15})\]\([^)]+\s+"@\1"\)',
+    re.I,
+)
+FOLLOW_HTML = re.compile(
+    r'class="username"[^>]*title="@([A-Za-z0-9_]{2,15})"',
+    re.I,
+)
+FOLLOW_PAGE_BAD = (
+    "anubis",
+    "not a bot",
+    "verifying your browser",
+    "just a moment",
+    "abusealleviation",
+)
+PUBLIC_FOLLOW_URLS = (
+    "https://r.jina.ai/https://nitter.tiekoetter.com/{handle}/following",
+    "https://r.jina.ai/https://nitter.poast.org/{handle}/following",
+    "https://nitter.tiekoetter.com/{handle}/following",
+    "https://nitter.poast.org/{handle}/following",
+)
+
+
+def parse_public_following(text: str, owner: str) -> list[dict[str, Any]]:
+    """Only accept a page that is clearly that account's following list."""
+    raw = text or ""
+    low = raw.lower()
+    owner = owner.lower().lstrip("@")
+    if any(bit in low for bit in FOLLOW_PAGE_BAD):
+        return []
+    titled = f"people followed by @{owner}" in low or f"people followed by {owner}" in low
+    html_list = f"/{owner}/following" in low and ("timeline-item" in low or 'class="username"' in low)
+    if not titled and not html_list:
+        return []
+    handles: list[str] = []
+    for rx in (FOLLOW_CARD, FOLLOW_HTML):
+        for m in rx.finditer(raw):
+            name = m.group(1).lower()
+            if name == owner or name in SKIP_HANDLES or name in handles:
+                continue
+            if is_mega_brand(name, name):
+                continue
+            handles.append(name)
+        if handles:
+            break
+    if len(handles) < 5:
+        return []
+    return [{"username": h, "name": h, "description": "", "public_metrics": {}} for h in handles[:80]]
+
+
+async def fetch_public_following(handle: str) -> tuple[list[dict[str, Any]], str, dict[str, Any]]:
+    stats = {"account": handle, "following_total": 0, "fetched": 0, "kept": 0, "origin": "public"}
+    async with http_client(timeout=18.0) as c:
+        for url in PUBLIC_FOLLOW_URLS:
             try:
-                resp = await c.get(f"{base}/{handle}/following")
-                if resp.status_code != 200 or "username" not in resp.text:
-                    continue
-                users = []
-                for m in re.finditer(r'class="username"[^>]*>@([A-Za-z0-9_]{2,15})', resp.text):
-                    name = m.group(1)
-                    if name.lower() in SKIP_HANDLES:
-                        continue
-                    users.append({"username": name, "name": name, "description": "", "public_metrics": {}})
-                    if len(users) >= 30:
-                        break
-                if users:
-                    return users
+                resp = await c.get(url.format(handle=handle))
             except Exception:
                 continue
-    return []
+            users = parse_public_following(resp.text or "", handle)
+            if not users:
+                continue
+            stats["fetched"] = len(users)
+            stats["kept"] = len(users)
+            m = re.search(r"Following\s+([\d,]+)", resp.text or "", re.I)
+            if m:
+                stats["following_total"] = int(m.group(1).replace(",", ""))
+            return users, "", stats
+    return [], f"公开关注页读不到 @{handle}", stats
 
 
 async def search_launch_tweets(bearer: str, usernames: list[str]) -> dict[str, dict[str, Any]]:
@@ -591,6 +638,19 @@ async def watch_solana_projects(twitter_bearer: str = "", lookback_days: int = 1
     merged: dict[str, dict[str, Any]] = {}
     scan_stats: list[dict[str, Any]] = []
 
+    async def _merge(account: str, users: list[dict[str, Any]]) -> None:
+        for u in users:
+            name = (u.get("username") or "").lower()
+            if not name:
+                continue
+            rec = merged.get(name)
+            if rec is None:
+                rec = dict(u)
+                rec["followed_by"] = []
+                merged[name] = rec
+            if account not in rec["followed_by"]:
+                rec["followed_by"].append(account)
+
     if bearer:
         for account in WATCH_ACCOUNTS:
             users, err, stats = await fetch_account_following(bearer, account, limit=100)
@@ -598,19 +658,16 @@ async def watch_solana_projects(twitter_bearer: str = "", lookback_days: int = 1
             if err:
                 errors.append(err)
                 continue
-            for u in users:
-                handle = (u.get("username") or "").lower()
-                if not handle:
-                    continue
-                rec = merged.get(handle)
-                if rec is None:
-                    rec = dict(u)
-                    rec["followed_by"] = []
-                    merged[handle] = rec
-                if account not in rec["followed_by"]:
-                    rec["followed_by"].append(account)
-    else:
-        errors.append("未配置 X 接口令牌，无法核实 @solana / @toly 关注列表")
+            await _merge(account, users)
+    if not merged:
+        origin = "public_following"
+        for account in WATCH_ACCOUNTS:
+            users, err, stats = await fetch_public_following(account)
+            scan_stats.append(stats)
+            if err:
+                errors.append(err)
+                continue
+            await _merge(account, users)
 
     users = [u for u in merged.values() if verified_followers(u.get("followed_by"))]
     if not users:
