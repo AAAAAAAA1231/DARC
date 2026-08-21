@@ -13,7 +13,7 @@ from web3_radar import copytrade
 from web3_radar import db
 from web3_radar.collectors.airdrop import scan_airdrops
 from web3_radar.collectors.ambassador import scan_ambassadors
-from web3_radar.collectors.binance import BinanceClient
+from web3_radar.collectors.binance import BinanceClient, builtin_markets, select_perp_universe
 from web3_radar.collectors.launch import scan_launches
 from web3_radar.collectors.meme import scan_meme_coins
 from web3_radar.collectors.news import scan_news
@@ -123,10 +123,27 @@ async def contract_universe() -> dict[str, Any]:
         _universe_cache = cached
         return {"items": cached, "cached": True}
     client = BinanceClient()
-    items = await client.top100_perp_by_market_cap()
+    note = ""
+    stale = False
+    try:
+        items = await client.top100_perp_by_market_cap()
+    except Exception as exc:
+        stale_items = await db.cache_get("universe", allow_expired=True)
+        if stale_items:
+            _universe_cache = stale_items
+            return {
+                "items": stale_items,
+                "cached": True,
+                "stale": True,
+                "note": "行情源限流，沿用上次标的名单",
+                "error": str(exc),
+            }
+        items = select_perp_universe(builtin_markets(), set(), set())
+        note = "行情源限流，已用内置前排合约名单继续分析"
+        stale = True
     _universe_cache = items
-    await db.cache_set("universe", items, 60 * 30)
-    return {"items": items, "cached": False}
+    await db.cache_set("universe", items, 60 * 60 * 6)
+    return {"items": items, "cached": False, "stale": stale, "note": note}
 
 
 def _sort_contract_results(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -506,7 +523,7 @@ async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
 
 @app.get("/api/news")
 async def news(refresh: bool = Query(False)) -> dict[str, Any]:
-    return await _scan_or_cache("news_v1", "news", 90, refresh, scan_news)
+    return await _scan_or_cache("news_v2", "news", 90, refresh, scan_news)
 
 
 @app.get("/api/airdrops")

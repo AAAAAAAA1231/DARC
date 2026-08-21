@@ -246,14 +246,15 @@ async def update_wallet_task(task_id: int, **fields: Any) -> None:
         await conn.close()
 
 
-async def cache_get(key: str) -> Any | None:
+async def cache_get(key: str, allow_expired: bool = False) -> Any | None:
     conn = await connect()
     try:
         cur = await conn.execute("SELECT payload, expires_at FROM cache WHERE cache_key=?", (key,))
         row = await cur.fetchone()
         if not row:
             return None
-        if row["expires_at"] < datetime.now(timezone.utc).timestamp():
+        expired = row["expires_at"] < datetime.now(timezone.utc).timestamp()
+        if expired and not allow_expired:
             await conn.execute("DELETE FROM cache WHERE cache_key=?", (key,))
             await conn.commit()
             return None

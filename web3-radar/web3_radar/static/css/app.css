@@ -99,7 +99,9 @@ th { color: var(--muted); font-weight: 600; background: #0e141c; position: stick
 .row-actions, .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 .progress { height: 6px; background: #1b2230; border-radius: 99px; overflow: hidden; margin-bottom: 10px; }
 .progress > div { height: 100%; width: 0; background: linear-gradient(90deg, #1aa37e, #f5c15c); }
-.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.verdict-title { font-size: 22px; margin: 0 0 8px; }
+.cluster-list { margin: 0; padding-left: 18px; color: var(--muted); font-size: 12px; line-height: 1.45; }
 .form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
 .check { flex-direction: row !important; align-items: center; gap: 8px !important; color: var(--text) !important; }
@@ -110,5 +112,5 @@ a { color: var(--accent); }
   body { grid-template-columns: 1fr; }
   .sidebar { flex-direction: row; overflow: auto; }
   nav { flex-direction: row; }
-  .form, .grid-2 { grid-template-columns: 1fr; }
+  .form, .grid-2, .grid-3 { grid-template-columns: 1fr; }
 }

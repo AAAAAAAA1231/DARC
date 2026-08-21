@@ -456,6 +456,137 @@ async def _fetch_binance() -> list[dict[str, Any]]:
     return out
 
 
+def cluster_items(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for row in items:
+        key = f"{row.get('category') or '其他'}|{row.get('bias') or ''}"
+        buckets.setdefault(key, []).append(row)
+    out: list[dict[str, Any]] = []
+    for rows in buckets.values():
+        rows = sorted(rows, key=lambda x: (-int(x.get("score") or 0), not x.get("alert")))
+        head = dict(rows[0])
+        head["cluster_size"] = len(rows)
+        head["cluster"] = [
+            {
+                "title": r.get("title"),
+                "url": r.get("url"),
+                "source": r.get("source"),
+                "when_label": r.get("when_label"),
+            }
+            for r in rows[:8]
+        ]
+        if len(rows) > 1:
+            head["headline"] = f"{head.get('category')}（{len(rows)}条同向）"
+            head["text"] = "依据：" + "；".join(str(r.get("title") or "") for r in rows[:4])
+        else:
+            head["headline"] = head.get("title")
+        out.append(head)
+    out.sort(key=lambda x: (not x.get("alert"), -(x.get("score") or 0)))
+    return out
+
+
+def synthesize_stance(items: list[dict[str, Any]], now: datetime | None = None) -> dict[str, Any]:
+    """Turn headlines into one 做多 / 做空 / 观望 call with grouped evidence."""
+    now = now or _now()
+    long_items: list[dict[str, Any]] = []
+    short_items: list[dict[str, Any]] = []
+    wait_items: list[dict[str, Any]] = []
+    long_pts = short_pts = wait_pts = 0.0
+    for row in items:
+        if row.get("source_kind") == "seed" or row.get("source") == "观察池":
+            continue
+        weight = float(row.get("score") or 0)
+        if row.get("impact") == "高":
+            weight *= 1.35
+        if row.get("alert"):
+            weight *= 1.15
+        secs = row.get("seconds_to")
+        bias = str(row.get("bias") or "")
+        upcoming = row.get("kind") == "日历" and secs is not None and float(secs) > 0
+        if upcoming or bias == "方向未定":
+            wait_items.append(row)
+            wait_pts += weight
+            continue
+        if bias == "偏多":
+            long_items.append(row)
+            long_pts += weight
+        elif bias == "偏空":
+            short_items.append(row)
+            short_pts += weight
+        else:
+            wait_items.append(row)
+            wait_pts += weight
+
+    def _rank(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return sorted(rows, key=lambda x: (-int(x.get("score") or 0), not x.get("alert")))
+
+    long_items, short_items, wait_items = _rank(long_items), _rank(short_items), _rank(wait_items)
+    imminent = [
+        row
+        for row in wait_items
+        if row.get("kind") == "日历"
+        and row.get("impact") == "高"
+        and row.get("seconds_to") is not None
+        and 0 < float(row["seconds_to"]) <= 8 * 3600
+    ]
+    gap = long_pts - short_pts
+    if long_pts >= 80 and gap >= 28 and not (imminent and abs(gap) < 50):
+        stance = "做多"
+    elif short_pts >= 80 and -gap >= 28 and not (imminent and abs(gap) < 50):
+        stance = "做空"
+    else:
+        stance = "观望"
+    if imminent and stance != "观望" and abs(gap) < 50:
+        stance = "观望"
+
+    strength = max(long_pts, short_pts)
+    if stance == "观望":
+        confidence = "中" if imminent or (long_items and short_items) else "低"
+    elif abs(gap) >= 60 and strength >= 120:
+        confidence = "高"
+    else:
+        confidence = "中"
+
+    def _titles(rows: list[dict[str, Any]], n: int = 3) -> str:
+        return "；".join(str(r.get("title") or "") for r in rows[:n] if r.get("title"))
+
+    if stance == "做多":
+        summary = "消息面整理后偏多：" + (_titles(long_items) or "利多催化剂占优") + "。"
+        playbook = "结论是偏多，不是马上追涨。先看合约页有没有从震荡切到单边，切了再跟。"
+    elif stance == "做空":
+        summary = "消息面整理后偏空：" + (_titles(short_items) or "利空催化剂占优") + "。"
+        playbook = "结论是偏空，不是马上追跌。先看合约页有没有从震荡切到单边，切了再跟。"
+    else:
+        bits: list[str] = []
+        if imminent:
+            bits.append("临近 " + "、".join(str(x.get("title") or "") for x in imminent[:2]) + "，公布前方向未定")
+        if long_items and short_items:
+            bits.append("利多与利空同时存在，净方向不够清楚")
+        if not bits:
+            bits.append("还没有足够强的单边催化剂")
+        summary = "消息面结论：观望。" + "；".join(bits) + "。"
+        playbook = "先看合约页是震荡还是单边。没切单边，不要因为标题下手。"
+
+    return {
+        "stance": stance,
+        "stance_tag": "涨" if stance == "做多" else ("跌" if stance == "做空" else "观望"),
+        "confidence": confidence,
+        "summary": summary,
+        "playbook": playbook,
+        "long_score": round(long_pts, 1),
+        "short_score": round(short_pts, 1),
+        "wait_score": round(wait_pts, 1),
+        "long_count": len(long_items),
+        "short_count": len(short_items),
+        "wait_count": len(wait_items),
+        "groups": {
+            "long": cluster_items(long_items),
+            "short": cluster_items(short_items),
+            "wait": cluster_items(wait_items),
+        },
+    }
+
+
 def _seed_items() -> list[dict[str, Any]]:
     return list(load_fallback().get("news") or [])
 
@@ -490,15 +621,17 @@ async def scan_news() -> dict[str, Any]:
     items.sort(key=lambda x: (not x.get("alert"), -(x.get("score") or 0), x.get("seconds_to") is None, abs(x.get("seconds_to") or 10**12)))
     if not items:
         items = merge_items([], _seed_items())
-        note = "实时源暂时读不到，先给出监测清单。刷新后再试。"
+        note = "实时源暂时读不到，结论先按观望，刷新后再试。"
     else:
         items = items[:60]
-        note = "只保留可能打开单边波动的消息，不是投资建议。"
+        note = "已把消息整理成做多 / 做空 / 观望，不是投资建议。"
+    stance = synthesize_stance(items)
     alerts = [x for x in items if x.get("alert")]
     return {
         "updated_at": _now().isoformat(),
         "items": items,
         "alerts": alerts,
+        "stance": stance,
         "count": len(items),
         "alert_count": len(alerts),
         "errors": errors[:6],

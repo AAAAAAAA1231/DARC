@@ -90,6 +90,8 @@ def test_modules_return_catalog():
     assert n.status_code == 200
     news_body = n.json()
     assert news_body["items"]
+    assert news_body.get("stance", {}).get("stance") in {"做多", "做空", "观望"}
+    assert "groups" in (news_body.get("stance") or {})
     assert all(x.get("title") and x.get("category") and x.get("bias") in {"偏多", "偏空", "方向未定"} for x in news_body["items"])
     added = client.post("/api/ambassadors", json={"project": "测试项目", "url": "https://example.com"})
     assert added.status_code == 200

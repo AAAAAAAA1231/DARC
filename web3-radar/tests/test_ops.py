@@ -213,3 +213,40 @@ def test_news_classifier_keeps_regime_catalysts_only():
     titles = {r["title"] for r in rss}
     assert any("ETF" in t or "etf" in t.lower() for t in titles)
     assert "Best altcoins to buy this week" not in titles
+    from web3_radar.collectors.news import synthesize_stance
+    long_call = synthesize_stance(
+        [
+            {"title": "Spot bitcoin ETF inflows hit record", "bias": "偏多", "category": "ETF/机构", "score": 90, "impact": "高", "alert": True, "kind": "新闻"},
+            {"title": "Blackrock buying continues", "bias": "偏多", "category": "ETF/机构", "score": 80, "impact": "高", "alert": True, "kind": "新闻"},
+        ]
+    )
+    assert long_call["stance"] == "做多"
+    assert long_call["groups"]["long"]
+    short_call = synthesize_stance(
+        [
+            {"title": "Major exchange hacked", "bias": "偏空", "category": "安全事件", "score": 90, "impact": "高", "alert": True, "kind": "新闻"},
+            {"title": "USDT depegs", "bias": "偏空", "category": "稳定币", "score": 88, "impact": "高", "alert": True, "kind": "新闻"},
+        ]
+    )
+    assert short_call["stance"] == "做空"
+    wait_call = synthesize_stance(
+        [
+            {"title": "USD CPI y/y", "bias": "方向未定", "category": "宏观利率", "score": 88, "impact": "高", "alert": True, "kind": "日历", "seconds_to": 3600},
+            {"title": "ETF inflow", "bias": "偏多", "category": "ETF/机构", "score": 70, "impact": "中", "alert": False, "kind": "新闻"},
+        ]
+    )
+    assert wait_call["stance"] == "观望"
+
+
+def test_universe_fallbacks_without_coingecko():
+    from web3_radar.collectors.binance import builtin_markets, markets_from_coincap, markets_from_binance_tickers, select_perp_universe
+
+    cap = markets_from_coincap({"data": [{"id": "bitcoin", "rank": "1", "symbol": "BTC", "name": "Bitcoin", "marketCapUsd": "2000000000000", "priceUsd": "65000"}]})
+    assert cap[0]["id"] == "bitcoin"
+    tickers = markets_from_binance_tickers(
+        [{"symbol": "BTCUSDT", "quoteVolume": "900", "lastPrice": "65000"}, {"symbol": "ETHUSDT", "quoteVolume": "400", "lastPrice": "3000"}],
+        {"BTCUSDT", "ETHUSDT"},
+    )
+    assert tickers[0]["symbol"] == "btc"
+    uni = select_perp_universe(builtin_markets(), {"BTCUSDT", "ETHUSDT", "SOLUSDT"}, set(), limit=5)
+    assert uni and uni[0]["binance_symbol"] == "BTCUSDT"

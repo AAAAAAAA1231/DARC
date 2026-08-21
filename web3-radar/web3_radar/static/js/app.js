@@ -1,6 +1,6 @@
 const views = {
   contracts: ["合约分析", "推荐综合分绝对值最高的三个涨/跌标的。震荡默认不追。10 亿次只用于校准权重。"],
-  news: ["单边快讯", "只盯可能把震荡切成单边的消息：FOMC/CPI/非农、ETF、监管、黑客、脱锚。高影响会即时提醒。不是投资建议。"],
+  news: ["单边快讯", "先把消息整理成做多 / 做空 / 观望。只保留 FOMC、ETF、监管、黑客、脱锚这类可能打开单边的催化剂。不是投资建议。"],
   meme: ["妖币监控", "只保留池子≥$1M、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
   copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
@@ -17,6 +17,7 @@ const fmtPx = (n) => n == null || n === "" ? "-" : Number(n).toPrecision(6);
 const tagClass = (d) => d === "涨" ? "up" : d === "跌" ? "down" : "wait";
 const regimeClass = (r) => r === "单边" ? "trend" : r === "震荡" ? "range" : "mixed";
 
+let currentView = "contracts";
 let newsTimer = null;
 let seenNewsAlerts = new Set();
 let analyzeJob = null;
@@ -184,16 +185,18 @@ async function loadView(name, refresh) {
       setStatus(bits.join(" · "));
       pingLaunchAlerts(alerts);
     } else if (name === "news") {
-      setStatus("正在扫描可能打开单边的消息…");
-      if ($("newsCards")) $("newsCards").innerHTML = "<p class='muted'>加载中…</p>";
+      setStatus("正在整理可能打开单边的消息…");
+      if ($("newsVerdict")) $("newsVerdict").innerHTML = "<p class='muted'>正在归类利多 / 利空 / 待公布…</p>";
+      if ($("newsGroups")) $("newsGroups").innerHTML = "";
       const data = await api("/api/news" + q);
       store.news = {};
+      store.newsStance = data.stance || {};
       (data.items || []).forEach((x) => { if (x.key) store.news[x.key] = x; });
       renderNews();
       if ($("newsMsg")) $("newsMsg").textContent = data.note || "";
       const alerts = data.alerts || (data.items || []).filter((x) => x.alert);
-      pingNewsAlerts(alerts);
-      setStatus(`单边相关 ${data.count || 0} · 提醒 ${data.alert_count || alerts.length}` + ((data.errors || []).length ? " · 部分源失败" : ""));
+      pingNewsAlerts(data.stance, alerts);
+      setStatus(`消息面 ${((data.stance || {}).stance) || "观望"} · 利多 ${(data.stance || {}).long_count || 0} · 利空 ${(data.stance || {}).short_count || 0}` + ((data.errors || []).length ? " · 部分源失败" : ""));
       if (!newsTimer) newsTimer = setInterval(() => { if (currentView === "news") loadView("news", false); }, 90 * 1000);
     } else if (name === "airdrop") {
       setStatus("正在扫描高融资未发币项目…");
@@ -443,59 +446,70 @@ function renderNews() {
   const only = $("newsAlertOnly") && $("newsAlertOnly").checked;
   const bias = (($("newsBiasFilter") && $("newsBiasFilter").value) || "");
   const q = (($("newsFilter") && $("newsFilter").value) || "").toLowerCase();
-  const rows = Object.values(store.news || {}).filter((r) => r && r.title);
-  const shown = rows.filter((r) => {
-    if (only && !r.alert) return false;
-    if (bias && r.bias !== bias) return false;
-    if (!q) return true;
-    return (r.title + " " + (r.category || "") + " " + (r.bias || "") + " " + (r.why || "")).toLowerCase().includes(q);
-  }).sort((a, b) => {
-    const alert = Number(!!b.alert) - Number(!!a.alert);
-    if (alert) return alert;
-    return Number(b.score || 0) - Number(a.score || 0);
-  });
-  const alerts = shown.filter((r) => r.alert);
-  if ($("newsAlerts")) {
-    $("newsAlerts").innerHTML = alerts.slice(0, 6).map((a) => `
-      <div class="alert-banner ${newsBiasClass(a.bias)}">
-        <strong>${escapeHtml(a.alert_level || "单边提醒")} · ${escapeHtml(a.bias || "方向未定")}</strong>
-        <div>${escapeHtml(a.title)}</div>
-        <div class="launch-when">${escapeHtml(a.when_label || a.when_status || "")}</div>
-      </div>`).join("");
+  const stance = store.newsStance || {};
+  const tag = stance.stance_tag || "观望";
+  if ($("newsVerdict")) {
+    $("newsVerdict").innerHTML = `
+      <h3 class="verdict-title">消息面结论
+        <span class="tag ${tagClass(tag)}">${escapeHtml(stance.stance || "观望")}</span>
+        <span class="tag ${stance.confidence === "高" ? "live" : "wait"}">${escapeHtml(stance.confidence || "低")}把握</span>
+      </h3>
+      <p>${escapeHtml(stance.summary || "还没有足够消息形成方向。")}</p>
+      <p>${escapeHtml(stance.playbook || "")}</p>
+      <p class="muted">利多 ${stance.long_count || 0} · 利空 ${stance.short_count || 0} · 待公布/未定 ${stance.wait_count || 0}</p>`;
   }
-  if ($("newsCards")) {
-    $("newsCards").innerHTML = shown.map(newsCard).join("") || "<p class='muted'>" + (only ? "现在没有高影响提醒。取消勾选可看全部单边相关消息。" : "暂无可能打开单边的消息。") + "</p>";
+  const groups = stance.groups || {};
+  const cols = [
+    ["long", "利多 · 偏多", "up"],
+    ["short", "利空 · 偏空", "down"],
+    ["wait", "待公布 / 方向未定", "wait"],
+  ];
+  if ($("newsGroups")) {
+    $("newsGroups").innerHTML = cols.map(([key, label, cls]) => {
+      const rows = (groups[key] || []).filter((r) => {
+        if (only && !r.alert) return false;
+        if (bias && r.bias !== bias) return false;
+        if (!q) return true;
+        return (r.headline + " " + (r.title || "") + " " + (r.category || "") + " " + (r.text || "")).toLowerCase().includes(q);
+      });
+      const body = rows.map(newsClusterCard).join("") || `<p class="muted">${only ? "这一侧暂时没有高影响提醒。" : "这一侧暂无催化剂。"}</p>`;
+      return `<section class="panel"><h3><span class="tag ${cls}">${label}</span></h3>${body}</section>`;
+    }).join("");
   }
 }
 
-function newsCard(a) {
-  const cls = a.alert ? "card alert-card" : "card";
-  return `<article class="${cls}">
-    <h3>${sourceBadge(a)} ${escapeHtml(a.title)}</h3>
+function newsClusterCard(a) {
+  const refs = (a.cluster || []).map((c) => {
+    const title = escapeHtml(c.title || "");
+    const when = c.when_label ? `<span class="muted"> · ${escapeHtml(c.when_label)}</span>` : "";
+    if (c.url) return `<li><a href="${escapeHtml(c.url)}" target="_blank" rel="noopener">${title}</a>${when}</li>`;
+    return `<li>${title}${when}</li>`;
+  }).join("");
+  return `<article class="${a.alert ? "card alert-card" : "card"}" style="margin-top:10px">
+    <h3>${escapeHtml(a.headline || a.title || "")}</h3>
     <p>
       <span class="tag ${a.impact === "高" ? "range" : "wait"}">${escapeHtml(a.impact || "")}影响</span>
       <span class="tag ${newsBiasClass(a.bias)}">${escapeHtml(a.bias || "方向未定")}</span>
       <span class="tag macro">${escapeHtml(a.category || "")}</span>
+      ${a.cluster_size > 1 ? `<span class="tag wait">${a.cluster_size}条依据</span>` : ""}
     </p>
     <p class="launch-when">${escapeHtml(a.when_label || a.when_status || "")}</p>
-    <p>${escapeHtml((a.text || "").slice(0, 220))}</p>
-    <p>为何可能单边：${escapeHtml(a.why || "")}</p>
     <p>${escapeHtml(a.playbook || "")}</p>
-    <p>来源：${escapeHtml(a.source || "")} · ${escapeHtml(a.kind || "")}</p>
-    <p>标记：${markSelect("news", a.key, a.mark_status)}</p>
-    <div class="card-actions">
-      ${a.url ? `<a class="btn" href="${escapeHtml(a.url)}" target="_blank">打开原文</a>` : ""}
-    </div>
+    ${refs ? `<ul class="cluster-list">${refs}</ul>` : ""}
   </article>`;
 }
 
-function pingNewsAlerts(alerts) {
-  if (!alerts || !alerts.length || !("Notification" in window)) return;
-  const fresh = alerts.filter((a) => a.key && !seenNewsAlerts.has(a.key));
+function pingNewsAlerts(stance, alerts) {
+  const call = (stance && stance.stance) ? stance.stance : "";
+  const fresh = (alerts || []).filter((a) => a.key && !seenNewsAlerts.has(a.key));
   fresh.forEach((a) => seenNewsAlerts.add(a.key));
+  if (!fresh.length && !call) return;
+  if (!("Notification" in window)) return;
+  const body = call
+    ? `结论 ${call}（${(stance && stance.confidence) || "低"}把握）`
+    : fresh.slice(0, 3).map((a) => a.title).join("；");
+  const send = () => { try { new Notification("链上雷达 · 消息面结论", { body }); } catch (e) {} };
   if (!fresh.length) return;
-  const body = fresh.slice(0, 3).map((a) => `${a.title} · ${a.when_status || a.bias || ""}`).join("；");
-  const send = () => { try { new Notification("链上雷达 · 单边提醒", { body }); } catch (e) {} };
   if (Notification.permission === "granted") send();
   else if (Notification.permission !== "denied") Notification.requestPermission().then((p) => { if (p === "granted") send(); });
 }

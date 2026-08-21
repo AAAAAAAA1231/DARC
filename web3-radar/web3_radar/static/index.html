@@ -72,9 +72,9 @@
 
     <section id="view-news" class="view hidden">
       <div class="toolbar">
-        <span class="pill">宏观利率 / ETF / 监管 / 黑客 / 脱锚</span>
-        <span class="pill">高影响即时提醒</span>
-        <label class="check"><input type="checkbox" id="newsAlertOnly" checked /> 只看高影响提醒</label>
+        <span class="pill">先给结论：做多 / 做空 / 观望</span>
+        <span class="pill">宏观 / ETF / 监管 / 黑客 / 脱锚</span>
+        <label class="check"><input type="checkbox" id="newsAlertOnly" /> 只看高影响提醒</label>
         <select id="newsBiasFilter">
           <option value="">全部方向</option>
           <option value="偏多">偏多</option>
@@ -83,9 +83,9 @@
         </select>
         <input id="newsFilter" placeholder="筛选标题 / 宏观 / ETF / 黑客" />
       </div>
-      <div id="newsAlerts"></div>
+      <div class="panel" id="newsVerdict"></div>
+      <div class="grid-3" id="newsGroups"></div>
       <p class="muted" id="newsMsg"></p>
-      <div class="cards" id="newsCards"></div>
     </section>
 
     <section id="view-meme" class="view hidden">
