@@ -33,7 +33,7 @@ jobs:
       - name: Build custom PyInstaller bootloader
         working-directory: .
         run: |
-          git clone --depth 1 --branch v6.14.1 https://github.com/pyinstaller/pyinstaller.git "$env:RUNNER_TEMP\pyinstaller"
+          git clone --depth 1 --branch v6.14.2 https://github.com/pyinstaller/pyinstaller.git "$env:RUNNER_TEMP\pyinstaller"
           Set-Location "$env:RUNNER_TEMP\pyinstaller\bootloader"
           python ./waf distclean all --target-arch=64bit
           Set-Location "$env:RUNNER_TEMP\pyinstaller"
