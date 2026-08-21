@@ -6,7 +6,7 @@ Windows 桌面终端（也可在本机用 Python 直接运行）。覆盖合约�
 
 1. **合约分析**  
    取 CoinGecko 市值前 100 与币安 USDT 永续的交集（若期货接口被地区限制，自动改用 OKX SWAP / Binance Vision 现货 K 线）。对每标的计算 TD Sequential（TD9/TD13）、谐波（Gartley/Bat/Butterfly/Crab/Cypher/Shark/ABCD）、艾略特简化浪、Ichimoku、MACD、RSI、Supertrend 等约 30 项指标。  
-   以初始份额为 Dirichlet 先验，做 **100 万次** 权重模拟，对收益期望最高的分位做加权平均，得到综合分，结论为 **涨 / 跌 / 观望**，并给出建仓、止盈、止损（ATR 倍数可调）。
+   以初始份额为 Dirichlet 先验，做 **10 亿次** 权重模拟，对收益期望最高的分位做加权平均，得到综合分，结论为 **涨 / 跌 / 观望**，并给出建仓、止盈、止损（ATR 倍数可调）。
 
 2. **妖币监控**  
    聚合 GMGN、Pump.fun、DexScreener。过滤条件：短期买入人数/成交笔数上升、持币地址估计增加、**池子深度 ≥ $20,000**。展示链、价格、流动性、来源链接。

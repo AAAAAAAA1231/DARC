@@ -42,7 +42,7 @@
     <section id="view-contracts" class="view">
       <div class="toolbar">
         <button class="btn primary" id="analyzeAll">刷新信号（套用已拟合模型）</button>
-        <button class="btn" id="refitWeights">重新拟合权重（100万次，只需偶尔做）</button>
+        <button class="btn" id="refitWeights">重新拟合权重（10亿次，只需偶尔做）</button>
         <label>周期
           <select id="klineInterval">
             <option>15m</option>
@@ -228,7 +228,7 @@
 
     <section id="view-settings" class="view hidden">
       <div class="panel form">
-        <label>拟合模拟次数（仅校准阶段，默认 1000000）<input id="s_monte_carlo_sims" type="number" /></label>
+        <label>拟合模拟次数（仅校准阶段，默认 1000000000）<input id="s_monte_carlo_sims" type="number" /></label>
         <label>信号阈值<input id="s_signal_threshold" type="number" step="0.01" /></label>
         <label>止损 ATR 倍数<input id="s_atr_sl_mult" type="number" step="0.1" /></label>
         <label>止盈 ATR 倍数<input id="s_atr_tp_mult" type="number" step="0.1" /></label>

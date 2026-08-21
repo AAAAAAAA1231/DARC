@@ -17,6 +17,7 @@ def test_health_and_index():
     assert page.status_code == 200
     assert "链上雷达" in page.text
     assert "接口令牌" in page.text
+    assert "10亿次" in page.text
     assert "只看评分前三的推荐" in page.text
     assert "成功率" not in page.text
     assert "$1M" in page.text or "$1,000,000" in page.text or "池子 ≥ $1M" in page.text
@@ -25,7 +26,7 @@ def test_health_and_index():
 def test_settings_and_marks_roundtrip():
     s = client.get("/api/settings")
     assert s.status_code == 200
-    assert s.json()["monte_carlo_sims"] == 1_000_000
+    assert s.json()["monte_carlo_sims"] == 1_000_000_000
     assert s.json()["meme_min_liquidity_usd"] == 1_000_000
     assert s.json()["airdrop_btc_min_funding_usd"] == 5_000_000
     marked = client.post(

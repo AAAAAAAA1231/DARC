@@ -52,7 +52,7 @@ def test_daily_loss_halt():
 
 
 def test_fitted_allows_twenty_percent_failures():
-    ok = [{"n_sims": 1_000_000} for _ in range(80)]
+    ok = [{"n_sims": 1_000_000_000} for _ in range(80)]
     bad = [{"n_sims": 0, "error": "kline"} for _ in range(20)]
     fitted, n, total = analysis_is_fitted(ok + bad)
     assert fitted is True

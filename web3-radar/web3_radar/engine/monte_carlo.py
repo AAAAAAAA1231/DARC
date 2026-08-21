@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Iterable
 
 import numpy as np
 
-from web3_radar.config import INITIAL_INDICATOR_SHARES
+from web3_radar.config import INITIAL_INDICATOR_SHARES, MONTE_CARLO_SIMS
+
+ProgressFn = Callable[[int, int], None]
+ELITE_CAP = 80_000
 
 
 def normalize_shares(shares: dict[str, float], names: Iterable[str]) -> np.ndarray:
@@ -16,13 +20,14 @@ def monte_carlo_reweight(
     names: list[str],
     expectancies: np.ndarray,
     initial_shares: dict[str, float] | None = None,
-    n_sims: int = 1_000_000,
+    n_sims: int = MONTE_CARLO_SIMS,
     top_pct: float = 1.0,
     concentration: float = 24.0,
     rng: np.random.Generator | None = None,
+    on_progress: ProgressFn | None = None,
 ) -> dict[str, float]:
     """Sample n_sims Dirichlet weight vectors around the initial shares, score by
-    expectancy, then return the score-weighted average of the top percentile.
+    expectancy, then return the score-weighted average of the elite set.
     """
     if initial_shares is None:
         initial_shares = INITIAL_INDICATOR_SHARES
@@ -33,29 +38,68 @@ def monte_carlo_reweight(
         raise ValueError("expectancies length must match indicator names")
 
     alpha = np.maximum(base * concentration, 1e-3)
-    n_sims = int(n_sims)
-    k = max(1, int(np.ceil(n_sims * max(top_pct, 0.01) / 100.0)))
-    best_w = np.empty((0, len(base)), dtype=np.float64)
-    best_s = np.empty((0,), dtype=np.float64)
+    n_sims = max(int(n_sims), 1)
+    k = max(1, int(np.ceil(n_sims * max(float(top_pct), 0.01) / 100.0)))
+    k = min(k, ELITE_CAP)
+    n_ind = len(base)
+    cap = max(k * 2, k + 1)
+    buf_w = np.empty((cap, n_ind), dtype=np.float64)
+    buf_s = np.empty((cap,), dtype=np.float64)
+    filled = 0
+
+    if n_sims >= 100_000_000:
+        batch = 400_000
+    elif n_sims >= 1_000_000:
+        batch = 200_000
+    else:
+        batch = min(n_sims, 50_000)
+    report_every = max(batch, max(n_sims // 100, 1))
     remaining = n_sims
-    batch = 100_000 if n_sims >= 100_000 else n_sims
+    finished = 0
+    last_report = 0
+
+    def prune(keep: int) -> None:
+        nonlocal filled
+        if filled <= keep:
+            return
+        idx = np.argpartition(buf_s[:filled], -keep)[-keep:]
+        buf_w[:keep] = buf_w[idx]
+        buf_s[:keep] = buf_s[idx]
+        filled = keep
+
     while remaining > 0:
-        n = min(batch, remaining)
-        remaining -= n
-        weights = gen.dirichlet(alpha, size=n)
+        orig = min(batch, remaining)
+        remaining -= orig
+        weights = gen.dirichlet(alpha, size=orig)
         scores = weights @ exp
-        best_w = np.vstack((best_w, weights))
-        best_s = np.concatenate((best_s, scores))
-        if len(best_s) > k * 3 and remaining:
-            idx = np.argpartition(best_s, -k)[-k:]
-            best_w = best_w[idx]
-            best_s = best_s[idx]
-    idx = np.argpartition(best_s, -k)[-k:]
-    top_w = best_w[idx]
-    top_s = best_s[idx]
-    shifted = top_s - top_s.min() + 1e-9
-    blended = np.average(top_w, axis=0, weights=shifted)
-    blended = blended / blended.sum()
+        n = orig
+        if n > k:
+            idx = np.argpartition(scores, -k)[-k:]
+            weights = weights[idx]
+            scores = scores[idx]
+            n = k
+        if filled + n > cap:
+            prune(k)
+        take = min(n, cap - filled)
+        buf_w[filled : filled + take] = weights[:take]
+        buf_s[filled : filled + take] = scores[:take]
+        filled += take
+        if filled >= cap:
+            prune(k)
+        finished += orig
+        if on_progress and (finished - last_report >= report_every or remaining == 0):
+            on_progress(finished, n_sims)
+            last_report = finished
+
+    prune(k)
+    if filled <= 0:
+        blended = base
+    else:
+        top_w = buf_w[:filled]
+        top_s = buf_s[:filled]
+        shifted = top_s - top_s.min() + 1e-9
+        blended = np.average(top_w, axis=0, weights=shifted)
+        blended = blended / blended.sum()
     return {name: float(blended[i]) for i, name in enumerate(names)}
 
 

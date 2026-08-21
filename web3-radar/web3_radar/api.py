@@ -16,7 +16,14 @@ from web3_radar.collectors.ambassador import scan_ambassadors
 from web3_radar.collectors.binance import BinanceClient
 from web3_radar.collectors.launch import scan_launches
 from web3_radar.collectors.meme import scan_meme_coins
-from web3_radar.config import INITIAL_INDICATOR_SHARES, STATIC_DIR, load_settings, save_settings
+from web3_radar.config import (
+    INITIAL_INDICATOR_SHARES,
+    MONTE_CARLO_SIMS,
+    STATIC_DIR,
+    format_sim_count,
+    load_settings,
+    save_settings,
+)
 from web3_radar.engine.indicators import historical_expectancy
 from web3_radar.engine.signals import (
     analyze_klines,
@@ -161,14 +168,14 @@ def _running_analyze_job(kind: str | None = None) -> tuple[str, dict[str, Any]] 
 
 async def _ensure_fitted_model() -> dict[str, Any] | None:
     model = await db.load_fitted_model()
-    if model and model.get("weights") and int(model.get("n_sims") or 0) >= 1_000_000:
+    if model and model.get("weights") and int(model.get("n_sims") or 0) >= MONTE_CARLO_SIMS:
         return model
     last = await db.latest_analysis_run()
     if not last:
         return model
     weights = average_weights_from_results(last.get("results") or [])
     n_sims = int(last.get("n_sims") or 0)
-    if weights and n_sims >= 1_000_000:
+    if weights and n_sims >= MONTE_CARLO_SIMS:
         model = {
             "weights": weights,
             "n_sims": n_sims,
@@ -184,20 +191,20 @@ async def _ensure_fitted_model() -> dict[str, Any] | None:
 
 def _model_note(model: dict[str, Any] | None) -> str:
     if not model or not model.get("weights"):
-        return "尚未完成权重拟合。先做一次 100 万次校准，之后刷新只套用模型出涨跌。"
+        return f"尚未完成权重拟合。先做一次 {format_sim_count(MONTE_CARLO_SIMS)}校准，之后刷新只套用模型出涨跌。"
     when = str(model.get("fitted_at") or "")[:19]
     n = int(model.get("n_sims") or 0)
-    return f"权重已于 {when} 用 {n:,} 次模拟校准。日常刷新只套用模型，不必再跑 100 万次。"
+    return f"权重已于 {when} 用 {n:,} 次模拟校准。日常刷新只套用模型，不必再跑 {format_sim_count(MONTE_CARLO_SIMS)}。"
 
 
 @app.post("/api/contracts/analyze")
 async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
     settings = load_settings()
     interval = body.interval or settings.get("kline_interval") or "4h"
-    n_sims = int(body.n_sims or settings.get("monte_carlo_sims") or 1_000_000)
+    n_sims = int(body.n_sims or settings.get("monte_carlo_sims") or MONTE_CARLO_SIMS)
     requested = (body.mode or "auto").strip().lower()
     model = await _ensure_fitted_model()
-    has_model = bool(model and model.get("weights") and int(model.get("n_sims") or 0) >= 1_000_000)
+    has_model = bool(model and model.get("weights") and int(model.get("n_sims") or 0) >= MONTE_CARLO_SIMS)
     if requested == "auto":
         kind = "infer" if has_model else "fit"
     elif requested == "infer":
@@ -264,7 +271,7 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
 
             weights = None
             if kind == "fit":
-                _jobs[job_id]["phase"] = "100万次权重校准"
+                _jobs[job_id]["phase"] = f"{format_sim_count(n_sims)}权重校准"
                 expect_maps = []
                 names: list[str] = list(INITIAL_INDICATOR_SHARES)
                 # Median across top names is enough; walking every coin's history is too slow for a global model.
@@ -276,14 +283,28 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
                             names = list(emap.keys())
                     except Exception:
                         continue
+
+                def _on_mc_progress(done: int, total: int) -> None:
+                    pct = int(done * 100 / max(total, 1))
+                    _jobs[job_id]["phase"] = (
+                        f"{format_sim_count(total)}权重校准 {done:,}/{total:,}（{pct}%）"
+                    )
+
+                prior = None
+                if model and isinstance(model.get("weights"), dict) and model.get("weights"):
+                    prior = model["weights"]
+                elif isinstance(settings.get("fitted_indicator_weights"), dict):
+                    prior = settings.get("fitted_indicator_weights")
+
                 weights = await asyncio.to_thread(
                     fit_global_weights,
                     expect_maps,
                     names,
-                    None,
+                    prior,
                     n_sims,
                     top_pct,
                     None,
+                    on_progress=_on_mc_progress,
                 )
                 from datetime import datetime, timezone
 
@@ -297,6 +318,10 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
                     "expectancies": {},
                 }
                 await db.save_fitted_model(model_out)
+                current_settings = load_settings()
+                current_settings["monte_carlo_sims"] = n_sims
+                current_settings["fitted_indicator_weights"] = weights
+                save_settings(current_settings)
                 _jobs[job_id]["model"] = {"n_sims": n_sims, "fitted_at": model_out["fitted_at"], "sample_count": len(expect_maps)}
             else:
                 weights = (model or {}).get("weights") or {}
@@ -359,7 +384,7 @@ async def analyze_status(job_id: str) -> dict[str, Any]:
 async def contracts_fit_status() -> dict[str, Any]:
     running_id, running = _running_analyze_job()
     model = await _ensure_fitted_model()
-    fitted = bool(model and model.get("weights") and int(model.get("n_sims") or 0) >= 1_000_000)
+    fitted = bool(model and model.get("weights") and int(model.get("n_sims") or 0) >= MONTE_CARLO_SIMS)
     model_pub = None
     if model:
         model_pub = {k: model.get(k) for k in ("n_sims", "fitted_at", "source", "sample_count", "interval")}

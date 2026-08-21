@@ -50,6 +50,21 @@ def test_monte_carlo_weights_sum_and_favor_winners():
     w = monte_carlo_reweight(names, exp, {"a": 10, "b": 10, "c": 10}, n_sims=20_000, top_pct=5, rng=np.random.default_rng(0))
     assert pytest.approx(sum(w.values()), rel=1e-6) == 1
     assert w["a"] > w["b"]
+    progressed = []
+    w2 = monte_carlo_reweight(
+        names, exp, {"a": 10, "b": 10, "c": 10},
+        n_sims=120_000, top_pct=1, rng=np.random.default_rng(1),
+        on_progress=lambda done, total: progressed.append((done, total)),
+    )
+    assert pytest.approx(sum(w2.values()), rel=1e-6) == 1
+    assert w2["a"] > w2["b"]
+    assert progressed and progressed[-1] == (120_000, 120_000)
+
+
+def test_format_sim_count():
+    from web3_radar.config import format_sim_count
+    assert format_sim_count(1_000_000_000) == "10亿次"
+    assert format_sim_count(1_000_000) == "100万次"
 
 
 def test_decision_threshold():

@@ -6,7 +6,7 @@ from typing import Any
 
 import aiosqlite
 
-from web3_radar.config import DB_PATH, DATA_DIR, ensure_dirs
+from web3_radar.config import DB_PATH, DATA_DIR, MONTE_CARLO_SIMS, ensure_dirs, format_sim_count
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS marks (
@@ -415,7 +415,7 @@ async def latest_analysis_run() -> dict[str, Any] | None:
                 f"涨{data['up_count']} / 跌{data['down_count']} / 观望{data['wait_count']}"
             )
         else:
-            data["fitted_note"] = "尚未完成权重拟合。拟合只需一次 100 万次模拟；之后刷新只套用模型出信号。"
+            data["fitted_note"] = f"尚未完成权重拟合。拟合只需一次 {format_sim_count(MONTE_CARLO_SIMS)}模拟；之后刷新只套用模型出信号。"
         return data
     finally:
         await conn.close()
@@ -423,10 +423,10 @@ async def latest_analysis_run() -> dict[str, Any] | None:
 
 def analysis_is_fitted(
     results: list[dict[str, Any]],
-    n_sims_required: int = 1_000_000,
+    n_sims_required: int = MONTE_CARLO_SIMS,
     min_ratio: float = 0.8,
 ) -> tuple[bool, int, int]:
-    """A board is fitted when enough rows carry 1M-calibrated (or infer-mode) weights."""
+    """A board is fitted when enough rows carry 1B-calibrated (or infer-mode) weights."""
     total = len(results or [])
     ok = 0
     for r in results or []:

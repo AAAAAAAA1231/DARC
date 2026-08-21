@@ -115,7 +115,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "port": DEFAULT_PORT,
     "kline_interval": "4h",
     "kline_limit": 500,
-    "monte_carlo_sims": 1_000_000,
+    "monte_carlo_sims": 1_000_000_000,
     "monte_carlo_top_pct": 1.0,
     "signal_threshold": 0.18,
     "atr_sl_mult": 1.5,
@@ -156,6 +156,21 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "weight_refit_days": 7,
 }
 
+MONTE_CARLO_SIMS = 1_000_000_000
+
+
+def format_sim_count(n: int) -> str:
+    n = int(n or 0)
+    if n >= 100_000_000:
+        yi = n / 100_000_000
+        text = f"{yi:.0f}" if abs(yi - round(yi)) < 1e-9 else f"{yi:g}"
+        return f"{text}亿次"
+    if n >= 10_000:
+        wan = n / 10_000
+        text = f"{wan:.0f}" if abs(wan - round(wan)) < 1e-9 else f"{wan:g}"
+        return f"{text}万次"
+    return f"{n}次"
+
 
 def ensure_dirs() -> None:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
@@ -171,6 +186,8 @@ def load_settings() -> dict[str, Any]:
     merged.update(raw)
     if float(merged.get("meme_min_liquidity_usd") or 0) in {20_000, 20000}:
         merged["meme_min_liquidity_usd"] = 1_000_000
+    if int(merged.get("monte_carlo_sims") or 0) in {1_000_000, 1000000}:
+        merged["monte_carlo_sims"] = MONTE_CARLO_SIMS
     return merged
 
 

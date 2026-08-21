@@ -6,7 +6,7 @@ from typing import Any
 import numpy as np
 import pandas as pd
 
-from web3_radar.config import INITIAL_INDICATOR_SHARES
+from web3_radar.config import INITIAL_INDICATOR_SHARES, MONTE_CARLO_SIMS
 from web3_radar.engine.indicators import (
     classify_regime,
     compute_all_indicators,
@@ -52,9 +52,10 @@ def fit_global_weights(
     expectancy_maps: list[dict[str, float]],
     names: list[str],
     initial_shares: dict[str, float] | None = None,
-    n_sims: int = 1_000_000,
+    n_sims: int = MONTE_CARLO_SIMS,
     top_pct: float = 1.0,
     rng: np.random.Generator | None = None,
+    on_progress=None,
 ) -> dict[str, float]:
     shares = initial_shares or INITIAL_INDICATOR_SHARES
     pooled = pool_expectancies(expectancy_maps, names)
@@ -68,6 +69,7 @@ def fit_global_weights(
         n_sims=n_sims,
         top_pct=top_pct,
         rng=rng,
+        on_progress=on_progress,
     )
 
 
@@ -108,7 +110,7 @@ def mark_top_recommendations(rows: list[dict[str, Any]], n: int = TOP_RECOMMEND)
 def analyze_klines(
     df: pd.DataFrame,
     symbol: str,
-    n_sims: int = 1_000_000,
+    n_sims: int = MONTE_CARLO_SIMS,
     threshold: float = 0.18,
     atr_sl_mult: float = 1.5,
     atr_tp_mult: float = 2.5,

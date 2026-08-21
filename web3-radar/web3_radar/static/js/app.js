@@ -1,5 +1,5 @@
 const views = {
-  contracts: ["合约分析", "推荐综合分绝对值最高的三个涨/跌标的。震荡默认不追。100 万次只用于校准权重。"],
+  contracts: ["合约分析", "推荐综合分绝对值最高的三个涨/跌标的。震荡默认不追。10 亿次只用于校准权重。"],
   meme: ["妖币监控", "只保留池子≥$1M、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
   copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
@@ -118,7 +118,7 @@ async function loadView(name, refresh) {
         setStatus(`标的 ${uni.items.length} 个。权重已校准，正在套用模型出信号…`);
         if (!analyzeJob && uni.items.length) startAnalyze("infer");
       } else {
-        setStatus(`标的 ${uni.items.length} 个。首次需要校准指标权重（100 万次，只需一次）…`);
+        setStatus(`标的 ${uni.items.length} 个。首次需要校准指标权重（10 亿次，只需一次）…`);
         if (!analyzeJob && uni.items.length) startAnalyze("fit");
       }
     } else if (name === "meme") {
@@ -271,7 +271,7 @@ async function startAnalyze(mode) {
   analyzeStarting = true;
   const interval = $("klineInterval").value;
   const kind = mode === "fit" ? "fit" : "infer";
-  setStatus(kind === "fit" ? "开始校准指标权重（100 万次，只需偶尔做）…" : "套用已拟合模型出信号…");
+  setStatus(kind === "fit" ? "开始校准指标权重（10 亿次，只需偶尔做）…" : "套用已拟合模型出信号…");
   $("analyzeProgress").classList.remove("hidden");
   try {
     const job = await api("/api/contracts/analyze", { method: "POST", body: { interval, mode: kind } });
