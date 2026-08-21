@@ -31,7 +31,7 @@ jobs:
         run: pyinstaller --noconfirm ChainRadar.spec
       - name: Zip portable folder
         run: |
-          Copy-Item -Force packaging\使用说明.txt dist\ChainRadar\使用说明.txt
+          Copy-Item -Force packaging\使用说明.txt dist\ChainRadar\README.txt
           if (Test-Path dist\ChainRadar.zip) { Remove-Item dist\ChainRadar.zip }
           Compress-Archive -Path dist\ChainRadar -DestinationPath dist\ChainRadar.zip -CompressionLevel Optimal
       - name: Upload ZIP
@@ -44,11 +44,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
-        run: |
-          $ids = gh release view chainradar --repo ${{ github.repository }} --json assets --jq '.assets[] | select(.name=="ChainRadar.exe") | .id' 2>$null
-          foreach ($id in $ids) {
-            if ($id) { gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id" }
-          }
+        run: gh release delete-asset chainradar ChainRadar.exe --yes --repo ${{ github.repository }}
       - name: Publish downloadable release
         uses: softprops/action-gh-release@v2
         with:
