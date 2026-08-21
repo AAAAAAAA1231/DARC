@@ -6,6 +6,11 @@ on:
     paths:
       - "web3-radar/**"
       - ".github/workflows/build-web3-radar.yml"
+      - "!web3-radar/dist/**"
+
+concurrency:
+  group: chainradar-exe
+  cancel-in-progress: true
 
 permissions:
   contents: write
