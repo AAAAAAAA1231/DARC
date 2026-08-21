@@ -98,12 +98,12 @@ def test_modules_return_catalog():
     assert added.json()["source"] == "手动"
 
 
-def test_windows_packaging_is_folder_not_onefile():
+def test_windows_packaging_is_signed_style_exe():
     from pathlib import Path
 
     spec = Path("ChainRadar.spec").read_text(encoding="utf-8")
-    assert "COLLECT(" in spec
-    assert "exclude_binaries=True" in spec
+    assert "COLLECT(" not in spec
+    assert "exclude_binaries=True" not in spec
     assert "upx=False" in spec
     assert 'version="version_info.txt"' in spec
     assert "chainradar.ico" in spec

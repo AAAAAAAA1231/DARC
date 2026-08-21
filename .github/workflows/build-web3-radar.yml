@@ -21,42 +21,47 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install dependencies
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Install app dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt pyinstaller
+          pip install -r requirements.txt
       - name: Test
         run: python -m pytest tests -q
-      - name: Build portable folder
-        run: pyinstaller --noconfirm ChainRadar.spec
-      - name: Zip portable folder
+      - name: Build custom PyInstaller bootloader
+        working-directory: .
         run: |
-          Copy-Item -Force packaging\使用说明.txt dist\ChainRadar\README.txt
-          if (Test-Path dist\ChainRadar.zip) { Remove-Item dist\ChainRadar.zip }
-          Compress-Archive -Path dist\ChainRadar -DestinationPath dist\ChainRadar.zip -CompressionLevel Optimal
-      - name: Upload ZIP
+          git clone --depth 1 --branch v6.14.1 https://github.com/pyinstaller/pyinstaller.git "$env:RUNNER_TEMP\pyinstaller"
+          Set-Location "$env:RUNNER_TEMP\pyinstaller\bootloader"
+          python ./waf distclean all --target-arch=64bit
+          Set-Location "$env:RUNNER_TEMP\pyinstaller"
+          pip install .
+      - name: Build EXE
+        run: pyinstaller --noconfirm ChainRadar.spec
+      - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
           name: ChainRadar-windows
-          path: web3-radar/dist/ChainRadar.zip
-      - name: Drop old single-file EXE from release
+          path: web3-radar/dist/ChainRadar.exe
+      - name: Drop zip-only release leftover
         working-directory: .
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
-        run: gh release delete-asset chainradar ChainRadar.exe --yes --repo ${{ github.repository }}
+        run: gh release delete-asset chainradar ChainRadar.zip --yes --repo ${{ github.repository }}
       - name: Publish downloadable release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: chainradar
           name: 链上雷达 ChainRadar
           target_commitish: ${{ github.sha }}
-          files: web3-radar/dist/ChainRadar.zip
+          files: web3-radar/dist/ChainRadar.exe
           fail_on_unmatched_files: true
           make_latest: true
           body: |
-            请下载 **ChainRadar.zip**，解压后进入文件夹，双击 `ChainRadar.exe`。
-            不要只把 exe 单独拷走，也不要点仓库文件旁的小箭头。
+            直接点下面的 **ChainRadar.exe** 就会下载，不要点仓库文件旁的小箭头。
 
-            粘贴到浏览器地址栏回车：
-            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.zip
+            或把这行粘贴到浏览器地址栏回车：
+            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe

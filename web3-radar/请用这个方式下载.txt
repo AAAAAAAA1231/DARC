@@ -2,14 +2,12 @@
 
 方法一（推荐）：把下面整行复制到浏览器地址栏，按回车就会开始下载
 
-https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.zip
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
 
 如果上面打不开，用这一行：
 
-https://github.com/AAAAAAAA1231/DARC/raw/cursor/web3-radar-desktop-d86a/web3-radar/dist/ChainRadar.zip
+https://github.com/AAAAAAAA1231/DARC/raw/cursor/web3-radar-desktop-d86a/web3-radar/dist/ChainRadar.exe
 
-方法二：双击同目录里的「下载链上雷达.bat」，它会自动帮你下载并解压。
+方法二：双击同目录里的「下载链上雷达.bat」，它会自动帮你下载。
 
-下完后解压，进入 ChainRadar 文件夹，双击 ChainRadar.exe。
-不要只把 exe 单独拷到别处。Windows 有时会把「单文件自解压程序」误判成病毒，文件夹方式一般能过。
-启动后浏览器打开 http://127.0.0.1:8787
+下完后双击 ChainRadar.exe，浏览器会打开 http://127.0.0.1:8787
