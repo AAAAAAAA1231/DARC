@@ -16,6 +16,7 @@ from web3_radar.collectors.ambassador import scan_ambassadors
 from web3_radar.collectors.binance import BinanceClient
 from web3_radar.collectors.launch import scan_launches
 from web3_radar.collectors.meme import scan_meme_coins
+from web3_radar.collectors.news import scan_news
 from web3_radar.config import (
     INITIAL_INDICATOR_SHARES,
     MONTE_CARLO_SIMS,
@@ -501,6 +502,11 @@ async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
         refresh,
         lambda: scan_launches(twitter_bearer=str(settings.get("twitter_bearer_token") or ""), lookback_days=7),
     )
+
+
+@app.get("/api/news")
+async def news(refresh: bool = Query(False)) -> dict[str, Any]:
+    return await _scan_or_cache("news_v1", "news", 90, refresh, scan_news)
 
 
 @app.get("/api/airdrops")

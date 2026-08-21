@@ -86,7 +86,11 @@ th { color: var(--muted); font-weight: 600; background: #0e141c; position: stick
   background: #2a220e; border: 1px solid #c9a227; border-radius: 12px;
   padding: 10px 12px; color: var(--text);
 }
-.alert-banner strong { color: var(--accent-2); }
+.alert-banner.down { background: #2a1216; border-color: #ff6b7a; }
+.alert-banner.down strong { color: #ff6b7a; }
+.alert-banner.up { background: #0e2a22; border-color: #1f6b57; }
+.alert-banner.up strong { color: var(--accent); }
+.tag.macro { background: #1a2440; color: #9db7ff; }
 #launchTokenBox { margin-bottom: 14px; }
 #launchTokenBox input { width: 100%; max-width: 720px; margin: 6px 0 10px; }
 .panel ol a { word-break: break-all; }

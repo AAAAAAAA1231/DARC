@@ -17,7 +17,8 @@ def test_health_and_index():
     assert page.status_code == 200
     assert "链上雷达" in page.text
     assert "接口令牌" in page.text
-    assert "10亿次" in page.text
+    assert "单边快讯" in page.text
+    assert "只看高影响提醒" in page.text
     assert "只看评分前三的推荐" in page.text
     assert "成功率" not in page.text
     assert "$1M" in page.text or "$1,000,000" in page.text or "池子 ≥ $1M" in page.text
@@ -46,6 +47,7 @@ def test_wallet_participate_queue():
     assert data["airdrops"]
     assert all(any(str(c).lower() in {"ethereum", "bitcoin", "base", "arbitrum"} or "eth" in str(c).lower() or "bitcoin" in str(c).lower() for c in (x.get("chains") or [])) for x in data["airdrops"])
     assert data["launches"]
+    assert data["news"]
     assert all((x.get("chain") or "") in {"Solana", "BSC", "Solana + BSC"} for x in data["launches"])
     merged = merge_items([], data["airdrops"])
     assert len(merged) == len(data["airdrops"])
@@ -84,6 +86,11 @@ def test_modules_return_catalog():
             assert names & {"cz_binance", "heyibinance"}
         if chain == "Solana":
             assert names & {"solana", "toly", "aeyakovenko"}
+    n = client.get("/api/news")
+    assert n.status_code == 200
+    news_body = n.json()
+    assert news_body["items"]
+    assert all(x.get("title") and x.get("category") and x.get("bias") in {"偏多", "偏空", "方向未定"} for x in news_body["items"])
     added = client.post("/api/ambassadors", json={"project": "测试项目", "url": "https://example.com"})
     assert added.status_code == 200
     assert added.json()["source"] == "手动"

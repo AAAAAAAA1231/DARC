@@ -1,5 +1,6 @@
 const views = {
   contracts: ["合约分析", "推荐综合分绝对值最高的三个涨/跌标的。震荡默认不追。10 亿次只用于校准权重。"],
+  news: ["单边快讯", "只盯可能把震荡切成单边的消息：FOMC/CPI/非农、ETF、监管、黑客、脱锚。高影响会即时提醒。不是投资建议。"],
   meme: ["妖币监控", "只保留池子≥$1M、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
   copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
@@ -10,13 +11,14 @@ const views = {
 };
 
 const $ = (id) => document.getElementById(id);
-const store = { contracts: {}, meme: {}, ambassador: {}, launch: {}, airdrop: {} };
+const store = { contracts: {}, meme: {}, ambassador: {}, launch: {}, airdrop: {}, news: {} };
 const fmtUsd = (n) => n == null || Number.isNaN(Number(n)) ? "-" : "$" + Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 });
 const fmtPx = (n) => n == null || n === "" ? "-" : Number(n).toPrecision(6);
 const tagClass = (d) => d === "涨" ? "up" : d === "跌" ? "down" : "wait";
 const regimeClass = (r) => r === "单边" ? "trend" : r === "震荡" ? "range" : "mixed";
 
-let currentView = "contracts";
+let newsTimer = null;
+let seenNewsAlerts = new Set();
 let analyzeJob = null;
 let analyzeStarting = false;
 let settingsCache = {};
@@ -42,6 +44,9 @@ $("autoMaxSpend").addEventListener("change", persistWalletFlags);
 if ($("copySave")) $("copySave").addEventListener("click", saveCopytrade);
 if ($("ambAdd")) $("ambAdd").addEventListener("click", addAmbassador);
 if ($("saveLaunchToken")) $("saveLaunchToken").addEventListener("click", saveLaunchToken);
+if ($("newsFilter")) $("newsFilter").addEventListener("input", () => renderNews());
+if ($("newsAlertOnly")) $("newsAlertOnly").addEventListener("change", () => renderNews());
+if ($("newsBiasFilter")) $("newsBiasFilter").addEventListener("change", () => renderNews());
 
 function showView(name) {
   currentView = name;
@@ -178,6 +183,18 @@ async function loadView(name, refresh) {
       if (data.alert_count) bits.push(`发射提醒 ${data.alert_count}`);
       setStatus(bits.join(" · "));
       pingLaunchAlerts(alerts);
+    } else if (name === "news") {
+      setStatus("正在扫描可能打开单边的消息…");
+      if ($("newsCards")) $("newsCards").innerHTML = "<p class='muted'>加载中…</p>";
+      const data = await api("/api/news" + q);
+      store.news = {};
+      (data.items || []).forEach((x) => { if (x.key) store.news[x.key] = x; });
+      renderNews();
+      if ($("newsMsg")) $("newsMsg").textContent = data.note || "";
+      const alerts = data.alerts || (data.items || []).filter((x) => x.alert);
+      pingNewsAlerts(alerts);
+      setStatus(`单边相关 ${data.count || 0} · 提醒 ${data.alert_count || alerts.length}` + ((data.errors || []).length ? " · 部分源失败" : ""));
+      if (!newsTimer) newsTimer = setInterval(() => { if (currentView === "news") loadView("news", false); }, 90 * 1000);
     } else if (name === "airdrop") {
       setStatus("正在扫描高融资未发币项目…");
       $("airdropRows").innerHTML = emptyRow(9, "加载中…");
@@ -416,6 +433,73 @@ function pingLaunchAlerts(alerts) {
   else if (Notification.permission !== "denied") Notification.requestPermission().then((p) => { if (p === "granted") send(); });
 }
 
+function newsBiasClass(bias) {
+  if (bias === "偏多") return "up";
+  if (bias === "偏空") return "down";
+  return "wait";
+}
+
+function renderNews() {
+  const only = $("newsAlertOnly") && $("newsAlertOnly").checked;
+  const bias = (($("newsBiasFilter") && $("newsBiasFilter").value) || "");
+  const q = (($("newsFilter") && $("newsFilter").value) || "").toLowerCase();
+  const rows = Object.values(store.news || {}).filter((r) => r && r.title);
+  const shown = rows.filter((r) => {
+    if (only && !r.alert) return false;
+    if (bias && r.bias !== bias) return false;
+    if (!q) return true;
+    return (r.title + " " + (r.category || "") + " " + (r.bias || "") + " " + (r.why || "")).toLowerCase().includes(q);
+  }).sort((a, b) => {
+    const alert = Number(!!b.alert) - Number(!!a.alert);
+    if (alert) return alert;
+    return Number(b.score || 0) - Number(a.score || 0);
+  });
+  const alerts = shown.filter((r) => r.alert);
+  if ($("newsAlerts")) {
+    $("newsAlerts").innerHTML = alerts.slice(0, 6).map((a) => `
+      <div class="alert-banner ${newsBiasClass(a.bias)}">
+        <strong>${escapeHtml(a.alert_level || "单边提醒")} · ${escapeHtml(a.bias || "方向未定")}</strong>
+        <div>${escapeHtml(a.title)}</div>
+        <div class="launch-when">${escapeHtml(a.when_label || a.when_status || "")}</div>
+      </div>`).join("");
+  }
+  if ($("newsCards")) {
+    $("newsCards").innerHTML = shown.map(newsCard).join("") || "<p class='muted'>" + (only ? "现在没有高影响提醒。取消勾选可看全部单边相关消息。" : "暂无可能打开单边的消息。") + "</p>";
+  }
+}
+
+function newsCard(a) {
+  const cls = a.alert ? "card alert-card" : "card";
+  return `<article class="${cls}">
+    <h3>${sourceBadge(a)} ${escapeHtml(a.title)}</h3>
+    <p>
+      <span class="tag ${a.impact === "高" ? "range" : "wait"}">${escapeHtml(a.impact || "")}影响</span>
+      <span class="tag ${newsBiasClass(a.bias)}">${escapeHtml(a.bias || "方向未定")}</span>
+      <span class="tag macro">${escapeHtml(a.category || "")}</span>
+    </p>
+    <p class="launch-when">${escapeHtml(a.when_label || a.when_status || "")}</p>
+    <p>${escapeHtml((a.text || "").slice(0, 220))}</p>
+    <p>为何可能单边：${escapeHtml(a.why || "")}</p>
+    <p>${escapeHtml(a.playbook || "")}</p>
+    <p>来源：${escapeHtml(a.source || "")} · ${escapeHtml(a.kind || "")}</p>
+    <p>标记：${markSelect("news", a.key, a.mark_status)}</p>
+    <div class="card-actions">
+      ${a.url ? `<a class="btn" href="${escapeHtml(a.url)}" target="_blank">打开原文</a>` : ""}
+    </div>
+  </article>`;
+}
+
+function pingNewsAlerts(alerts) {
+  if (!alerts || !alerts.length || !("Notification" in window)) return;
+  const fresh = alerts.filter((a) => a.key && !seenNewsAlerts.has(a.key));
+  fresh.forEach((a) => seenNewsAlerts.add(a.key));
+  if (!fresh.length) return;
+  const body = fresh.slice(0, 3).map((a) => `${a.title} · ${a.when_status || a.bias || ""}`).join("；");
+  const send = () => { try { new Notification("链上雷达 · 单边提醒", { body }); } catch (e) {} };
+  if (Notification.permission === "granted") send();
+  else if (Notification.permission !== "denied") Notification.requestPermission().then((p) => { if (p === "granted") send(); });
+}
+
 function airdropRow(a) {
   const id = encodeURIComponent(a.key);
   return `<tr>
@@ -439,6 +523,7 @@ function markSelect(category, key, status) {
     ambassador: [["none","未标记"],["watching","关注中"],["applied","已申请"],["accepted","已参与成功"],["rejected","未通过"]],
     airdrop: [["none","未标记"],["watching","关注中"],["applied","已交互"],["accepted","已参与成功"],["skipped","放弃"]],
     launch: [["none","未标记"],["watching","关注中"],["applied","已打新"],["accepted","已中签"],["skipped","放弃"]],
+    news: [["none","未标记"],["watching","关注中"],["applied","已查看"],["skipped","忽略"]],
     meme: [["none","未标记"],["watching","关注中"],["applied","已买入"],["skipped","忽略"]],
   }[category] || [["none","未标记"],["watching","关注中"]];
   const id = encodeURIComponent(key);

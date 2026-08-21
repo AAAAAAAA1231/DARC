@@ -125,5 +125,43 @@
       "score": 78,
       "source": "https://botanixlabs.xyz/"
     }
+  ],
+  "news": [
+    {
+      "key": "seed-news-fomc",
+      "title": "盯 FOMC / CPI / 非农：宏观公布最容易把震荡切成单边",
+      "text": "美联储利率决议、CPI、PCE、非农前后，BTC 波动常突然放大。公布前看倒计时，公布后看合约页的行情有没有从震荡切到单边，不要提前追突破。",
+      "url": "https://www.forexfactory.com/calendar",
+      "source": "观察池",
+      "source_kind": "seed",
+      "kind": "日历",
+      "category": "宏观利率",
+      "bias": "方向未定",
+      "impact": "高",
+      "score": 88,
+      "why": "FOMC / CPI / NFP",
+      "playbook": "公布前后波动容易突然打开，先看是否从震荡切到单边，不要提前追突破。",
+      "alert": true,
+      "when_label": "按日历滚动",
+      "when_status": "监测方法"
+    },
+    {
+      "key": "seed-news-shock",
+      "title": "盯 ETF 批准/资金流、黑客、稳定币脱锚、暂停提现",
+      "text": "这类突发消息历史上容易走出单边。模块只保留这类催化剂，普通行情评论不会出现。",
+      "url": "https://www.coindesk.com/",
+      "source": "观察池",
+      "source_kind": "seed",
+      "kind": "新闻",
+      "category": "ETF/机构",
+      "bias": "方向未定",
+      "impact": "高",
+      "score": 80,
+      "why": "ETF / 黑客 / 脱锚",
+      "playbook": "先看消息方向和K线是否确认单边，不是看到标题就追。",
+      "alert": false,
+      "when_label": "出现即提醒",
+      "when_status": "监测方法"
+    }
   ]
 }

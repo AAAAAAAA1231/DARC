@@ -172,3 +172,44 @@ def test_collect_social_without_bearer_does_not_crash():
     import asyncio
     rows = asyncio.run(collect_social(["ambassador"], "", 7))
     assert isinstance(rows, list)
+
+
+def test_news_classifier_keeps_regime_catalysts_only():
+    from datetime import datetime, timedelta, timezone
+    from web3_radar.collectors.news import classify_headline, parse_calendar_rows, parse_feed_xml
+
+    cut = classify_headline("Fed delivers 25 bps rate cut, markets surge")
+    assert cut and cut["bias"] == "偏多" and cut["category"] == "宏观利率"
+    hack = classify_headline("Major exchange hacked, $200m drained from hot wallet")
+    assert hack and hack["bias"] == "偏空" and hack["category"] == "安全事件"
+    depeg = classify_headline("USDT briefly depegs after bank rumor")
+    assert depeg and depeg["category"] == "稳定币"
+    assert classify_headline("How to buy bitcoin in 2026") is None
+    assert classify_headline("Join our web3 hackathon and win prizes") is None
+    now = datetime(2026, 8, 21, 12, 0, tzinfo=timezone.utc)
+    cal = parse_calendar_rows(
+        [{
+            "title": "CPI y/y",
+            "country": "USD",
+            "impact": "High",
+            "date": (now + timedelta(hours=2)).isoformat(),
+            "forecast": "2.9%",
+            "previous": "3.0%",
+        }],
+        now=now,
+    )
+    assert len(cal) == 1
+    assert cal[0]["alert"] is True
+    assert cal[0]["impact"] == "高"
+    assert cal[0]["bias"] == "方向未定"
+    rss = parse_feed_xml(
+        """<?xml version="1.0"?><rss><channel>
+        <item><title>SEC approves spot bitcoin ETF inflows continue</title>
+        <link>https://example.com/etf</link><pubDate>Fri, 21 Aug 2026 10:00:00 GMT</pubDate></item>
+        <item><title>Best altcoins to buy this week</title><link>https://example.com/noise</link></item>
+        </channel></rss>""",
+        "CoinDesk",
+    )
+    titles = {r["title"] for r in rss}
+    assert any("ETF" in t or "etf" in t.lower() for t in titles)
+    assert "Best altcoins to buy this week" not in titles

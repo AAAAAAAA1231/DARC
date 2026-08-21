@@ -17,6 +17,7 @@
     </div>
     <nav>
       <button data-view="contracts" class="active">合约分析</button>
+      <button data-view="news">单边快讯</button>
       <button data-view="meme">妖币监控</button>
       <button data-view="copytrade">自动跟单</button>
       <button data-view="ambassador">大使招募</button>
@@ -67,6 +68,24 @@
         </table>
       </div>
       <div class="detail" id="contractDetail"></div>
+    </section>
+
+    <section id="view-news" class="view hidden">
+      <div class="toolbar">
+        <span class="pill">宏观利率 / ETF / 监管 / 黑客 / 脱锚</span>
+        <span class="pill">高影响即时提醒</span>
+        <label class="check"><input type="checkbox" id="newsAlertOnly" checked /> 只看高影响提醒</label>
+        <select id="newsBiasFilter">
+          <option value="">全部方向</option>
+          <option value="偏多">偏多</option>
+          <option value="偏空">偏空</option>
+          <option value="方向未定">方向未定</option>
+        </select>
+        <input id="newsFilter" placeholder="筛选标题 / 宏观 / ETF / 黑客" />
+      </div>
+      <div id="newsAlerts"></div>
+      <p class="muted" id="newsMsg"></p>
+      <div class="cards" id="newsCards"></div>
     </section>
 
     <section id="view-meme" class="view hidden">
