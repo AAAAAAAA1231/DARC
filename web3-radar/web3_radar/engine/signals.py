@@ -90,8 +90,13 @@ def average_weights_from_results(results: list[dict[str, Any]]) -> dict[str, flo
     return {n: float(raw[i]) for i, n in enumerate(names)}
 
 
-def mark_top_recommendations(rows: list[dict[str, Any]], n: int = TOP_RECOMMEND) -> list[dict[str, Any]]:
+def mark_top_recommendations(
+    rows: list[dict[str, Any]],
+    n: int = TOP_RECOMMEND,
+    skip_symbols: set[str] | list[str] | None = None,
+) -> list[dict[str, Any]]:
     """Recommend the n strongest 涨/跌 calls by absolute composite score."""
+    skip = {str(s).strip().upper() for s in (skip_symbols or []) if str(s).strip()}
     for row in rows:
         row["recommend"] = False
     ranked = [
@@ -100,6 +105,7 @@ def mark_top_recommendations(rows: list[dict[str, Any]], n: int = TOP_RECOMMEND)
         if not row.get("error")
         and str(row.get("symbol") or "") not in ("", "?")
         and str(row.get("decision") or "") in ("涨", "跌")
+        and str(row.get("symbol") or "").strip().upper() not in skip
     ]
     ranked.sort(key=lambda row: abs(float(row.get("score") or 0)), reverse=True)
     for row in ranked[: max(0, int(n))]:

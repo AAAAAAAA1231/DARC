@@ -26,6 +26,7 @@ from web3_radar.config import (
     save_settings,
 )
 from web3_radar.engine.indicators import historical_expectancy
+from web3_radar.engine.live_learn import LEDGER_KEY, LEDGER_TTL, apply_live_feedback
 from web3_radar.engine.signals import (
     analyze_klines,
     average_weights_from_results,
@@ -157,8 +158,17 @@ def _sort_contract_results(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return sorted(rows or [], key=key, reverse=True)
 
 
-def _finalize_contract_results(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return _sort_contract_results(mark_top_recommendations(list(rows or []), 3))
+def _finalize_contract_results(
+    rows: list[dict[str, Any]],
+    *,
+    already_marked: bool = False,
+    n: int = 3,
+    skip_symbols: list[str] | None = None,
+) -> list[dict[str, Any]]:
+    rows = list(rows or [])
+    if already_marked:
+        return _sort_contract_results(rows)
+    return _sort_contract_results(mark_top_recommendations(rows, n, skip_symbols=skip_symbols))
 
 
 async def _attach_marks(category: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -209,10 +219,15 @@ async def _ensure_fitted_model() -> dict[str, Any] | None:
 
 def _model_note(model: dict[str, Any] | None) -> str:
     if not model or not model.get("weights"):
-        return f"尚未完成权重拟合。先做一次 {format_sim_count(MONTE_CARLO_SIMS)}校准，之后刷新只套用模型出涨跌。"
+        return f"尚未完成权重拟合。先做一次 {format_sim_count(MONTE_CARLO_SIMS)}校准，之后刷新按实盘涨跌回写权重。"
     when = str(model.get("fitted_at") or "")[:19]
     n = int(model.get("n_sims") or 0)
-    return f"权重已于 {when} 用 {n:,} 次模拟校准。日常刷新只套用模型，不必再跑 {format_sim_count(MONTE_CARLO_SIMS)}。"
+    live = str(model.get("live_updated_at") or "")[:19]
+    live_txt = f"最近一次按推荐盈亏回写于 {live}。" if live else "每次刷新会按上次推荐的涨跌和时间衰减回写权重。"
+    return (
+        f"权重已于 {when} 用 {n:,} 次模拟校准。{live_txt}"
+        "持仓未到期或刚亏过的不会再原样推；连亏会少推或观望。"
+    )
 
 
 @app.post("/api/contracts/analyze")
@@ -288,6 +303,7 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
                 _jobs[job_id]["phase"] = f"已取K线 {_jobs[job_id]['done']}/{len(symbols)}"
 
             weights = None
+            fitted_snapshot = dict(model or {})
             if kind == "fit":
                 _jobs[job_id]["phase"] = f"{format_sim_count(n_sims)}权重校准"
                 expect_maps = []
@@ -341,8 +357,10 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
                 current_settings["fitted_indicator_weights"] = weights
                 save_settings(current_settings)
                 _jobs[job_id]["model"] = {"n_sims": n_sims, "fitted_at": model_out["fitted_at"], "sample_count": len(expect_maps)}
+                fitted_snapshot = model_out
             else:
                 weights = (model or {}).get("weights") or {}
+                fitted_snapshot = dict(model or {})
 
             _jobs[job_id]["phase"] = "套用模型出信号"
             _jobs[job_id]["results"] = [r for r in _jobs[job_id]["results"] if r.get("error")]
@@ -379,7 +397,31 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
 
             _jobs[job_id]["status"] = "done"
             _jobs[job_id]["n_sims"] = n_sims
-            _jobs[job_id]["results"] = _finalize_contract_results(_jobs[job_id].get("results") or [])
+            ledger = await db.cache_get(LEDGER_KEY) or {}
+            learned = apply_live_feedback(
+                _jobs[job_id].get("results") or [],
+                ledger,
+                weights or {},
+                interval,
+                threshold=threshold,
+            )
+            _jobs[job_id]["results"] = _sort_contract_results(learned["results"])
+            _jobs[job_id]["recommend_final"] = True
+            _jobs[job_id]["recommend_n"] = learned.get("recommend_n")
+            _jobs[job_id]["live_learn"] = learned.get("summary")
+            await db.cache_set(LEDGER_KEY, learned["ledger"], LEDGER_TTL)
+            if learned.get("weights_changed") and learned.get("weights"):
+                from datetime import datetime, timezone
+
+                live_model = dict(fitted_snapshot or {})
+                live_model["weights"] = learned["weights"]
+                live_model["n_sims"] = int(live_model.get("n_sims") or n_sims)
+                live_model["live_updated_at"] = datetime.now(timezone.utc).isoformat()
+                live_model["live_source"] = "recommendation_pnl"
+                await db.save_fitted_model(live_model)
+                current_settings = load_settings()
+                current_settings["fitted_indicator_weights"] = learned["weights"]
+                save_settings(current_settings)
             await db.save_analysis_run(_jobs[job_id])
         except Exception as exc:
             _jobs[job_id]["status"] = "error"
@@ -394,7 +436,14 @@ async def analyze_status(job_id: str) -> dict[str, Any]:
     job = _jobs.get(job_id)
     if not job:
         raise HTTPException(404, "job not found")
-    results = await _attach_marks("contract", _finalize_contract_results(job.get("results") or []))
+    results = await _attach_marks(
+        "contract",
+        _finalize_contract_results(
+            job.get("results") or [],
+            already_marked=bool(job.get("recommend_final")),
+            n=int(job.get("recommend_n") or 3),
+        ),
+    )
     return {**job, "results": results}
 
 
@@ -405,7 +454,7 @@ async def contracts_fit_status() -> dict[str, Any]:
     fitted = bool(model and model.get("weights") and int(model.get("n_sims") or 0) >= MONTE_CARLO_SIMS)
     model_pub = None
     if model:
-        model_pub = {k: model.get(k) for k in ("n_sims", "fitted_at", "source", "sample_count", "interval")}
+        model_pub = {k: model.get(k) for k in ("n_sims", "fitted_at", "source", "sample_count", "interval", "live_updated_at")}
     if running_id and running:
         kind = running.get("kind") or "fit"
         return {
@@ -425,7 +474,14 @@ async def contracts_fit_status() -> dict[str, Any]:
             "results": await _attach_marks("contract", _finalize_contract_results(running.get("results") or [])),
         }
     last = await db.latest_analysis_run()
-    results = await _attach_marks("contract", _finalize_contract_results((last or {}).get("results") or []))
+    last_rows = (last or {}).get("results") or []
+    results = await _attach_marks(
+        "contract",
+        _finalize_contract_results(
+            last_rows,
+            already_marked=any("recommend" in r for r in last_rows),
+        ),
+    )
     payload = {
         "fitted": fitted,
         "running": False,

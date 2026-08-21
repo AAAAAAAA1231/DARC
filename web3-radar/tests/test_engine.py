@@ -11,6 +11,13 @@ from web3_radar.collectors.social import extract_deadline, looks_like_solana_lau
 from web3_radar.engine.indicators import classify_regime, compute_all_indicators, rsi, td_sequential
 from web3_radar.engine.monte_carlo import decision_from_score, monte_carlo_reweight
 from web3_radar.engine.signals import analyze_klines, average_weights_from_results, fit_global_weights, mark_top_recommendations, pool_expectancies
+from web3_radar.engine.live_learn import (
+    apply_live_feedback,
+    recommend_count,
+    settle_recommendations,
+    skip_symbols,
+    update_weights_from_trades,
+)
 
 
 def _ohlcv(n: int = 180, trend: float = 0.002, seed: int = 1) -> pd.DataFrame:
@@ -174,6 +181,133 @@ def test_mark_top_recommendations():
     )
     recommended = {row["symbol"] for row in rows if row["recommend"]}
     assert recommended == {"A", "B", "C"}
+    skipped = mark_top_recommendations(rows, 3, skip_symbols={"A"})
+    assert {row["symbol"] for row in skipped if row["recommend"]} == {"B", "C", "D"}
+
+
+def test_live_weight_update_follows_pnl_and_time():
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime(2026, 8, 21, 12, tzinfo=timezone.utc)
+    weights = {"rsi": 0.5, "macd": 0.5}
+    win = {
+        "symbol": "BTCUSDT",
+        "side": "涨",
+        "ts": (now - timedelta(hours=4)).isoformat(),
+        "closed_at": now.isoformat(),
+        "pnl_pct": 0.02,
+        "hit": True,
+        "signals": {"rsi": 1, "macd": -1},
+    }
+    after_win = update_weights_from_trades(weights, [win], now=now)
+    assert after_win["rsi"] > after_win["macd"]
+    loss = dict(win, pnl_pct=-0.02, hit=False)
+    after_loss = update_weights_from_trades(weights, [loss], now=now)
+    assert after_loss["rsi"] < after_loss["macd"]
+    old_loss = dict(loss, ts=(now - timedelta(hours=72)).isoformat())
+    after_old = update_weights_from_trades(weights, [old_loss], now=now)
+    assert abs(after_old["rsi"] - 0.5) < abs(after_loss["rsi"] - 0.5)
+
+
+def test_live_feedback_does_not_rebuy_pending_or_recent_losers():
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime(2026, 8, 21, 12, tzinfo=timezone.utc)
+    rows = [
+        {"symbol": "AAAUSDT", "decision": "涨", "score": 80, "price": 110, "indicators": [{"name": "rsi", "signal": 1, "strength": 0.8}]},
+        {"symbol": "BBBUSDT", "decision": "涨", "score": 70, "price": 50, "indicators": [{"name": "rsi", "signal": 1, "strength": 0.6}]},
+        {"symbol": "CCCUSDT", "decision": "跌", "score": -65, "price": 9, "indicators": [{"name": "rsi", "signal": -1, "strength": 0.7}]},
+        {"symbol": "DDDUSDT", "decision": "涨", "score": 40, "price": 3, "indicators": [{"name": "rsi", "signal": 1, "strength": 0.4}]},
+    ]
+    pending = [{
+        "symbol": "AAAUSDT",
+        "side": "涨",
+        "entry": 100,
+        "ts": (now - timedelta(minutes=20)).isoformat(),
+        "interval": "4h",
+        "signals": {"rsi": 1},
+        "weights": {"rsi": 1.0},
+    }]
+    still, closed = settle_recommendations(pending, rows, now=now)
+    assert still and not closed
+    skip = skip_symbols(still, [], now=now)
+    assert "AAAUSDT" in skip
+    out = apply_live_feedback(
+        rows,
+        {"pending": pending, "closed": []},
+        {"rsi": 1.0},
+        "4h",
+        now=now,
+    )
+    recs = {r["symbol"] for r in out["results"] if r.get("recommend")}
+    assert "AAAUSDT" not in recs
+    assert len(recs) <= 2
+
+    lost = {
+        "symbol": "BBBUSDT",
+        "side": "涨",
+        "entry": 60,
+        "ts": (now - timedelta(hours=8)).isoformat(),
+        "interval": "4h",
+        "signals": {"rsi": 1},
+        "closed_at": (now - timedelta(hours=1)).isoformat(),
+        "pnl_pct": -0.04,
+        "hit": False,
+    }
+    assert "BBBUSDT" in skip_symbols([], [lost], now=now)
+    losses = [
+        {**lost, "symbol": f"X{i}", "closed_at": (now - timedelta(hours=i)).isoformat(), "hit": False, "pnl_pct": -0.03}
+        for i in range(3)
+    ]
+    assert recommend_count(losses, pending=[], now=now) == 0
+
+
+def test_live_feedback_settles_and_rewrites_weights():
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime(2026, 8, 21, 16, tzinfo=timezone.utc)
+    rows = [
+        {
+            "symbol": "BTCUSDT",
+            "decision": "涨",
+            "score": 0.4,
+            "price": 90,
+            "regime": "单边",
+            "indicators": [
+                {"name": "rsi", "signal": 1, "strength": 0.9, "weight_optimized": 0.5},
+                {"name": "macd", "signal": -1, "strength": 0.4, "weight_optimized": 0.5},
+            ],
+        },
+        {
+            "symbol": "ETHUSDT",
+            "decision": "跌",
+            "score": -0.3,
+            "price": 2000,
+            "regime": "单边",
+            "indicators": [
+                {"name": "rsi", "signal": -1, "strength": 0.5, "weight_optimized": 0.5},
+                {"name": "macd", "signal": 1, "strength": 0.2, "weight_optimized": 0.5},
+            ],
+        },
+    ]
+    ledger = {
+        "pending": [{
+            "symbol": "BTCUSDT",
+            "side": "涨",
+            "entry": 100,
+            "ts": (now - timedelta(hours=5)).isoformat(),
+            "interval": "4h",
+            "signals": {"rsi": 1, "macd": -1},
+            "weights": {"rsi": 0.5, "macd": 0.5},
+        }],
+        "closed": [],
+    }
+    out = apply_live_feedback(rows, ledger, {"rsi": 0.5, "macd": 0.5}, "4h", now=now)
+    assert out["closed_now"]
+    assert out["closed_now"][0]["hit"] is False
+    assert out["weights"]["rsi"] < out["weights"]["macd"]
+    assert "BTCUSDT" not in {r["symbol"] for r in out["results"] if r.get("recommend")}
+
 
 
 def test_meme_liquidity_filter():

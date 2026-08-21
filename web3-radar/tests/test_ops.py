@@ -7,7 +7,18 @@ from web3_radar.collectors.social import (
     looks_like_project_launch,
     looks_like_solana_launch,
 )
-from web3_radar.copytrade import halt_new_entries, position_size_usd, recently_closed, token_id, trail_stop, _exit_reason
+from web3_radar.copytrade import (
+    cooldown_minutes_for,
+    consecutive_closed_losses,
+    halt_new_entries,
+    max_new_entries,
+    position_size_usd,
+    recently_closed,
+    size_after_losses,
+    token_id,
+    trail_stop,
+    _exit_reason,
+)
 from web3_radar.db import analysis_is_fitted
 from web3_radar.fallback import merge_items
 
@@ -49,6 +60,21 @@ def test_daily_loss_halt():
     s = {"copy_paper_equity": 850, "copy_daily_loss_pct": 0.15}
     positions = [{"status": "closed", "pnl_usd": -160, "closed_at": now.isoformat()}]
     assert halt_new_entries(s, positions, now=now)
+
+
+def test_copy_refresh_caps_and_losing_streak():
+    now = datetime(2026, 8, 21, 12, tzinfo=timezone.utc)
+    losses = [
+        {"status": "closed", "pnl_usd": -12, "closed_at": (now - timedelta(hours=i)).isoformat(), "close_reason": "止损", "item_key": "solana:abc", "token_address": "abc", "chain": "Solana"}
+        for i in range(3)
+    ]
+    assert consecutive_closed_losses(losses, 3)
+    n, why = max_new_entries({"copy_max_new_per_refresh": 1}, losses)
+    assert n == 0
+    assert "连亏" in (why or "")
+    assert max_new_entries({"copy_max_new_per_refresh": 1}, []) == (1, None)
+    assert size_after_losses(30, losses) == 15
+    assert cooldown_minutes_for(losses, "solana:abc", "solana:abc", 60) == 120
 
 
 def test_fitted_allows_twenty_percent_failures():

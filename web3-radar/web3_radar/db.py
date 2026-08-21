@@ -357,6 +357,9 @@ async def save_analysis_run(payload: dict[str, Any]) -> None:
                 "mode": r.get("mode") or "",
                 "n_sims": r.get("n_sims"),
                 "weights_adjusted": r.get("weights_adjusted"),
+                "recommend": bool(r.get("recommend")),
+                "regime": r.get("regime"),
+                "side": r.get("side"),
                 "sim_note": r.get("sim_note"),
                 "market_cap_rank": r.get("market_cap_rank"),
                 "venue": r.get("venue"),
@@ -386,7 +389,14 @@ async def save_analysis_run(payload: dict[str, Any]) -> None:
                 up,
                 down,
                 wait,
-                json.dumps({"results": slim}, ensure_ascii=False),
+                json.dumps(
+                    {
+                        "results": slim,
+                        "live_learn": payload.get("live_learn"),
+                        "recommend_n": payload.get("recommend_n"),
+                    },
+                    ensure_ascii=False,
+                ),
             ),
         )
         await conn.commit()
@@ -403,7 +413,10 @@ async def latest_analysis_run() -> dict[str, Any] | None:
             return None
         data = dict(row)
         try:
-            data["results"] = json.loads(data.pop("payload") or "{}").get("results") or []
+            parsed = json.loads(data.pop("payload") or "{}")
+            data["results"] = parsed.get("results") or []
+            data["live_learn"] = parsed.get("live_learn")
+            data["recommend_n"] = parsed.get("recommend_n")
         except json.JSONDecodeError:
             data["results"] = []
         fitted, ok_n, total_n = analysis_is_fitted(data["results"])
@@ -415,8 +428,13 @@ async def latest_analysis_run() -> dict[str, Any] | None:
                 f"已完成拟合 {str(data['created_at'])[:19]} · {ok_n}/{total_n} 标的已有校准权重 · "
                 f"涨{data['up_count']} / 跌{data['down_count']} / 观望{data['wait_count']}"
             )
+            if data.get("live_learn"):
+                data["fitted_note"] = f"{data['fitted_note']} · {data['live_learn']}"
         else:
-            data["fitted_note"] = f"尚未完成权重拟合。拟合只需一次 {format_sim_count(MONTE_CARLO_SIMS)}模拟；之后刷新只套用模型出信号。"
+            data["fitted_note"] = (
+                f"尚未完成权重拟合。拟合只需一次 {format_sim_count(MONTE_CARLO_SIMS)}模拟；"
+                "之后刷新按推荐盈亏回写权重。"
+            )
         return data
     finally:
         await conn.close()

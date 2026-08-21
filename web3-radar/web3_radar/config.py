@@ -152,8 +152,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     "copy_max_size_pct": 0.05,
     "copy_trail_arm_pct": 0.25,
     "copy_trail_lock_pct": 0.50,
-    "copy_daily_loss_pct": 0.15,
-    "weight_refit_days": 7,
+            "copy_daily_loss_pct": 0.15,
+            "copy_max_new_per_refresh": 1,
+            "weight_refit_days": 7,
 }
 
 MONTE_CARLO_SIMS = 1_000_000_000

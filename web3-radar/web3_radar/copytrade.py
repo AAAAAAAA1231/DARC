@@ -90,6 +90,53 @@ def halt_new_entries(s: dict[str, Any], positions: list[dict[str, Any]], now: da
     return None
 
 
+def closed_by_time(closed: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return sorted(
+        [p for p in closed or [] if p.get("closed_at") or p.get("status") == "closed"],
+        key=lambda p: str(p.get("closed_at") or ""),
+    )
+
+
+def consecutive_closed_losses(closed: list[dict[str, Any]], n: int = 3) -> bool:
+    last = closed_by_time(closed)[-max(int(n), 1) :]
+    return len(last) >= n and all(float(p.get("pnl_usd") or 0) < 0 for p in last)
+
+
+def size_after_losses(size: float, closed: list[dict[str, Any]], lookback: int = 5) -> float:
+    recent = closed_by_time(closed)[-lookback:]
+    if len(recent) < 3:
+        return float(size)
+    net = sum(float(p.get("pnl_usd") or 0) for p in recent)
+    if net < 0:
+        return round(max(float(size) * 0.5, 0.0), 2)
+    return float(size)
+
+
+def cooldown_minutes_for(
+    closed: list[dict[str, Any]],
+    tid: str,
+    key: str,
+    base: int,
+) -> int:
+    minutes = max(int(base or 0), 0)
+    recent = closed_by_time(closed)
+    for pos in reversed(recent):
+        same = token_id(pos) == tid or str(pos.get("item_key") or "").lower() == str(key or "").lower()
+        if not same:
+            continue
+        if str(pos.get("close_reason") or "") == "止损":
+            return minutes * 2
+        return minutes
+    return minutes
+
+
+def max_new_entries(s: dict[str, Any], closed: list[dict[str, Any]]) -> tuple[int, str | None]:
+    cap = max(0, int(s.get("copy_max_new_per_refresh") or 1))
+    if consecutive_closed_losses(closed, 3):
+        return 0, "近3笔跟单连亏，本次不开新仓"
+    return cap, None
+
+
 def _settings() -> dict[str, Any]:
     s = load_settings()
     s.setdefault("copy_enabled", True)
@@ -107,6 +154,7 @@ def _settings() -> dict[str, Any]:
     s.setdefault("copy_trail_arm_pct", 0.25)
     s.setdefault("copy_trail_lock_pct", 0.50)
     s.setdefault("copy_daily_loss_pct", 0.15)
+    s.setdefault("copy_max_new_per_refresh", 1)
     return s
 
 
@@ -136,9 +184,10 @@ async def snapshot() -> dict[str, Any]:
         "unrealized_pnl": round(unreal, 2),
         "win_rate": round(len(wins) / len(closed), 3) if closed else 0,
         "note": (
-            "默认模拟跟单：只在刷新妖币时开新仓；缓存刷新只做盯市与平仓。"
+            "默认模拟跟单：只在刷新妖币时最多新开 1 笔；缓存刷新只做盯市与平仓。"
             "止损 18%、止盈 40%，浮盈 25% 保本、50% 追踪锁一半利润。"
-            "同币冷却 60 分钟，单笔不超过权益 5%。实盘只进钱包确认队列，不代签私钥。"
+            "同币冷却 60 分钟（止损后加倍），单笔不超过权益 5%。近 3 笔连亏或当日回撤过大则停开。"
+            "实盘只进钱包确认队列，不代签私钥。"
         ),
     }
 
@@ -161,6 +210,7 @@ async def update_settings(fields: dict[str, Any]) -> dict[str, Any]:
         "copy_trail_arm_pct",
         "copy_trail_lock_pct",
         "copy_daily_loss_pct",
+        "copy_max_new_per_refresh",
     }
     for k, v in fields.items():
         if k in allowed:
@@ -255,12 +305,14 @@ async def evaluate_memes(items: list[dict[str, Any]], open_new: bool = True) -> 
     open_keys = {str(p["item_key"]).lower() for p in open_pos}
     open_tids = {token_id(p) for p in open_pos}
     max_n = int(s.get("copy_max_positions") or 5)
-    size = position_size_usd(s)
+    size = size_after_losses(position_size_usd(s), closed)
     cooldown = int(s.get("copy_cooldown_minutes") or 60)
+    max_new, streak_halt = max_new_entries(s, closed)
 
-    if size < 5:
+    if size < 5 or max_new <= 0:
         snap = await snapshot()
-        snap["actions"] = actions + ["权益过低，单笔不足 $5，停止开仓"]
+        why = "权益过低，单笔不足 $5，停止开仓" if size < 5 else (streak_halt or "本次不开新仓")
+        snap["actions"] = actions + [why]
         snap["opened_new"] = False
         return snap
 
@@ -273,6 +325,9 @@ async def evaluate_memes(items: list[dict[str, Any]], open_new: bool = True) -> 
 
     opened = 0
     for it, why in candidates:
+        if opened >= max_new:
+            actions.append(f"本次最多新开 {max_new} 笔，其余可跟下次再看")
+            break
         if len(open_pos) >= max_n:
             actions.append("已达最大持仓数")
             break
@@ -280,7 +335,8 @@ async def evaluate_memes(items: list[dict[str, Any]], open_new: bool = True) -> 
         tid = token_id(it)
         if key.lower() in open_keys or tid in open_tids:
             continue
-        if recently_closed(closed, tid, cooldown) or recently_closed(closed, key.lower(), cooldown):
+        wait = cooldown_minutes_for(closed, tid, key.lower(), cooldown)
+        if recently_closed(closed, tid, wait) or recently_closed(closed, key.lower(), wait):
             actions.append(f"冷却中，跳过 {it.get('symbol')}")
             continue
         px = float(it.get("price_usd") or 0)

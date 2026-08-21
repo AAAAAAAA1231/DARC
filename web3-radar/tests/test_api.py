@@ -19,7 +19,7 @@ def test_health_and_index():
     assert "接口令牌" in page.text
     assert "单边快讯" in page.text
     assert "只看高影响提醒" in page.text
-    assert "只看评分前三的推荐" in page.text
+    assert "只看推荐" in page.text
     assert "成功率" not in page.text
     assert "$1M" in page.text or "$1,000,000" in page.text or "池子 ≥ $1M" in page.text
 

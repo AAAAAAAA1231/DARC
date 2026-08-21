@@ -1,8 +1,8 @@
 const views = {
-  contracts: ["合约分析", "推荐综合分绝对值最高的三个涨/跌标的。震荡默认不追。10 亿次只用于校准权重。"],
+  contracts: ["合约分析", "每次刷新会用上次推荐的涨跌和时间给指标重新加权。未到期持仓和刚亏过的不会再原样推；连亏会少推或观望。10 亿次只用于偶尔校准。"],
   news: ["单边快讯", "先把消息整理成做多 / 做空 / 观望。只保留 FOMC、ETF、监管、黑客、脱锚这类可能打开单边的催化剂。不是投资建议。"],
   meme: ["妖币监控", "只保留池子≥$1M、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
-  copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
+  copytrade: ["自动跟单", "跟随妖币「可跟」信号。每次刷新最多新开 1 笔；缓存页只盯市。连亏暂停、亏损后减仓，止损后冷却加倍。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
   launch: ["打新监测", "Solana 只推 @solana/@toly 关注；BSC 只推 @cz_binance/@heyibinance 关注。不是官方关注的不显示。"],
   airdrop: ["空投雷达", "只盯比特币生态与 ETH 生态。BTC 融资 ≥ $500 万，ETH 融资 ≥ $2000 万，优先未发币。"],
@@ -239,7 +239,7 @@ function renderContracts() {
     if (rec) return rec;
     return Math.abs(Number(b.score || 0)) - Math.abs(Number(a.score || 0));
   });
-  $("contractRows").innerHTML = shown.map(contractRow).join("") || emptyRow(11, only ? "暂无评分前三的推荐" : "暂无标的");
+    $("contractRows").innerHTML = shown.map(contractRow).join("") || emptyRow(11, only ? "暂无推荐（可能连亏或持仓未到期）" : "暂无标的");
 }
 
 function contractRow(r) {
