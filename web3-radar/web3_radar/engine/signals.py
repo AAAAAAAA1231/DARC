@@ -20,8 +20,7 @@ from web3_radar.engine.monte_carlo import (
     normalize_shares,
 )
 
-MIN_SUCCESS_RATE = 0.80
-MIN_SUCCESS_SAMPLES = 6
+TOP_RECOMMEND = 3
 
 
 def resolve_weights(
@@ -89,63 +88,21 @@ def average_weights_from_results(results: list[dict[str, Any]]) -> dict[str, flo
     return {n: float(raw[i]) for i, n in enumerate(names)}
 
 
-def directional_hit_rate(
-    df: pd.DataFrame,
-    weights_map: dict[str, float],
-    threshold: float,
-    horizon: int = 8,
-    max_windows: int = 8,
-) -> tuple[float, int]:
-    """Walk recent history: when the model would have said 涨/跌, how often the next bars agreed."""
-    n = len(df)
-    if n < 80:
-        return 0.0, 0
-    hits = 0
-    total = 0
-    span = max(1, n - horizon - 60)
-    step = max(6, span // max(max_windows, 1))
-    for i in range(60, n - horizon, step):
-        window = df.iloc[: i + 1]
-        try:
-            inds = compute_all_indicators(window)
-        except Exception:
-            continue
-        names = [ind.name for ind in inds]
-        weights = np.array([float(weights_map.get(name, 1.0)) for name in names], dtype=np.float64)
-        if weights.sum() <= 0:
-            continue
-        weights = weights / weights.sum()
-        signals = np.array([ind.signal for ind in inds], dtype=np.float64)
-        strengths = np.array([ind.strength for ind in inds], dtype=np.float64)
-        score = composite_score(signals, strengths, weights)
-        decision = decision_from_score(score, threshold)
-        if decision == "观望":
-            continue
-        fwd = float(df["close"].iloc[i + horizon] / df["close"].iloc[i] - 1)
-        if (decision == "涨" and fwd > 0) or (decision == "跌" and fwd < 0):
-            hits += 1
-        total += 1
-        if total >= max_windows:
-            break
-    if total <= 0:
-        return 0.0, 0
-    return float(hits / total), int(total)
-
-
-def apply_success_gate(
-    decision: str,
-    rate: float,
-    samples: int,
-    min_rate: float = MIN_SUCCESS_RATE,
-    min_samples: int = MIN_SUCCESS_SAMPLES,
-) -> tuple[str, bool, str]:
-    if decision == "观望":
-        return "观望", False, "未形成方向，不推荐"
-    if samples < min_samples:
-        return "观望", False, f"样本不足（{samples} 次），不推荐"
-    if rate + 1e-12 < min_rate:
-        return "观望", False, f"成功率 {rate:.0%} < 80%，不推荐"
-    return decision, True, f"成功率 {rate:.0%}（{samples} 次回看）"
+def mark_top_recommendations(rows: list[dict[str, Any]], n: int = TOP_RECOMMEND) -> list[dict[str, Any]]:
+    """Recommend the n strongest 涨/跌 calls by absolute composite score."""
+    for row in rows:
+        row["recommend"] = False
+    ranked = [
+        row
+        for row in rows
+        if not row.get("error")
+        and str(row.get("symbol") or "") not in ("", "?")
+        and str(row.get("decision") or "") in ("涨", "跌")
+    ]
+    ranked.sort(key=lambda row: abs(float(row.get("score") or 0)), reverse=True)
+    for row in ranked[: max(0, int(n))]:
+        row["recommend"] = True
+    return rows
 
 
 def analyze_klines(
@@ -158,7 +115,6 @@ def analyze_klines(
     initial_shares: dict[str, float] | None = None,
     top_pct: float = 1.0,
     fitted_weights: dict[str, float] | None = None,
-    min_success_rate: float = MIN_SUCCESS_RATE,
 ) -> dict[str, Any]:
     if df is None or len(df) < 60:
         raise ValueError("K 线数据不足，至少需要 60 根")
@@ -214,15 +170,7 @@ def analyze_klines(
     else:
         decision = raw_decision
 
-    hit_rate, hit_n = directional_hit_rate(df, weights_map, effective_threshold)
-    decision, recommend, gate_note = apply_success_gate(
-        decision, hit_rate, hit_n, min_rate=float(min_success_rate)
-    )
-    if not recommend:
-        side = "flat"
-        sim_note = f"{sim_note} · {gate_note}"
-    else:
-        sim_note = f"{sim_note} · {gate_note}"
+    recommend = decision in ("涨", "跌")
 
     price = float(df["close"].iloc[-1])
     atr_v = last_atr(df)
@@ -253,9 +201,6 @@ def analyze_klines(
         "side": side,
         "score": round(score, 4),
         "confidence": round(min(1.0, abs(score) / max(effective_threshold, 1e-6)), 4),
-        "success_rate": round(hit_rate, 4),
-        "success_samples": int(hit_n),
-        "success_note": gate_note,
         "recommend": bool(recommend),
         "price": price,
         "entry": round(entry, 8),

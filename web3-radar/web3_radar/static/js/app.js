@@ -1,5 +1,5 @@
 const views = {
-  contracts: ["合约分析", "只推荐成功率 ≥ 80% 的涨/跌。震荡默认不追。100 万次只用于校准权重。"],
+  contracts: ["合约分析", "推荐综合分绝对值最高的三个涨/跌标的。震荡默认不追。100 万次只用于校准权重。"],
   meme: ["妖币监控", "只保留池子≥$1M、短期买压、持币在增加、且不像接盘的币。可跟才会进入自动跟单。"],
   copytrade: ["自动跟单", "跟随妖币「可跟」信号。缓存页只盯市；刷新才开新仓。带追踪止盈、冷却和仓位上限。"],
   ambassador: ["大使招募", "新 Web3 项目在 X / 招聘页上的大使计划，不是 OKX、币安校园大使。可标记申请与成功。"],
@@ -107,7 +107,6 @@ async function loadView(name, refresh) {
           const row = {
             key: u.binance_symbol, symbol: u.binance_symbol, name: u.name, venue: u.venue,
             market_cap_rank: u.market_cap_rank, decision: "观望", score: 0, recommend: false,
-            success_rate: 0, success_note: "未分析",
             price: u.price, entry: u.price, stop_loss: "", take_profit: "", n_sims: 0, mode: "",
             regime: "", playbook: "",
           };
@@ -215,19 +214,20 @@ function renderContracts() {
     if (only && !r.recommend) return false;
     if (!q) return true;
     return (r.symbol + " " + (r.name || "") + " " + (r.decision || "") + " " + (r.regime || "") + (r.recommend ? " 推荐" : "")).toLowerCase().includes(q);
-  }).sort((a, b) => Number(b.success_rate || 0) - Number(a.success_rate || 0));
-  $("contractRows").innerHTML = shown.map(contractRow).join("") || emptyRow(12, only ? "暂无成功率 ≥ 80% 的推荐" : "暂无标的");
+  }).sort((a, b) => {
+    const rec = Number(!!b.recommend) - Number(!!a.recommend);
+    if (rec) return rec;
+    return Math.abs(Number(b.score || 0)) - Math.abs(Number(a.score || 0));
+  });
+  $("contractRows").innerHTML = shown.map(contractRow).join("") || emptyRow(11, only ? "暂无评分前三的推荐" : "暂无标的");
 }
 
 function contractRow(r) {
   const id = encodeURIComponent(r.symbol);
-  const rate = r.success_rate == null ? null : Number(r.success_rate);
-  const rateText = rate == null ? "-" : Math.round(rate * 100) + "%";
   return `<tr>
     <td><strong>${r.symbol}</strong><div class="muted">${r.name || ""} ${r.venue ? "· " + r.venue : ""}</div></td>
     <td>${r.market_cap_rank || "-"}</td>
     <td><span class="tag ${tagClass(r.decision)}">${r.decision || "观望"}</span>${r.recommend ? " <span class='tag live'>推荐</span>" : ""}</td>
-    <td><span class="tag ${r.recommend ? "up" : "wait"}">${rateText}</span><div class="muted">${escapeHtml(r.success_note || "")}</div></td>
     <td><span class="tag ${regimeClass(r.regime)}">${r.regime || "-"}</span><div class="muted">${escapeHtml(r.playbook || r.regime_detail || "")}</div></td>
     <td>${r.score ?? "-"}</td>
     <td>${fmtPx(r.price)}</td>
@@ -249,7 +249,7 @@ function showDetail(id) {
   $("contractDetail").innerHTML = `
     <div class="panel">
       <h3>${r.symbol} · ${escapeHtml(r.regime || "行情未知")} · ${escapeHtml(r.playbook || "")} · ${r.recommend ? "推荐" : "不推荐"}</h3>
-      <p class="muted">${escapeHtml(r.success_note || "")} ${escapeHtml(r.regime_advice || "")} ${escapeHtml(r.regime_detail || "")}${r.raw_decision && r.raw_decision !== r.decision ? " · 模型原结论 " + r.raw_decision + " 已被过滤" : ""}</p>
+      <p class="muted">${escapeHtml(r.regime_advice || "")} ${escapeHtml(r.regime_detail || "")}${r.raw_decision && r.raw_decision !== r.decision ? " · 模型原结论 " + r.raw_decision + " 已被过滤" : ""}</p>
       <h3>${r.symbol} 指标权重（${r.mode === "infer" ? "套用已拟合模型" : "本次校准"} · 校准 ${Number(r.n_sims||0).toLocaleString()} 次）</h3>
       <div class="table-wrap"><table>
         <thead><tr><th>指标</th><th>信号</th><th>强度</th><th>期望</th><th>初始权重</th><th>优化权重</th><th>说明</th></tr></thead>

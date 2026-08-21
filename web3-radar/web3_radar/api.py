@@ -18,7 +18,12 @@ from web3_radar.collectors.launch import scan_launches
 from web3_radar.collectors.meme import scan_meme_coins
 from web3_radar.config import INITIAL_INDICATOR_SHARES, STATIC_DIR, load_settings, save_settings
 from web3_radar.engine.indicators import historical_expectancy
-from web3_radar.engine.signals import analyze_klines, average_weights_from_results, fit_global_weights
+from web3_radar.engine.signals import (
+    analyze_klines,
+    average_weights_from_results,
+    fit_global_weights,
+    mark_top_recommendations,
+)
 from web3_radar.wallet import enqueue_participate, wallet_status
 
 app = FastAPI(title="链上雷达", version="1.0.0")
@@ -117,12 +122,18 @@ async def contract_universe() -> dict[str, Any]:
 
 
 def _sort_contract_results(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    def key(r: dict[str, Any]) -> tuple[float, float]:
+    def key(r: dict[str, Any]) -> tuple[float, float, float]:
         if r.get("error") or not r.get("symbol") or r.get("symbol") == "?":
-            return (-1.0, 0.0)
-        return (float(r.get("success_rate") or 0.0), float(r.get("score") or 0.0))
+            return (-1.0, 0.0, 0.0)
+        rec = 1.0 if r.get("recommend") else 0.0
+        score = float(r.get("score") or 0.0)
+        return (rec, abs(score), score)
 
     return sorted(rows or [], key=key, reverse=True)
+
+
+def _finalize_contract_results(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    return _sort_contract_results(mark_top_recommendations(list(rows or []), 3))
 
 
 async def _attach_marks(category: str, items: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -325,7 +336,7 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
 
             _jobs[job_id]["status"] = "done"
             _jobs[job_id]["n_sims"] = n_sims
-            _jobs[job_id]["results"] = _sort_contract_results(_jobs[job_id].get("results") or [])
+            _jobs[job_id]["results"] = _finalize_contract_results(_jobs[job_id].get("results") or [])
             await db.save_analysis_run(_jobs[job_id])
         except Exception as exc:
             _jobs[job_id]["status"] = "error"
@@ -340,7 +351,7 @@ async def analyze_status(job_id: str) -> dict[str, Any]:
     job = _jobs.get(job_id)
     if not job:
         raise HTTPException(404, "job not found")
-    results = await _attach_marks("contract", _sort_contract_results(job.get("results") or []))
+    results = await _attach_marks("contract", _finalize_contract_results(job.get("results") or []))
     return {**job, "results": results}
 
 
@@ -368,10 +379,10 @@ async def contracts_fit_status() -> dict[str, Any]:
                 f"{running.get('done') or 0}/{running.get('total') or 0}"
                 + (f" · {running.get('phase')}" if running.get("phase") else "")
             ),
-            "results": await _attach_marks("contract", _sort_contract_results(running.get("results") or [])),
+            "results": await _attach_marks("contract", _finalize_contract_results(running.get("results") or [])),
         }
     last = await db.latest_analysis_run()
-    results = await _attach_marks("contract", _sort_contract_results((last or {}).get("results") or []))
+    results = await _attach_marks("contract", _finalize_contract_results((last or {}).get("results") or []))
     payload = {
         "fitted": fitted,
         "running": False,

@@ -17,7 +17,8 @@ def test_health_and_index():
     assert page.status_code == 200
     assert "链上雷达" in page.text
     assert "接口令牌" in page.text
-    assert "cz_binance" in page.text
+    assert "只看评分前三的推荐" in page.text
+    assert "成功率" not in page.text
     assert "$1M" in page.text or "$1,000,000" in page.text or "池子 ≥ $1M" in page.text
 
 
