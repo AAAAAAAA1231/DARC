@@ -27,24 +27,40 @@ jobs:
           pip install -r requirements.txt pyinstaller
       - name: Test
         run: python -m pytest tests -q
-      - name: Build EXE
+      - name: Build portable folder
         run: pyinstaller --noconfirm ChainRadar.spec
-      - name: Upload EXE
+      - name: Zip portable folder
+        run: |
+          Copy-Item -Force packaging\使用说明.txt dist\ChainRadar\使用说明.txt
+          if (Test-Path dist\ChainRadar.zip) { Remove-Item dist\ChainRadar.zip }
+          Compress-Archive -Path dist\ChainRadar -DestinationPath dist\ChainRadar.zip -CompressionLevel Optimal
+      - name: Upload ZIP
         uses: actions/upload-artifact@v4
         with:
           name: ChainRadar-windows
-          path: web3-radar/dist/ChainRadar.exe
+          path: web3-radar/dist/ChainRadar.zip
+      - name: Drop old single-file EXE from release
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        run: |
+          $ids = gh release view chainradar --repo ${{ github.repository }} --json assets --jq '.assets[] | select(.name=="ChainRadar.exe") | .id' 2>$null
+          foreach ($id in $ids) {
+            if ($id) { gh api -X DELETE "repos/${{ github.repository }}/releases/assets/$id" }
+          }
       - name: Publish downloadable release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: chainradar
           name: 链上雷达 ChainRadar
           target_commitish: ${{ github.sha }}
-          files: web3-radar/dist/ChainRadar.exe
+          files: web3-radar/dist/ChainRadar.zip
           fail_on_unmatched_files: true
           make_latest: true
           body: |
-            直接点下面的 **ChainRadar.exe** 就会下载，不要点仓库文件旁的小箭头。
+            请下载 **ChainRadar.zip**，解压后进入文件夹，双击 `ChainRadar.exe`。
+            不要只把 exe 单独拷走，也不要点仓库文件旁的小箭头。
 
-            或把这行粘贴到浏览器地址栏回车：
-            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
+            粘贴到浏览器地址栏回车：
+            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.zip

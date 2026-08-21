@@ -42,16 +42,18 @@ python run.py
 
 建议在「设置」中填写 Twitter Bearer Token，以提高大使/打新覆盖率。
 
-## 下载 Windows EXE（不要点小箭头）
+## 下载 Windows 版（不要点小箭头）
 
 仓库文件旁的向下箭头对大文件经常没反应。用下面任一方式：
 
 1. 把这行复制到浏览器地址栏，按回车：  
-   https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
+   https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.zip
 2. 双击 `下载链上雷达.bat`
 3. 打开 `请用这个方式下载.txt` 按里面的链接
 
-下完后双击 `ChainRadar.exe`，浏览器打开 http://127.0.0.1:8787
+下完后**解压 zip**，进入 `ChainRadar` 文件夹，双击 `ChainRadar.exe`。不要只把 exe 单独拷走。
+
+Windows 有时会把「单文件自解压 exe」误判成病毒；现在改成文件夹便携版，并带版本信息和图标。若仍被拦截，在 Windows 安全中心保护历史记录里选「允许」，或把该文件夹加入排除项。启动后浏览器打开 http://127.0.0.1:8787
 
 ## 打包 Windows EXE
 
@@ -63,7 +65,7 @@ pip install -r requirements.txt pyinstaller
 pyinstaller --noconfirm ChainRadar.spec
 ```
 
-生成 `dist/ChainRadar.exe`。首次运行会在 EXE 同目录创建 `data/`（数据库与设置）。
+生成 `dist/ChainRadar/` 文件夹。再压成 `dist/ChainRadar.zip` 分发。首次运行会在该文件夹内创建 `data/`（数据库与设置）。
 
 仓库已配置 GitHub Actions：`.github/workflows/build-web3-radar.yml`，在 Actions 中手动运行后可下载 `ChainRadar-windows` 产物。
 
