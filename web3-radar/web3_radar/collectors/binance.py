@@ -56,8 +56,50 @@ SYMBOL_OVERRIDES = {
     "ethena": "ENAUSDT",
 }
 
+THOUSAND_PREFIX = {"PEPE", "SHIB", "BONK", "FLOKI", "LUNC", "SATS", "XEC", "CAT"}
+
 INTERVAL_OKX = {"15m": "15m", "4h": "4H", "1d": "1D", "1h": "1H"}
 HEADERS = {"User-Agent": "ChainRadar/1.0", "Accept": "application/json"}
+
+
+def resolve_perp_symbol(
+    query: str,
+    universe: list[dict[str, Any]] | None = None,
+) -> tuple[str, dict[str, Any]]:
+    """Turn BTC / eth / ETHUSDT / bitcoin into a Binance USDT-M symbol."""
+    q = (query or "").strip()
+    if not q:
+        raise ValueError("请输入币种，例如 BTC 或 ETHUSDT")
+    raw = q.upper().replace("-", "").replace("/", "").replace(" ", "")
+    for suffix in ("PERP", "USDTM"):
+        if raw.endswith(suffix):
+            raw = raw[: -len(suffix)]
+    candidates: list[str] = []
+    if raw.endswith("USDT") or raw.endswith("USDC"):
+        candidates.append(raw)
+    else:
+        candidates.append(raw + "USDT")
+        base = raw.replace("1000", "")
+        if base in THOUSAND_PREFIX and not raw.startswith("1000"):
+            candidates.append("1000" + base + "USDT")
+    uni = list(universe or [])
+    qn = q.lower().strip()
+    for u in uni:
+        bs = str(u.get("binance_symbol") or "").upper()
+        if not bs:
+            continue
+        if bs in candidates or bs == raw:
+            return bs, u
+        if str(u.get("symbol") or "").lower() == qn:
+            return bs, u
+        name = str(u.get("name") or "").lower()
+        if len(qn) >= 3 and (qn == name or qn in name.split()):
+            return bs, u
+    cid = qn.replace(" ", "-")
+    if cid in SYMBOL_OVERRIDES:
+        sym = SYMBOL_OVERRIDES[cid]
+        return sym, {"name": cid.replace("-", " ").title(), "binance_symbol": sym, "id": cid}
+    return candidates[0], {"name": q, "binance_symbol": candidates[0]}
 
 
 def builtin_markets() -> list[dict[str, Any]]:

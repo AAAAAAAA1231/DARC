@@ -52,15 +52,16 @@
           </select>
         </label>
         <label class="check"><input type="checkbox" id="onlyRecommend" checked /> 只看推荐</label>
-        <input id="contractFilter" placeholder="筛选币种 / 涨跌 / 震荡 / 单边 / 推荐" />
-        <span class="pill" id="simBadge">尚未拟合：先校准一次指标权重，之后按实盘盈亏回写，不再每次原样买三个</span>
+        <input id="contractFilter" placeholder="输入单一币种如 BTC / ETHUSDT，回车分析" />
+        <button class="btn" id="analyzeOne">分析此币</button>
+        <span class="pill" id="simBadge">尚未拟合：先校准一次指标权重，之后按各币胜率推荐</span>
       </div>
       <div class="progress hidden" id="analyzeProgress"><div></div></div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>标的</th><th>市值排名</th><th>结论</th><th>行情</th><th>综合分</th><th>现价</th>
+              <th>标的</th><th>市值排名</th><th>结论</th><th>行情</th><th>胜率</th><th>综合分</th><th>现价</th>
               <th>建仓</th><th>止损</th><th>止盈</th><th>阶段</th><th>操作</th>
             </tr>
           </thead>
@@ -73,6 +74,7 @@
     <section id="view-news" class="view hidden">
       <div class="toolbar">
         <span class="pill">先给结论：做多 / 做空 / 观望</span>
+        <span class="pill">只保留 24 小时内</span>
         <span class="pill">宏观 / ETF / 监管 / 黑客 / 脱锚</span>
         <label class="check"><input type="checkbox" id="newsAlertOnly" /> 只看高影响提醒</label>
         <select id="newsBiasFilter">
@@ -92,15 +94,16 @@
       <div class="toolbar">
         <span class="pill">池子 ≥ $1M</span>
         <span class="pill">5 分钟买压 + 持币增长</span>
+        <span class="pill">名人喊单 · 给出 CA 与链</span>
         <span class="pill">过滤接盘 / 过新狙击盘</span>
-        <input id="memeFilter" placeholder="筛选 可跟/观察/链" />
+        <input id="memeFilter" placeholder="筛选 可跟/观察/链/CA/名人" />
       </div>
       <p class="muted" id="memeMsg"></p>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>评级</th><th>链</th><th>币种</th><th>价格</th><th>流动性</th>
+              <th>评级</th><th>链</th><th>币种</th><th>CA</th><th>价格</th><th>流动性</th>
               <th>买卖比</th><th>热度</th><th>风险</th><th>来源</th><th>操作</th>
             </tr>
           </thead>
@@ -144,7 +147,8 @@
     <section id="view-ambassador" class="view hidden">
       <div class="toolbar">
         <span class="pill">窗口：7 天内</span>
-        <span class="pill">新项目大使 · 非交易所校园计划</span>
+        <span class="pill">只显示项目方发布的招募</span>
+        <span class="pill">不显示个人求职</span>
         <select id="ambStatusFilter">
           <option value="">全部标记</option>
           <option value="none">未标记</option>
@@ -162,13 +166,15 @@
 
     <section id="view-launch" class="view hidden">
       <div class="toolbar">
-        <span class="pill">只推官方正在关注的</span>
+        <span class="pill">官方关注优先</span>
         <span class="pill">Solana：@solana / @toly</span>
         <span class="pill">BSC：@cz_binance / @heyibinance</span>
+        <span class="pill">行业名人单独标记</span>
       </div>
       <div class="panel" id="launchTokenBox">
-        <h3>打新只看官方关注</h3>
-        <p><strong>Solana</strong> 必须被 @solana / @toly 关注；<strong>BSC</strong> 必须被 @cz_binance（CZ）或 @heyibinance（何一）关注。不是这些关注的一律不显示。</p>
+        <h3>打新看官方关注，行业名人也盯但会单独标记</h3>
+        <p><strong>官方</strong>：Solana 必须被 @solana / @toly 关注；BSC 必须被 @cz_binance（CZ）或 @heyibinance（何一）关注。</p>
+        <p><strong>行业名人</strong>：另盯 Raj Gokal、Mert / Helius、Jupiter、Superteam、PancakeSwap、BNB Chain 的关注列表。这些不是官方口径，卡片上会标「行业名人」并写明纳入理由。</p>
         <p class="muted">一般不用填令牌：软件会去读公开关注页。填了 X 令牌更稳，还能扫他们关注的项目有没有发发射推文。</p>
         <details>
           <summary>可选：填 X 令牌（更稳，不是必须）</summary>

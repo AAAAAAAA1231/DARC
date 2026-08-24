@@ -14,21 +14,96 @@ from web3_radar.http_util import client as http_client
 CN = timezone(timedelta(hours=8))
 TWITTER_API = "https://api.twitter.com/2"
 SOLANA_HANDLE = "solana"
+WATCH_PROFILES: dict[str, dict[str, str]] = {
+    "solana": {
+        "handle": "solana",
+        "label": "@solana",
+        "tier": "official",
+        "chain": "Solana",
+        "reason": "Solana 官方账号，关注列表代表生态认可",
+    },
+    "toly": {
+        "handle": "toly",
+        "label": "@toly",
+        "tier": "official",
+        "chain": "Solana",
+        "reason": "Solana 联合创始人 Anatoly",
+    },
+    "aeyakovenko": {
+        "handle": "aeyakovenko",
+        "label": "@aeyakovenko",
+        "tier": "official",
+        "chain": "Solana",
+        "reason": "Solana 联合创始人，与 @toly 同属官方观察",
+    },
+    "cz_binance": {
+        "handle": "cz_binance",
+        "label": "@cz_binance",
+        "tier": "official",
+        "chain": "BSC",
+        "reason": "币安创始人 CZ",
+    },
+    "heyibinance": {
+        "handle": "heyibinance",
+        "label": "@heyibinance",
+        "tier": "official",
+        "chain": "BSC",
+        "reason": "币安何一",
+    },
+    "rajgokal": {
+        "handle": "rajgokal",
+        "label": "@rajgokal",
+        "tier": "industry",
+        "chain": "Solana",
+        "reason": "Solana 联合创始人，常转发生态新项目；不是官方关注口径，单独标记",
+    },
+    "0xmert_": {
+        "handle": "0xMert_",
+        "label": "@0xMert_",
+        "tier": "industry",
+        "chain": "Solana",
+        "reason": "Helius 创始人，Solana 基础设施意见领袖",
+    },
+    "jupiterexchange": {
+        "handle": "jupiterexchange",
+        "label": "@jupiterexchange",
+        "tier": "industry",
+        "chain": "Solana",
+        "reason": "Jupiter 官方账号，Solana 最大 DEX 聚合器",
+    },
+    "superteam": {
+        "handle": "Superteam",
+        "label": "@Superteam",
+        "tier": "industry",
+        "chain": "Solana",
+        "reason": "Solana Superteam，常推生态创业与发射",
+    },
+    "pancakeswap": {
+        "handle": "PancakeSwap",
+        "label": "@PancakeSwap",
+        "tier": "industry",
+        "chain": "BSC",
+        "reason": "BSC 最大 DEX 官方账号，常转发链上新项目",
+    },
+    "bnbchain": {
+        "handle": "BNBCHAIN",
+        "label": "@BNBCHAIN",
+        "tier": "industry",
+        "chain": "BSC",
+        "reason": "BNB Chain 官方，常转发链上发射与生态项目",
+    },
+}
 SOL_WATCH = ("solana", "toly", "aeyakovenko")
+SOL_INDUSTRY = ("rajgokal", "0xmert_", "jupiterexchange", "superteam")
 BSC_WATCH = ("cz_binance", "heyibinance")
+BSC_INDUSTRY = ("pancakeswap", "bnbchain")
 WATCH_ACCOUNTS = SOL_WATCH
 WATCH_TOTAL = len(WATCH_ACCOUNTS)
 WATCH_GROUPS = {
-    "solana": {"chain": "Solana", "accounts": SOL_WATCH, "cache": "solana_follow_snapshot"},
-    "bsc": {"chain": "BSC", "accounts": BSC_WATCH, "cache": "bsc_follow_snapshot"},
+    "solana": {"chain": "Solana", "accounts": SOL_WATCH + SOL_INDUSTRY, "cache": "solana_follow_snapshot_v2"},
+    "bsc": {"chain": "BSC", "accounts": BSC_WATCH + BSC_INDUSTRY, "cache": "bsc_follow_snapshot_v2"},
 }
-FOLLOW_LABEL = {
-    "solana": "@solana",
-    "toly": "@toly",
-    "aeyakovenko": "@aeyakovenko",
-    "cz_binance": "@cz_binance",
-    "heyibinance": "@heyibinance",
-}
+FOLLOW_LABEL = {k: v["label"] for k, v in WATCH_PROFILES.items()}
 SKIP_HANDLES = {
     "solana",
     "solanalabs",
@@ -45,6 +120,13 @@ SKIP_HANDLES = {
     "okx",
     "bybit_official",
     "ethereum",
+    "rajgokal",
+    "0xmert_",
+    "jupiterexchange",
+    "superteam",
+    "heliuslabs",
+    "pancakeswap",
+    "bnbchain",
 }
 
 LAUNCH_ALERT_HINTS = (
@@ -294,20 +376,45 @@ def analyze_project(user: dict[str, Any], new_follow: bool, launch: dict[str, An
     return score, " · ".join(bits) or "待观察"
 
 
+def profile_key(name: str) -> str:
+    return str(name or "").lower().lstrip("@")
+
+
+def watch_handle(account: str) -> str:
+    key = profile_key(account)
+    return str((WATCH_PROFILES.get(key) or {}).get("handle") or account)
+
+
+def account_tier(name: str) -> str:
+    return str((WATCH_PROFILES.get(profile_key(name)) or {}).get("tier") or "")
+
+
+def account_reason(name: str) -> str:
+    return str((WATCH_PROFILES.get(profile_key(name)) or {}).get("reason") or "")
+
+
 def verified_followers(followed_by: list[str] | None) -> list[str]:
     out: list[str] = []
     seen: set[str] = set()
     for raw in followed_by or []:
-        n = str(raw or "").lower().lstrip("@")
-        if n not in FOLLOW_LABEL or n in seen:
+        n = profile_key(raw)
+        if n not in WATCH_PROFILES or n in seen:
             continue
         seen.add(n)
         out.append(n)
     return out
 
 
+def official_followers(followed_by: list[str] | None) -> list[str]:
+    return [n for n in verified_followers(followed_by) if account_tier(n) == "official"]
+
+
+def industry_followers(followed_by: list[str] | None) -> list[str]:
+    return [n for n in verified_followers(followed_by) if account_tier(n) == "industry"]
+
+
 def official_follow_total(followed_by: list[str] | None) -> int:
-    names = set(verified_followers(followed_by))
+    names = set(official_followers(followed_by))
     n = 0
     if names & set(SOL_WATCH):
         n += len(SOL_WATCH)
@@ -317,24 +424,63 @@ def official_follow_total(followed_by: list[str] | None) -> int:
 
 
 def chain_for_follows(followed_by: list[str] | None, default: str = "Solana") -> str:
-    names = set(verified_followers(followed_by))
+    names = verified_followers(followed_by)
     bits: list[str] = []
-    if names & set(SOL_WATCH):
-        bits.append("Solana")
-    if names & set(BSC_WATCH):
-        bits.append("BSC")
+    for n in names:
+        chain = str((WATCH_PROFILES.get(n) or {}).get("chain") or "")
+        if chain and chain not in bits:
+            bits.append(chain)
     return " + ".join(bits) or default
+
+
+def follow_reason_bits(followed_by: list[str] | None) -> list[str]:
+    bits: list[str] = []
+    for n in verified_followers(followed_by):
+        label = FOLLOW_LABEL.get(n, "@" + n)
+        reason = account_reason(n)
+        if account_tier(n) == "industry" and reason:
+            bits.append(f"{label} 正在关注（{reason}）")
+        else:
+            bits.append(f"{label} 正在关注")
+    return bits
 
 
 def follow_badge_text(followed_by: list[str] | None) -> str:
     names = verified_followers(followed_by)
     if not names:
         return ""
-    total = official_follow_total(names)
-    return (
-        f"官方关注 {len(names)}/{total} · "
-        + "、".join(FOLLOW_LABEL[n] + " 正在关注" for n in names)
-    )
+    official = official_followers(names)
+    industry = industry_followers(names)
+    bits = follow_reason_bits(names)
+    if official:
+        total = official_follow_total(official)
+        head = f"官方关注 {len(official)}/{total}"
+        if industry:
+            head += " · 另有行业名人关注"
+        return head + " · " + "、".join(bits)
+    return "行业名人关注 · " + "、".join(bits)
+
+
+def follow_count_label(followed_by: list[str] | None) -> str:
+    official = official_followers(followed_by)
+    industry = industry_followers(followed_by)
+    if official:
+        total = official_follow_total(official)
+        label = f"官方关注 {len(official)}/{total}"
+        if industry:
+            label += " · 另有行业名人"
+        return label
+    if industry:
+        return "行业名人关注 " + " / ".join(FOLLOW_LABEL.get(n, "@" + n) for n in industry)
+    return ""
+
+
+def follow_tier_of(followed_by: list[str] | None) -> str:
+    if official_followers(followed_by):
+        return "official"
+    if industry_followers(followed_by):
+        return "industry"
+    return ""
 
 
 def diff_new_follows(current: list[str], previous: list[str] | None) -> set[str]:
@@ -620,14 +766,18 @@ def to_item(
         analysis = f"关注列表第 {rank} 位（越前越新） · {analysis}"
     timing = (launch or {}).get("timing") or {}
     alert = bool(launch)
-    labels = " / ".join(FOLLOW_LABEL[n] for n in verified)
+    labels = " / ".join(FOLLOW_LABEL.get(n, "@" + n) for n in verified)
     chain = chain_for_follows(verified, default="Solana")
-    total = official_follow_total(verified)
+    official = official_followers(verified)
+    industry = industry_followers(verified)
+    total = official_follow_total(official)
+    tier = follow_tier_of(verified)
     kind = f"{labels} 最近关注"
     when_label = timing.get("label") or "暂未提到 launch / 发射"
     status = timing.get("status") or "跟踪中"
     followers = int((user.get("public_metrics") or {}).get("followers_count") or 0)
     text = (launch or {}).get("text") or (user.get("description") or f"{proof}，持续跟踪发射动态。")
+    reasons = [{"handle": n, "label": FOLLOW_LABEL.get(n, "@" + n), "tier": account_tier(n), "reason": account_reason(n)} for n in verified]
     return {
         "key": f"sol-watch:{handle.lower()}",
         "name": user.get("name") or handle,
@@ -645,10 +795,14 @@ def to_item(
         "new_follow": new_follow,
         "watch_kind": "solana_follow",
         "followed_by": verified,
-        "official_follow_count": len(verified),
+        "official_follow_count": len(official),
         "official_follow_total": total,
+        "industry_follow_count": len(industry),
+        "follow_tier": tier,
+        "follow_reasons": reasons,
+        "follow_reason": "；".join(account_reason(n) for n in industry if account_reason(n)),
         "follow_proof": proof,
-        "follow_count_label": f"官方关注 {len(verified)}/{total}",
+        "follow_count_label": follow_count_label(verified),
         "verified_follow": True,
         "url": (launch or {}).get("url") or twitter_url(handle),
         "twitter": twitter_url(handle),
@@ -693,7 +847,7 @@ async def watch_solana_projects(
 
     if bearer:
         for account in accounts:
-            users, err, stats = await fetch_account_following(bearer, account, limit=100)
+            users, err, stats = await fetch_account_following(bearer, watch_handle(account), limit=100)
             scan_stats.append(stats)
             if err:
                 errors.append(err)
@@ -702,7 +856,7 @@ async def watch_solana_projects(
     if not merged:
         origin = "public_following"
         for account in accounts:
-            users, err, stats = await fetch_public_following(account)
+            users, err, stats = await fetch_public_following(watch_handle(account))
             scan_stats.append(stats)
             if err:
                 errors.append(err)
@@ -711,7 +865,7 @@ async def watch_solana_projects(
 
     users = [u for u in merged.values() if verified_followers(u.get("followed_by"))]
     if not users:
-        errors.append("没有从官方关注列表核实到项目，宁可不显示，避免把观察池/其它项目混进来")
+        errors.append("没有从关注列表核实到项目，宁可不显示，避免把观察池/其它项目混进来")
         return {
             "items": [],
             "alerts": [],
@@ -750,7 +904,9 @@ async def watch_solana_projects(
             items.append(row)
     items.sort(
         key=lambda x: (
+            0 if x.get("follow_tier") == "official" else 1,
             -(x.get("official_follow_count") or 0),
+            -(x.get("industry_follow_count") or 0),
             not x.get("alert"),
             not x.get("new_follow"),
             -(x.get("score") or 0),

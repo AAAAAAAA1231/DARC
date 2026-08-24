@@ -13,6 +13,7 @@ from web3_radar.fallback import load_fallback, merge_items
 from web3_radar.http_util import client
 
 BJ = timezone(timedelta(hours=8))
+NEWS_MAX_AGE_SEC = 24 * 3600
 
 RSS_FEEDS = [
     ("CoinDesk", "https://www.coindesk.com/arc/outboundfeeds/rss/"),
@@ -265,8 +266,8 @@ def timing_fields(dt: datetime | None, now: datetime | None = None) -> dict[str,
         status = f"{-delta / 3600:.1f} 小时前"
     else:
         status = f"{int(-delta / 86400)} 天前"
-    upcoming = 0 <= delta <= 36 * 3600
-    recent = -18 * 3600 <= delta < 0
+    upcoming = 0 <= delta <= 24 * 3600
+    recent = -24 * 3600 <= delta < 0
     return {
         "when_utc": dt.isoformat(),
         "when_label": f"{beijing_label(dt)} · {status}",
@@ -293,10 +294,11 @@ def _item(
     classified = classify_headline(title, summary)
     if not classified:
         return None
+    when = when or _now()
     timed = timing_fields(when)
     impact = classified["impact"]
     alert = bool(timed["alert"] and impact in {"高", "中"} and classified["score"] >= 66)
-    if impact == "高" and timed["seconds_to"] is not None and abs(timed["seconds_to"]) <= 48 * 3600:
+    if impact == "高" and timed["seconds_to"] is not None and abs(timed["seconds_to"]) <= NEWS_MAX_AGE_SEC:
         alert = True
     row = {
         "key": _key(url or title, source),
@@ -418,7 +420,7 @@ def parse_calendar_rows(rows: list[dict[str, Any]], now: datetime | None = None)
             **timed,
             **extra,
         }
-        if timed.get("seconds_to") is not None and abs(int(timed["seconds_to"])) <= 48 * 3600:
+        if timed.get("seconds_to") is not None and abs(int(timed["seconds_to"])) <= NEWS_MAX_AGE_SEC:
             item["alert"] = True
             item["alert_level"] = "紧急" if item["impact"] == "高" else "关注"
         else:
@@ -591,6 +593,24 @@ def _seed_items() -> list[dict[str, Any]]:
     return list(load_fallback().get("news") or [])
 
 
+def news_is_fresh(row: dict[str, Any], now: datetime | None = None) -> bool:
+    now = now or _now()
+    secs = row.get("seconds_to")
+    if secs is not None:
+        try:
+            return abs(int(secs)) <= NEWS_MAX_AGE_SEC
+        except (TypeError, ValueError):
+            pass
+    when = _parse_time(row.get("when_utc") or row.get("created_at") or row.get("published_at"))
+    if not when:
+        return False
+    return abs((when - now).total_seconds()) <= NEWS_MAX_AGE_SEC
+
+
+def filter_fresh_news(rows: list[dict[str, Any]], now: datetime | None = None) -> list[dict[str, Any]]:
+    return [row for row in rows or [] if news_is_fresh(row, now)]
+
+
 def _dedupe(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     out: dict[str, dict[str, Any]] = {}
     for row in rows:
@@ -617,14 +637,14 @@ async def scan_news() -> dict[str, Any]:
             errors.append(f"{label}: {result}")
             continue
         live.extend(result)
-    items = _dedupe(live)
+    items = filter_fresh_news(_dedupe(live))
     items.sort(key=lambda x: (not x.get("alert"), -(x.get("score") or 0), x.get("seconds_to") is None, abs(x.get("seconds_to") or 10**12)))
     if not items:
-        items = merge_items([], _seed_items())
-        note = "实时源暂时读不到，结论先按观望，刷新后再试。"
+        items = filter_fresh_news(merge_items([], _seed_items()))
+        note = "过去 24 小时没有可用催化剂，结论先按观望，刷新后再试。"
     else:
         items = items[:60]
-        note = "已把消息整理成做多 / 做空 / 观望，不是投资建议。"
+        note = "只保留过去 24 小时的消息，并整理成做多 / 做空 / 观望，不是投资建议。"
     stance = synthesize_stance(items)
     alerts = [x for x in items if x.get("alert")]
     return {

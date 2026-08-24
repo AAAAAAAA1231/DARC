@@ -7,7 +7,11 @@ from typing import Any
 from web3_radar.collectors.solana_watch import (
     chain_for_follows,
     follow_badge_text,
+    follow_count_label,
+    follow_tier_of,
+    industry_followers,
     official_follow_total,
+    official_followers,
     verified_followers,
     watch_solana_projects,
 )
@@ -28,10 +32,25 @@ def _merge_launch_items(batches: list[list[dict[str, Any]]]) -> list[dict[str, A
                 continue
             followed = verified_followers(list(prev.get("followed_by") or []) + list(row.get("followed_by") or []))
             prev["followed_by"] = followed
-            prev["official_follow_count"] = len(followed)
-            prev["official_follow_total"] = official_follow_total(followed)
+            official = official_followers(followed)
+            industry = industry_followers(followed)
+            prev["official_follow_count"] = len(official)
+            prev["official_follow_total"] = official_follow_total(official)
+            prev["industry_follow_count"] = len(industry)
+            prev["follow_tier"] = follow_tier_of(followed)
             prev["follow_proof"] = follow_badge_text(followed)
-            prev["follow_count_label"] = f"官方关注 {len(followed)}/{prev['official_follow_total']}"
+            prev["follow_count_label"] = follow_count_label(followed)
+            prev["follow_reason"] = "；".join(
+                str(r.get("reason") or "") for r in (prev.get("follow_reasons") or row.get("follow_reasons") or []) if r.get("tier") == "industry"
+            ) or row.get("follow_reason") or prev.get("follow_reason") or ""
+            if row.get("follow_reasons"):
+                seen_h = {str(x.get("handle")) for x in (prev.get("follow_reasons") or [])}
+                merged_reasons = list(prev.get("follow_reasons") or [])
+                for r in row.get("follow_reasons") or []:
+                    if r.get("handle") not in seen_h:
+                        merged_reasons.append(r)
+                        seen_h.add(r.get("handle"))
+                prev["follow_reasons"] = merged_reasons
             prev["chain"] = chain_for_follows(followed, default=str(prev.get("chain") or "Solana"))
             labels = " / ".join(f"@{n}" for n in followed)
             prev["kind"] = f"{labels} 最近关注"
@@ -61,7 +80,9 @@ async def scan_launches(twitter_bearer: str = "", lookback_days: int = 7) -> dic
     items = _merge_launch_items([sol_watch.get("items") or [], bsc_watch.get("items") or []])
     items.sort(
         key=lambda x: (
+            0 if x.get("follow_tier") == "official" else 1,
             -(x.get("official_follow_count") or 0),
+            -(x.get("industry_follow_count") or 0),
             not x.get("alert"),
             -(x.get("score") or 0),
         )
@@ -99,8 +120,8 @@ async def scan_launches(twitter_bearer: str = "", lookback_days: int = 7) -> dic
         "items": items,
         "errors": errors,
         "note": (
-            "Solana 只推 @solana / @toly 正在关注的项目；BSC 只推 @cz_binance / @heyibinance 正在关注的项目。"
-            " 不是这些官方关注的一律不显示。"
+            "Solana 官方只推 @solana / @toly 正在关注的项目；BSC 官方只推 @cz_binance / @heyibinance。"
+            " 另外跟踪 Raj Gokal、Mert、Jupiter、Superteam、PancakeSwap、BNB Chain 等行业名人关注，会单独标记并写明理由，不与官方关注混算。"
             + ((" " + stats_note + "。") if stats_note else "")
             + (" 当前没有核实到任何关注项目。" if not items else "")
         ),

@@ -113,6 +113,52 @@ AMBASSADOR_HINTS = (
     "moderator program",
 )
 
+PERSONAL_AMBASSADOR_HINTS = (
+    "i want to be",
+    "i wanna be",
+    "i would like to be",
+    "looking for an ambassador role",
+    "looking to be an ambassador",
+    "looking to become an ambassador",
+    "hire me",
+    "seeking ambassador",
+    "open to ambassador",
+    "available as ambassador",
+    "dm me if you need ambassador",
+    "i am an ambassador looking",
+    "求职",
+    "求大使",
+    "想当大使",
+    "我要当大使",
+    "应聘大使",
+    "找大使工作",
+)
+
+PROJECT_AMBASSADOR_HINTS = (
+    "we're hiring",
+    "we are hiring",
+    "we're recruiting",
+    "we are recruiting",
+    "now hiring",
+    "hiring ambassadors",
+    "recruiting ambassadors",
+    "looking for ambassadors",
+    "looking for regional ambassadors",
+    "ambassador program",
+    "ambassador applications",
+    "applications open",
+    "apply now",
+    "apply via",
+    "apply through",
+    "join our ambassador",
+    "our ambassador program",
+    "招募大使",
+    "招聘大使",
+    "大使计划",
+    "社区大使报名",
+    "大使招募",
+)
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -188,6 +234,36 @@ def looks_like_ambassador_post(text: str, username: str = "") -> bool:
         # Official CEX/L1 campus programs — not the hunt target.
         if any(b in f"{t} {_norm(username)}" for b in ("okx", "binance", "bybit", "coinbase")):
             return False
+    return True
+
+
+def looks_like_personal_ambassador(text: str) -> bool:
+    t = _norm(text)
+    if any(h in t for h in PERSONAL_AMBASSADOR_HINTS):
+        return True
+    if re.search(r"\bi (want|wanna|am looking|would like|hope) to (be|become|join).{0,40}ambassador", t):
+        return True
+    if re.search(r"(求职|想当|我要当|应聘).{0,8}大使", t):
+        return True
+    return False
+
+
+def looks_like_project_ambassador(text: str, username: str = "") -> bool:
+    """Project-published recruiting posts only — drop personal job-seeking."""
+    if not looks_like_ambassador_post(text, username):
+        return False
+    t = _norm(text)
+    personal = looks_like_personal_ambassador(t)
+    project = any(h in t for h in PROJECT_AMBASSADOR_HINTS)
+    if personal and not project:
+        return False
+    if personal and project:
+        # Mixed quote ("we're hiring" + "I want in") — keep only if hiring language is first-party.
+        if re.search(r"\b(we are|we're|our)\b.{0,40}(hiring|recruiting|ambassador program)", t) or any(
+            h in t for h in ("招募大使", "招聘大使", "大使计划", "大使招募")
+        ):
+            return True
+        return False
     return True
 
 

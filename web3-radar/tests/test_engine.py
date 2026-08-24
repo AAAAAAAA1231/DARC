@@ -183,6 +183,15 @@ def test_mark_top_recommendations():
     assert recommended == {"A", "B", "C"}
     skipped = mark_top_recommendations(rows, 3, skip_symbols={"A"})
     assert {row["symbol"] for row in skipped if row["recommend"]} == {"B", "C", "D"}
+    by_wr = mark_top_recommendations(
+        [
+            {"symbol": "LOW", "score": 90, "decision": "涨", "win_rate": 0.2},
+            {"symbol": "HIGH", "score": 10, "decision": "跌", "win_rate": 0.8},
+            {"symbol": "MID", "score": 50, "decision": "涨", "win_rate": 0.5},
+        ],
+        1,
+    )
+    assert [row["symbol"] for row in by_wr if row["recommend"]] == ["HIGH"]
 
 
 def test_live_weight_update_follows_pnl_and_time():
@@ -209,15 +218,15 @@ def test_live_weight_update_follows_pnl_and_time():
     assert abs(after_old["rsi"] - 0.5) < abs(after_loss["rsi"] - 0.5)
 
 
-def test_live_feedback_does_not_rebuy_pending_or_recent_losers():
+def test_live_feedback_still_updates_pending_and_ranks_by_win_rate():
     from datetime import datetime, timedelta, timezone
 
     now = datetime(2026, 8, 21, 12, tzinfo=timezone.utc)
     rows = [
-        {"symbol": "AAAUSDT", "decision": "涨", "score": 80, "price": 110, "indicators": [{"name": "rsi", "signal": 1, "strength": 0.8}]},
-        {"symbol": "BBBUSDT", "decision": "涨", "score": 70, "price": 50, "indicators": [{"name": "rsi", "signal": 1, "strength": 0.6}]},
-        {"symbol": "CCCUSDT", "decision": "跌", "score": -65, "price": 9, "indicators": [{"name": "rsi", "signal": -1, "strength": 0.7}]},
-        {"symbol": "DDDUSDT", "decision": "涨", "score": 40, "price": 3, "indicators": [{"name": "rsi", "signal": 1, "strength": 0.4}]},
+        {"symbol": "AAAUSDT", "decision": "涨", "score": 80, "price": 110, "hist_win_rate": 0.9, "indicators": [{"name": "rsi", "signal": 1, "strength": 0.8}]},
+        {"symbol": "BBBUSDT", "decision": "涨", "score": 70, "price": 50, "hist_win_rate": 0.4, "indicators": [{"name": "rsi", "signal": 1, "strength": 0.6}]},
+        {"symbol": "CCCUSDT", "decision": "跌", "score": -65, "price": 9, "hist_win_rate": 0.7, "indicators": [{"name": "rsi", "signal": -1, "strength": 0.7}]},
+        {"symbol": "DDDUSDT", "decision": "涨", "score": 40, "price": 3, "hist_win_rate": 0.2, "indicators": [{"name": "rsi", "signal": 1, "strength": 0.4}]},
     ]
     pending = [{
         "symbol": "AAAUSDT",
@@ -240,26 +249,15 @@ def test_live_feedback_does_not_rebuy_pending_or_recent_losers():
         now=now,
     )
     recs = {r["symbol"] for r in out["results"] if r.get("recommend")}
-    assert "AAAUSDT" not in recs
-    assert len(recs) <= 2
-
-    lost = {
-        "symbol": "BBBUSDT",
-        "side": "涨",
-        "entry": 60,
-        "ts": (now - timedelta(hours=8)).isoformat(),
-        "interval": "4h",
-        "signals": {"rsi": 1},
-        "closed_at": (now - timedelta(hours=1)).isoformat(),
-        "pnl_pct": -0.04,
-        "hit": False,
-    }
-    assert "BBBUSDT" in skip_symbols([], [lost], now=now)
+    assert "AAAUSDT" in recs
+    assert out["results"][0]["symbol"] in recs
+    ranked = sorted((r for r in out["results"] if r.get("recommend")), key=lambda r: float(r.get("win_rate") or 0), reverse=True)
+    assert ranked[0]["symbol"] == "AAAUSDT"
     losses = [
-        {**lost, "symbol": f"X{i}", "closed_at": (now - timedelta(hours=i)).isoformat(), "hit": False, "pnl_pct": -0.03}
+        {"symbol": f"X{i}", "closed_at": (now - timedelta(hours=i)).isoformat(), "hit": False, "pnl_pct": -0.03}
         for i in range(3)
     ]
-    assert recommend_count(losses, pending=[], now=now) == 0
+    assert recommend_count(losses, pending=[], now=now) == 3
 
 
 def test_live_feedback_settles_and_rewrites_weights():
@@ -306,7 +304,6 @@ def test_live_feedback_settles_and_rewrites_weights():
     assert out["closed_now"]
     assert out["closed_now"][0]["hit"] is False
     assert out["weights"]["rsi"] < out["weights"]["macd"]
-    assert "BTCUSDT" not in {r["symbol"] for r in out["results"] if r.get("recommend")}
 
 
 

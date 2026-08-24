@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
 
-from web3_radar.engine.meme_score import select_watchlist
+from web3_radar.engine.meme_score import enrich_and_score, select_watchlist
 from web3_radar.http_util import get_json as _get_json_util
 
 DEXSCREENER = "https://api.dexscreener.com"
@@ -329,7 +329,12 @@ async def scan_meme_coins(
     min_liquidity_usd: float = 1_000_000,
     min_unique_buyers: int = 8,
     min_holder_growth: int = 5,
+    twitter_bearer: str = "",
 ) -> dict[str, Any]:
+    import asyncio
+
+    from web3_radar.collectors.kol_calls import fetch_kol_calls
+
     errors: list[str] = []
     collected: list[dict[str, Any]] = []
     fetchers = [
@@ -340,8 +345,8 @@ async def scan_meme_coins(
         ("gmgn_bsc", fetch_gmgn(GMGN_BSC_TRENDING, "BSC")),
         ("geckoterminal", fetch_geckoterminal()),
         ("geckoterminal_new", fetch_geckoterminal_new()),
+        ("kol_calls", fetch_kol_calls(twitter_bearer)),
     ]
-    import asyncio
 
     results = await asyncio.gather(*[f[1] for f in fetchers], return_exceptions=True)
     for (name, _), result in zip(fetchers, results):
@@ -356,23 +361,56 @@ async def scan_meme_coins(
         if key not in merged:
             merged[key] = item
             continue
-        # keep the richer record
-        if item["liquidity_usd"] > merged[key]["liquidity_usd"]:
-            sources = {merged[key]["source"], item["source"]}
-            merged[key] = item
-            merged[key]["source"] = "+".join(sorted(sources))
-        else:
-            merged[key]["unique_buyers_est"] = max(merged[key]["unique_buyers_est"], item["unique_buyers_est"])
-            merged[key]["holders"] = max(merged[key]["holders"], item["holders"])
+        prev = merged[key]
+        richer = item if item.get("liquidity_usd", 0) > prev.get("liquidity_usd", 0) else prev
+        poorer = prev if richer is item else item
+        sources = {str(prev.get("source") or ""), str(item.get("source") or "")} - {""}
+        row = dict(richer)
+        row["source"] = "+".join(sorted(sources)) if len(sources) > 1 else (row.get("source") or "")
+        row["unique_buyers_est"] = max(int(prev.get("unique_buyers_est") or 0), int(item.get("unique_buyers_est") or 0))
+        row["holders"] = max(int(prev.get("holders") or 0), int(item.get("holders") or 0))
+        if prev.get("kol_call") or item.get("kol_call"):
+            kol_src = item if item.get("kol_call") else prev
+            row["kol_call"] = True
+            for field in ("kol", "kol_handles", "kol_names", "kol_reason", "kol_reasons", "call_text", "call_url", "twitter"):
+                if kol_src.get(field) and not row.get(field):
+                    row[field] = kol_src.get(field)
+            row["token_address"] = row.get("token_address") or poorer.get("token_address") or kol_src.get("token_address")
+        merged[key] = row
 
     ranked = select_watchlist(list(merged.values()), min_liquidity_usd)
+    seen = {x["key"] for x in ranked}
+    for item in merged.values():
+        if item.get("kol_call") and item["key"] not in seen:
+            extra = enrich_and_score(item, min_liquidity_usd)
+            extra["kol_call"] = True
+            for field in ("kol", "kol_handles", "kol_names", "kol_reason", "kol_reasons", "call_text", "call_url", "twitter", "token_address"):
+                if item.get(field):
+                    extra[field] = item.get(field)
+            extra["source"] = extra.get("source") or "名人喊单"
+            extra["source_kind"] = "kol"
+            if extra.get("grade") == "避开":
+                extra["grade"] = "观察"
+                extra["followable"] = False
+            ranked.append(extra)
+            seen.add(item["key"])
+    ranked.sort(
+        key=lambda x: (
+            1 if x.get("kol_call") else 0,
+            {"可跟": 3, "观察": 2, "避开": 1}.get(str(x.get("grade") or ""), 0),
+            float(x.get("heat") or 0) - float(x.get("risk") or 0) * 0.4,
+        ),
+        reverse=True,
+    )
     followable = [x for x in ranked if x.get("followable")]
+    kol_n = sum(1 for x in ranked if x.get("kol_call"))
     return {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "min_liquidity_usd": min_liquidity_usd,
         "count": len(ranked),
         "followable_count": len(followable),
+        "kol_count": kol_n,
         "items": ranked,
         "errors": errors,
-        "method": "短期买压 + 持币增长 + 池子≥$1M + 热度/风险评分，过滤接盘与过新狙击盘",
+        "method": "短期买压 + 持币增长 + 池子≥$1M；另盯名人喊单并给出 CA 与所属链",
     }

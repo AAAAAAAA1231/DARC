@@ -264,35 +264,50 @@ def recommend_count(
     now: datetime | None = None,
     default: int = 3,
 ) -> int:
-    now = now or utcnow()
-    recent = sorted(closed or [], key=lambda t: str(t.get("closed_at") or t.get("ts") or ""), reverse=True)[:8]
-    budget = default
-    if recent:
-        last3 = recent[:3]
-        if len(last3) >= 3 and not any(bool(t.get("hit")) for t in last3):
-            budget = 0
-        elif len(recent) < 3:
-            misses = sum(1 for t in recent if not t.get("hit"))
-            budget = max(1, default - misses)
+    """How many 涨/跌 calls to flag. Unfinished paper trades no longer shrink this."""
+    del closed, pending, now
+    return max(0, int(default))
+
+
+def live_symbol_stats(closed: list[dict[str, Any]] | None) -> dict[str, tuple[float, int]]:
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for trade in closed or []:
+        sym = str(trade.get("symbol") or "").strip().upper()
+        if not sym:
+            continue
+        buckets.setdefault(sym, []).append(trade)
+    out: dict[str, tuple[float, int]] = {}
+    for sym, trades in buckets.items():
+        recent = trades[-8:]
+        if not recent:
+            continue
+        hits = sum(1 for t in recent if t.get("hit"))
+        out[sym] = (hits / len(recent), len(recent))
+    return out
+
+
+def attach_win_rates(
+    results: list[dict[str, Any]],
+    closed: list[dict[str, Any]] | None = None,
+) -> list[dict[str, Any]]:
+    live = live_symbol_stats(closed)
+    for row in results or []:
+        if row.get("error"):
+            continue
+        sym = str(row.get("symbol") or "").strip().upper()
+        live_wr, live_n = live.get(sym, (None, 0))
+        hist = row.get("hist_win_rate")
+        if hist is None:
+            hist = 0.5
+        if live_n >= 2:
+            wr, src = float(live_wr), f"纸面{live_n}笔"
         else:
-            wins = 0.0
-            total = 0.0
-            for trade in recent:
-                w = recency_weight(hours_between(trade.get("closed_at") or trade.get("ts"), now))
-                total += w
-                if trade.get("hit"):
-                    wins += w
-            wr = wins / total if total else 0.0
-            if wr >= 0.55:
-                budget = 3
-            elif wr >= 0.40:
-                budget = 2
-            elif wr >= 0.25:
-                budget = 1
-            else:
-                budget = 0
-    open_n = len(pending or [])
-    return max(0, min(default, budget) - open_n)
+            wr, src = float(hist), "近期K线同向命中"
+        row["win_rate"] = round(wr, 4)
+        row["win_rate_n"] = int(live_n)
+        row["win_rate_label"] = f"{wr:.0%} · {src}"
+        row["hist_win_rate"] = round(float(hist), 4)
+    return results
 
 
 def record_recommendations(
@@ -344,7 +359,7 @@ def _summary(
         wr = hits / len(recent)
         wr_txt = f"近{len(recent)}笔纸面胜率 {wr:.0%}"
     else:
-        wr_txt = "尚无纸面成交，先记下本次推荐"
+        wr_txt = "尚无纸面成交，按各币近期K线胜率排序推荐"
     closed_txt = ""
     if newly_closed:
         bits = []
@@ -353,13 +368,8 @@ def _summary(
             bits.append(f"{t.get('symbol')}{mark}{float(t.get('pnl_pct') or 0):+.1%}")
         closed_txt = "；刚结算 " + "、".join(bits)
     learn_txt = "，已按时间衰减回写指标权重" if weights_changed else ""
-    skip_n = len(skip)
-    skip_txt = f"，跳过 {skip_n} 个持仓/刚亏标的" if skip_n else ""
-    if n <= 0:
-        rec_txt = "，本次不新推（连亏或仓位未到期）"
-    else:
-        rec_txt = f"，本次最多新推 {n} 个"
-    return f"{wr_txt}{closed_txt}{learn_txt}{skip_txt}{rec_txt}"
+    rec_txt = f"，按胜率最多推荐 {n} 个（不考虑未到期持仓）"
+    return f"{wr_txt}{closed_txt}{learn_txt}{rec_txt}"
 
 
 def apply_live_feedback(
@@ -381,9 +391,10 @@ def apply_live_feedback(
         weights_changed = True
         for row in results:
             rescore_row(row, new_weights, threshold)
-    skip = skip_symbols(pending, closed, now)
+    skip: set[str] = set()
     n = recommend_count(closed, pending, now)
-    mark_top_recommendations(results, n, skip_symbols=skip)
+    attach_win_rates(results, closed)
+    mark_top_recommendations(results, n)
     existing = {str(p.get("symbol") or "").upper() for p in pending}
     for rec in record_recommendations(results, new_weights, interval, now):
         if rec["symbol"] not in existing:

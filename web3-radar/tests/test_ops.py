@@ -4,6 +4,7 @@ from web3_radar.collectors.social import (
     collect_social,
     looks_like_ambassador_post,
     looks_like_cex_listing,
+    looks_like_project_ambassador,
     looks_like_project_launch,
     looks_like_solana_launch,
 )
@@ -101,6 +102,10 @@ def test_project_launch_not_cex_listing():
     assert looks_like_solana_launch("Solana whitelist is open for our TGE, presale live this week")
     assert not looks_like_solana_launch("Whitelist is open for our TGE, presale live this week")
     assert looks_like_ambassador_post("We're hiring regional ambassadors, apply via the form")
+    assert looks_like_project_ambassador("We're hiring regional ambassadors, apply via the form")
+    assert looks_like_project_ambassador("新项目招募大使，报名走表单")
+    assert not looks_like_project_ambassador("I want to be an ambassador, hire me DM")
+    assert not looks_like_project_ambassador("求大使工作，想当社区大使")
     assert not looks_like_ambassador_post("Join the Binance campus ambassador program", "binance")
     merged = merge_items(
         [{"key": "live-1", "name": "新项目", "source_kind": "live"}],
@@ -171,6 +176,16 @@ def test_solana_follow_launch_timing():
     assert bsc["official_follow_total"] == 2
     assert bsc["follow_count_label"] == "官方关注 2/2"
     assert "cz_binance" in bsc["followed_by"]
+    industry = to_item(
+        {"username": "newthing", "name": "New", "description": "Solana app", "public_metrics": {"followers_count": 900}},
+        True, None, "following", rank=3, followed_by=["0xmert_"],
+    )
+    assert industry["follow_tier"] == "industry"
+    assert industry["official_follow_count"] == 0
+    assert industry["industry_follow_count"] == 1
+    assert industry["verified_follow"] is True
+    assert "Helius" in (industry["follow_proof"] + industry.get("follow_reason", ""))
+    assert industry["follow_count_label"].startswith("行业名人")
 
 
 def test_public_following_parser_requires_real_list():
@@ -276,3 +291,31 @@ def test_universe_fallbacks_without_coingecko():
     assert tickers[0]["symbol"] == "btc"
     uni = select_perp_universe(builtin_markets(), {"BTCUSDT", "ETHUSDT", "SOLUSDT"}, set(), limit=5)
     assert uni and uni[0]["binance_symbol"] == "BTCUSDT"
+    from web3_radar.collectors.binance import resolve_perp_symbol
+    sym, meta = resolve_perp_symbol("btc", uni)
+    assert sym == "BTCUSDT"
+    pepe, _ = resolve_perp_symbol("PEPE")
+    assert pepe in {"PEPEUSDT", "1000PEPEUSDT"}
+
+
+def test_news_only_keeps_one_day():
+    from datetime import datetime, timezone
+    from web3_radar.collectors.news import news_is_fresh
+
+    now = datetime(2026, 8, 24, 12, tzinfo=timezone.utc)
+    assert news_is_fresh({"seconds_to": 3600}, now)
+    assert news_is_fresh({"seconds_to": -20 * 3600}, now)
+    assert not news_is_fresh({"seconds_to": -30 * 3600}, now)
+    assert not news_is_fresh({"seconds_to": 40 * 3600}, now)
+    assert not news_is_fresh({"title": "no time"}, now)
+
+
+def test_kol_extracts_ca_and_chain():
+    from web3_radar.collectors.kol_calls import extract_cas
+
+    evm = extract_cas("aping 0x1234567890abcdef1234567890abcdef12345678 now")
+    assert evm and evm[0][1] == "evm"
+    sol = extract_cas("CA: So11111111111111111111111111111111111111112")
+    assert sol and sol[0][1] == "solana"
+    assert not extract_cas("just a wordy sentence without any address")
+

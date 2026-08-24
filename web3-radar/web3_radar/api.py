@@ -13,7 +13,7 @@ from web3_radar import copytrade
 from web3_radar import db
 from web3_radar.collectors.airdrop import scan_airdrops
 from web3_radar.collectors.ambassador import scan_ambassadors
-from web3_radar.collectors.binance import BinanceClient, builtin_markets, select_perp_universe
+from web3_radar.collectors.binance import BinanceClient, builtin_markets, resolve_perp_symbol, select_perp_universe
 from web3_radar.collectors.launch import scan_launches
 from web3_radar.collectors.meme import scan_meme_coins
 from web3_radar.collectors.news import scan_news
@@ -26,7 +26,7 @@ from web3_radar.config import (
     save_settings,
 )
 from web3_radar.engine.indicators import historical_expectancy
-from web3_radar.engine.live_learn import LEDGER_KEY, LEDGER_TTL, apply_live_feedback
+from web3_radar.engine.live_learn import LEDGER_KEY, LEDGER_TTL, apply_live_feedback, attach_win_rates
 from web3_radar.engine.signals import (
     analyze_klines,
     average_weights_from_results,
@@ -59,6 +59,11 @@ class AnalyzeBody(BaseModel):
     interval: str | None = None
     n_sims: int | None = None
     mode: str = "auto"  # auto | fit | infer
+
+
+class AnalyzeOneBody(BaseModel):
+    symbol: str
+    interval: str | None = None
 
 
 class ParticipateBody(BaseModel):
@@ -148,12 +153,13 @@ async def contract_universe() -> dict[str, Any]:
 
 
 def _sort_contract_results(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    def key(r: dict[str, Any]) -> tuple[float, float, float]:
+    def key(r: dict[str, Any]) -> tuple[float, float, float, float]:
         if r.get("error") or not r.get("symbol") or r.get("symbol") == "?":
-            return (-1.0, 0.0, 0.0)
+            return (-1.0, -1.0, 0.0, 0.0)
         rec = 1.0 if r.get("recommend") else 0.0
+        wr = float(r.get("win_rate") or 0.0)
         score = float(r.get("score") or 0.0)
-        return (rec, abs(score), score)
+        return (rec, wr, abs(score), score)
 
     return sorted(rows or [], key=key, reverse=True)
 
@@ -226,7 +232,7 @@ def _model_note(model: dict[str, Any] | None) -> str:
     live_txt = f"最近一次按推荐盈亏回写于 {live}。" if live else "每次刷新会按上次推荐的涨跌和时间衰减回写权重。"
     return (
         f"权重已于 {when} 用 {n:,} 次模拟校准。{live_txt}"
-        "持仓未到期或刚亏过的不会再原样推；连亏会少推或观望。"
+        "刷新会立刻重算全部标的，按各币胜率给出推荐，不再因为未到期持仓而跳过。"
     )
 
 
@@ -431,6 +437,68 @@ async def analyze_contracts(body: AnalyzeBody) -> dict[str, Any]:
     return {"job_id": job_id, "kind": kind, "reused": False}
 
 
+@app.post("/api/contracts/analyze-one")
+async def analyze_one_contract(body: AnalyzeOneBody) -> dict[str, Any]:
+    settings = load_settings()
+    interval = body.interval or settings.get("kline_interval") or "4h"
+    n_sims = int(settings.get("monte_carlo_sims") or MONTE_CARLO_SIMS)
+    model = await _ensure_fitted_model()
+    weights = (model or {}).get("weights") if model else None
+    if not weights:
+        raise HTTPException(400, "尚未拟合权重。请先点「刷新信号」完成一次校准，再分析单一币种。")
+    universe = _universe_cache or (await db.cache_get("universe")) or []
+    try:
+        symbol, meta = resolve_perp_symbol(body.symbol, universe)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    client = BinanceClient()
+    klimit = int(settings.get("kline_limit") or 500)
+    threshold = float(settings.get("signal_threshold") or 0.18)
+    sl_m = float(settings.get("atr_sl_mult") or 1.5)
+    tp_m = float(settings.get("atr_tp_mult") or 2.5)
+    top_pct = float(settings.get("monte_carlo_top_pct") or 1.0)
+    df = None
+    last_err = ""
+    tried = [symbol]
+    if symbol.endswith("USDT") and not symbol.startswith("1000"):
+        tried.append("1000" + symbol)
+    for cand in tried:
+        try:
+            df = await client.klines(cand, interval=interval, limit=klimit)
+            symbol = cand
+            break
+        except Exception as exc:
+            last_err = str(exc)
+            df = None
+    if df is None or len(df) < 60:
+        raise HTTPException(404, f"找不到 {body.symbol} 的K线（已试 {', '.join(tried)}）。{last_err}")
+    result = await asyncio.to_thread(
+        analyze_klines,
+        df,
+        symbol,
+        n_sims,
+        threshold,
+        sl_m,
+        tp_m,
+        None,
+        top_pct,
+        weights,
+    )
+    extra = meta if str(meta.get("binance_symbol") or "").upper() == symbol else {}
+    if not extra:
+        extra = next((u for u in universe if str(u.get("binance_symbol") or "").upper() == symbol), {}) or meta
+    result["name"] = extra.get("name") or symbol
+    result["market_cap"] = extra.get("market_cap")
+    result["market_cap_rank"] = extra.get("market_cap_rank")
+    result["venue"] = extra.get("venue") or ""
+    result["key"] = symbol
+    result["single_coin"] = True
+    ledger = await db.cache_get(LEDGER_KEY) or {}
+    attach_win_rates([result], ledger.get("closed") or [])
+    result["recommend"] = str(result.get("decision") or "") in ("涨", "跌")
+    return result
+
+
 @app.get("/api/contracts/analyze/{job_id}")
 async def analyze_status(job_id: str) -> dict[str, Any]:
     job = _jobs.get(job_id)
@@ -530,7 +598,7 @@ async def _scan_or_cache(cache_key: str, category: str, ttl: int, refresh: bool,
 async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     data = await _scan_or_cache(
-        "meme_v2",
+        "meme_v3",
         "meme",
         90,
         refresh,
@@ -538,6 +606,7 @@ async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
             min_liquidity_usd=float(settings.get("meme_min_liquidity_usd") or 1_000_000),
             min_unique_buyers=int(settings.get("meme_min_unique_buyers") or 8),
             min_holder_growth=int(settings.get("meme_min_holder_growth") or 5),
+            twitter_bearer=str(settings.get("twitter_bearer_token") or ""),
         ),
     )
     try:
@@ -554,7 +623,7 @@ async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
 async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "ambassadors_v3",
+        "ambassadors_v4",
         "ambassador",
         300,
         refresh,
@@ -569,7 +638,7 @@ async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
 async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "launches_v9",
+        "launches_v10",
         "launch",
         180,
         refresh,
@@ -579,7 +648,7 @@ async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
 
 @app.get("/api/news")
 async def news(refresh: bool = Query(False)) -> dict[str, Any]:
-    return await _scan_or_cache("news_v2", "news", 90, refresh, scan_news)
+    return await _scan_or_cache("news_v3", "news", 90, refresh, scan_news)
 
 
 @app.get("/api/airdrops")
@@ -675,6 +744,8 @@ async def add_ambassador(body: AmbassadorAddBody) -> dict[str, Any]:
     manual.insert(0, item)
     await db.cache_set("manual_ambassadors", manual, 365 * 24 * 3600)
     await db.cache_delete("ambassadors_v2")
+    await db.cache_delete("ambassadors_v3")
+    await db.cache_delete("ambassadors_v4")
     await db.upsert_mark("ambassador", item["key"], "watching", "手动添加", item)
     return item
 

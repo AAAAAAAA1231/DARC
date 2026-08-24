@@ -9,7 +9,7 @@ from web3_radar.collectors.social import (
     AMBASSADOR_QUERIES,
     collect_social,
     extract_deadline,
-    looks_like_ambassador_post,
+    looks_like_project_ambassador,
     parse_time,
     score_ambassador,
     twitter_url,
@@ -36,7 +36,7 @@ async def scan_ambassadors(twitter_bearer: str = "", lookback_days: int = 7) -> 
     for tw in tweets:
         text = tw.get("text") or ""
         user = tw.get("username") or ""
-        if not looks_like_ambassador_post(text, user):
+        if not looks_like_project_ambassador(text, user):
             continue
         created = parse_time(tw.get("_created") or tw.get("created_at"))
         score, priority = score_ambassador(text, created, user)
@@ -84,7 +84,7 @@ async def scan_ambassadors(twitter_bearer: str = "", lookback_days: int = 7) -> 
         "social_skipped": not bool((twitter_bearer or "").strip()),
         "live_count": live_n,
         "note": (
-            "大使盯的是新 Web3 项目在 X / 招聘页上的招募，不是 OKX、币安校园大使。"
+            "大使只展示项目方发布的招募，不展示个人求职/求大使帖。"
             + (" 未配置 Twitter Bearer 时 X 可能为空，已用项目方大使岗位补齐。" if not twitter_bearer else " 已检索 X。")
         ),
     }

@@ -90,12 +90,25 @@ def average_weights_from_results(results: list[dict[str, Any]]) -> dict[str, flo
     return {n: float(raw[i]) for i, n in enumerate(names)}
 
 
+def directional_hit_rate(df: pd.DataFrame, decision: str, hold_bars: int = 1) -> float:
+    """Cheap same-side next-bar hit rate from recent klines. Not a live paper win-rate."""
+    if decision not in ("涨", "跌") or df is None or len(df) < hold_bars + 12:
+        return 0.5
+    closes = df["close"].to_numpy(dtype=float)
+    prev, nxt = closes[:-hold_bars], closes[hold_bars:]
+    hits = nxt > prev if decision == "涨" else nxt < prev
+    tail = hits[-48:]
+    if tail.size == 0:
+        return 0.5
+    return float(np.mean(tail))
+
+
 def mark_top_recommendations(
     rows: list[dict[str, Any]],
     n: int = TOP_RECOMMEND,
     skip_symbols: set[str] | list[str] | None = None,
 ) -> list[dict[str, Any]]:
-    """Recommend the n strongest 涨/跌 calls by absolute composite score."""
+    """Recommend the n strongest 涨/跌 calls, ranked by win-rate then |score|."""
     skip = {str(s).strip().upper() for s in (skip_symbols or []) if str(s).strip()}
     for row in rows:
         row["recommend"] = False
@@ -107,7 +120,13 @@ def mark_top_recommendations(
         and str(row.get("decision") or "") in ("涨", "跌")
         and str(row.get("symbol") or "").strip().upper() not in skip
     ]
-    ranked.sort(key=lambda row: abs(float(row.get("score") or 0)), reverse=True)
+    ranked.sort(
+        key=lambda row: (
+            float(row["win_rate"]) if row.get("win_rate") is not None else -1.0,
+            abs(float(row.get("score") or 0)),
+        ),
+        reverse=True,
+    )
     for row in ranked[: max(0, int(n))]:
         row["recommend"] = True
     return rows
@@ -179,6 +198,7 @@ def analyze_klines(
         decision = raw_decision
 
     recommend = decision in ("涨", "跌")
+    hist_win_rate = directional_hit_rate(df, decision)
 
     price = float(df["close"].iloc[-1])
     atr_v = last_atr(df)
@@ -209,6 +229,10 @@ def analyze_klines(
         "side": side,
         "score": round(score, 4),
         "confidence": round(min(1.0, abs(score) / max(effective_threshold, 1e-6)), 4),
+        "hist_win_rate": round(hist_win_rate, 4),
+        "win_rate": round(hist_win_rate, 4),
+        "win_rate_n": 0,
+        "win_rate_label": f"{hist_win_rate:.0%} · 近期K线同向命中",
         "recommend": bool(recommend),
         "price": price,
         "entry": round(entry, 8),

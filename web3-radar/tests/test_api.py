@@ -21,6 +21,10 @@ def test_health_and_index():
     assert "只看高影响提醒" in page.text
     assert "只看推荐" in page.text
     assert "成功率" not in page.text
+    assert "分析此币" in page.text
+    assert "名人喊单" in page.text
+    assert "24 小时" in page.text
+    assert "行业名人" in page.text
     assert "$1M" in page.text or "$1,000,000" in page.text or "池子 ≥ $1M" in page.text
 
 
@@ -79,19 +83,28 @@ def test_modules_return_catalog():
         assert x.get("verified_follow") is True, x.get("name")
         assert x.get("followed_by"), x.get("name")
         assert x.get("watch_kind") != "onchain_pool"
-        assert int(x.get("official_follow_count") or 0) >= 1
-        chain = str(x.get("chain") or "")
         names = set(x.get("followed_by") or [])
-        if "BSC" in chain:
-            assert names & {"cz_binance", "heyibinance"}
-        if chain == "Solana":
-            assert names & {"solana", "toly", "aeyakovenko"}
+        tier = x.get("follow_tier") or ("official" if int(x.get("official_follow_count") or 0) else "industry")
+        if tier == "official":
+            assert int(x.get("official_follow_count") or 0) >= 1
+            chain = str(x.get("chain") or "")
+            if "BSC" in chain:
+                assert names & {"cz_binance", "heyibinance"}
+            if chain == "Solana":
+                assert names & {"solana", "toly", "aeyakovenko"}
+        else:
+            assert int(x.get("industry_follow_count") or len(names) or 0) >= 1
+            assert x.get("follow_reason") or x.get("follow_reasons") or x.get("follow_proof")
     n = client.get("/api/news")
     assert n.status_code == 200
     news_body = n.json()
-    assert news_body["items"]
-    assert news_body.get("stance", {}).get("stance") in {"做多", "做空", "观望"}
-    assert "groups" in (news_body.get("stance") or {})
+    for item in news_body.get("items") or []:
+        secs = item.get("seconds_to")
+        if secs is not None:
+            assert abs(int(secs)) <= 24 * 3600, item.get("title")
+    if news_body.get("items"):
+        assert news_body.get("stance", {}).get("stance") in {"做多", "做空", "观望"}
+        assert "groups" in (news_body.get("stance") or {})
     assert all(x.get("title") and x.get("category") and x.get("bias") in {"偏多", "偏空", "方向未定"} for x in news_body["items"])
     added = client.post("/api/ambassadors", json={"project": "测试项目", "url": "https://example.com"})
     assert added.status_code == 200

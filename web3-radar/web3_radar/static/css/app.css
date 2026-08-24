@@ -73,7 +73,9 @@ th { color: var(--muted); font-weight: 600; background: #0e141c; position: stick
 .tag.btc { background: #3c2e12; color: #f5c16c; }
 .tag.eth { background: #1a2440; color: #9db7ff; }
 .tag.seed { background: #1c170c; color: var(--accent-2); }
-.tag.live { background: #123c31; color: var(--up); }
+.tag.kol { background: #3c1230; color: #f5a3d0; }
+.tag.industry { background: #2a2210; color: #f5c15c; }
+.ca { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
 .card, .panel {
   background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
