@@ -32,18 +32,17 @@
     <header class="topbar">
       <div>
         <h2 id="viewTitle">合约分析</h2>
-        <p id="viewSub">先看震荡还是单边 · 震荡不追突破 · 市值前 100</p>
+        <p id="viewSub">涨跌、建仓、止损、止盈。仅供参考，不构成投资建议。</p>
       </div>
       <div class="top-actions">
         <span id="statusLine" class="muted">就绪</span>
-        <button class="btn" id="refreshBtn">刷新当前模块</button>
+        <button class="btn" id="refreshBtn">刷新</button>
       </div>
     </header>
 
     <section id="view-contracts" class="view">
       <div class="toolbar">
-        <button class="btn primary" id="analyzeAll">刷新信号（套用已拟合模型）</button>
-        <button class="btn" id="refitWeights">重新拟合权重（10亿次，只需偶尔做）</button>
+        <button class="btn primary" id="analyzeAll">刷新信号</button>
         <label>周期
           <select id="klineInterval">
             <option>15m</option>
@@ -52,17 +51,17 @@
           </select>
         </label>
         <label class="check"><input type="checkbox" id="onlyRecommend" checked /> 只看推荐</label>
-        <input id="contractFilter" placeholder="输入单一币种如 BTC / ETHUSDT，回车分析" />
+        <input id="contractFilter" placeholder="输入币种如 BTC / ETHUSDT，回车分析" />
         <button class="btn" id="analyzeOne">分析此币</button>
-        <span class="pill" id="simBadge">尚未拟合：先校准一次指标权重，之后按各币胜率推荐</span>
+        <span class="pill hidden" id="simBadge"></span>
       </div>
       <div class="progress hidden" id="analyzeProgress"><div></div></div>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>标的</th><th>市值排名</th><th>结论</th><th>行情</th><th>胜率</th><th>综合分</th><th>现价</th>
-              <th>建仓</th><th>止损</th><th>止盈</th><th>阶段</th><th>操作</th>
+              <th>标的</th><th>结论</th><th>行情</th><th>胜率</th><th>现价</th>
+              <th>建仓</th><th>止损</th><th>止盈</th><th>操作</th>
             </tr>
           </thead>
           <tbody id="contractRows"></tbody>
@@ -73,9 +72,8 @@
 
     <section id="view-news" class="view hidden">
       <div class="toolbar">
-        <span class="pill">先给结论：做多 / 做空 / 观望</span>
+        <span class="pill">做多 / 做空 / 观望</span>
         <span class="pill">只保留 24 小时内</span>
-        <span class="pill">宏观 / ETF / 监管 / 黑客 / 脱锚</span>
         <label class="check"><input type="checkbox" id="newsAlertOnly" /> 只看高影响提醒</label>
         <select id="newsBiasFilter">
           <option value="">全部方向</option>
@@ -83,28 +81,25 @@
           <option value="偏空">偏空</option>
           <option value="方向未定">方向未定</option>
         </select>
-        <input id="newsFilter" placeholder="筛选标题 / 宏观 / ETF / 黑客" />
+        <input id="newsFilter" placeholder="筛选标题" />
       </div>
       <div class="panel" id="newsVerdict"></div>
       <div class="grid-3" id="newsGroups"></div>
-      <p class="muted" id="newsMsg"></p>
+      <p class="muted hidden" id="newsMsg"></p>
     </section>
 
     <section id="view-meme" class="view hidden">
       <div class="toolbar">
         <span class="pill">池子 ≥ $1M</span>
-        <span class="pill">5 分钟买压 + 持币增长</span>
-        <span class="pill">名人喊单 · 给出 CA 与链</span>
-        <span class="pill">过滤接盘 / 过新狙击盘</span>
-        <input id="memeFilter" placeholder="筛选 可跟/观察/链/CA/名人" />
+        <span class="pill">名人喊单</span>
+        <input id="memeFilter" placeholder="筛选 可跟 / 观察 / 链 / CA / 名人" />
       </div>
-      <p class="muted" id="memeMsg"></p>
+      <p class="muted hidden" id="memeMsg"></p>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>评级</th><th>链</th><th>币种</th><th>CA</th><th>价格</th><th>流动性</th>
-              <th>买卖比</th><th>热度</th><th>风险</th><th>来源</th><th>操作</th>
+              <th>评级</th><th>链</th><th>币种</th><th>CA</th><th>价格</th><th>流动性</th><th>操作</th>
             </tr>
           </thead>
           <tbody id="memeRows"></tbody>
@@ -115,8 +110,8 @@
     <section id="view-copytrade" class="view hidden">
       <div class="grid-2">
         <div class="panel">
-          <h3>跟单规则（针对妖币「可跟」）</h3>
-          <p class="muted">默认模拟盘：热度≥65、风险≤45、池子≥$1M、不追涨幅过大的币。缓存刷新只盯市；点「刷新」才开新仓。止损 18%、止盈 40%；浮盈 25% 保本、50% 追踪。同币冷却 60 分钟，单笔不超过权益 5%。实盘只推到钱包确认队列。</p>
+          <h3>跟单</h3>
+          <p class="muted">跟随妖币「可跟」信号。模拟盘默认开启；实盘需在钱包中确认。</p>
           <label class="check"><input type="checkbox" id="copyEnabled" checked /> 启用跟单</label>
           <label>模式
             <select id="copyMode">
@@ -125,14 +120,14 @@
             </select>
           </label>
           <label>单笔 USD <input type="number" id="copySize" min="5" value="30" /></label>
-          <button class="btn primary" id="copySave">保存规则并扫描</button>
+          <button class="btn primary" id="copySave">保存并扫描</button>
         </div>
         <div class="panel">
           <h3>账户</h3>
           <p>权益：<strong id="copyEquity">-</strong></p>
           <p>已实现盈亏：<strong id="copyRealized">-</strong> · 浮动：<strong id="copyUnreal">-</strong></p>
           <p>胜率：<span id="copyWin">-</span> · 持仓 <span id="copyOpenN">0</span></p>
-          <p class="muted" id="copyActions"></p>
+          <p class="muted hidden" id="copyActions"></p>
         </div>
       </div>
       <h3>持仓</h3>
@@ -146,9 +141,7 @@
 
     <section id="view-ambassador" class="view hidden">
       <div class="toolbar">
-        <span class="pill">窗口：7 天内</span>
-        <span class="pill">只显示项目方发布的招募</span>
-        <span class="pill">不显示个人求职</span>
+        <span class="pill">7 天内 · 项目方发布</span>
         <select id="ambStatusFilter">
           <option value="">全部标记</option>
           <option value="none">未标记</option>
@@ -166,35 +159,11 @@
 
     <section id="view-launch" class="view hidden">
       <div class="toolbar">
-        <span class="pill">官方关注优先</span>
-        <span class="pill">Solana：@solana / @toly</span>
-        <span class="pill">BSC：@cz_binance / @heyibinance</span>
-        <span class="pill">行业名人单独标记</span>
-      </div>
-      <div class="panel" id="launchTokenBox">
-        <h3>打新看官方关注，行业名人也盯但会单独标记</h3>
-        <p><strong>官方</strong>：Solana 必须被 @solana / @toly 关注；BSC 必须被 @cz_binance（CZ）或 @heyibinance（何一）关注。</p>
-        <p><strong>行业名人</strong>：另盯 Raj Gokal、Mert / Helius、Jupiter、Superteam、PancakeSwap、BNB Chain 的关注列表。这些不是官方口径，卡片上会标「行业名人」并写明纳入理由。</p>
-        <p class="muted">一般不用填令牌：软件会去读公开关注页。填了 X 令牌更稳，还能扫他们关注的项目有没有发发射推文。</p>
-        <details>
-          <summary>可选：填 X 令牌（更稳，不是必须）</summary>
-          <ol>
-            <li>浏览器打开 <a href="https://developer.x.com/en/portal/dashboard" target="_blank" rel="noopener">https://developer.x.com/en/portal/dashboard</a> 并登录 X 账号</li>
-            <li>点 <strong>Create Project</strong> 建一个项目，再 <strong>Create App</strong> 建一个应用（免费档 Free 即可）</li>
-            <li>进入这个 App → <strong>Keys and tokens</strong></li>
-            <li>找到 <strong>Bearer Token</strong>，点 Reveal 后复制</li>
-          </ol>
-          <label>Bearer Token
-            <input id="launch_twitter_bearer" type="password" placeholder="可留空" autocomplete="off" />
-          </label>
-          <div class="card-actions">
-            <button class="btn" id="saveLaunchToken">保存令牌</button>
-          </div>
-          <p class="muted" id="launchTokenStatus"></p>
-        </details>
+        <span class="pill">官方</span>
+        <span class="pill">行业名人</span>
       </div>
       <div id="launchAlerts"></div>
-      <p class="muted" id="launchMsg"></p>
+      <p class="muted hidden" id="launchMsg"></p>
       <div class="cards" id="launchCards"></div>
     </section>
 
@@ -203,7 +172,6 @@
         <span class="pill">比特币生态 + ETH 生态</span>
         <span class="pill">BTC 融资 ≥ $500 万</span>
         <span class="pill">ETH 融资 ≥ $2000 万</span>
-        <span class="pill">知名机构加权</span>
         <span class="pill">优先未发币</span>
         <select id="airdropStatusFilter">
           <option value="">全部标记</option>
@@ -217,8 +185,8 @@
         <table>
           <thead>
             <tr>
-              <th>项目</th><th>生态</th><th>融资</th><th>知名机构</th><th>发币预期</th>
-              <th>赛道</th><th>评分</th><th>标记</th><th>操作</th>
+              <th>项目</th><th>生态</th><th>融资</th><th>机构</th><th>发币预期</th>
+              <th>赛道</th><th>标记</th><th>操作</th>
             </tr>
           </thead>
           <tbody id="airdropRows"></tbody>
@@ -236,7 +204,7 @@
           <button class="btn" id="disconnectWallet">断开</button>
         </div>
         <div class="panel">
-          <h3>自动参加规则</h3>
+          <h3>自动参加</h3>
           <p class="muted">开启后，可将空投 / 打新 / 妖币 / 合约信号加入执行队列。默认仍需在钱包中确认。</p>
           <label class="check"><input type="checkbox" id="autoParticipate" /> 允许加入自动队列</label>
           <label>单笔上限 USD <input type="number" id="autoMaxSpend" min="1" step="1" /></label>
@@ -253,18 +221,22 @@
 
     <section id="view-settings" class="view hidden">
       <div class="panel form">
-        <label>拟合模拟次数（仅校准阶段，默认 1000000000）<input id="s_monte_carlo_sims" type="number" /></label>
-        <label>信号阈值<input id="s_signal_threshold" type="number" step="0.01" /></label>
-        <label>止损 ATR 倍数<input id="s_atr_sl_mult" type="number" step="0.1" /></label>
-        <label>止盈 ATR 倍数<input id="s_atr_tp_mult" type="number" step="0.1" /></label>
-        <label>妖币最小流动性 USD<input id="s_meme_min_liquidity_usd" type="number" /></label>
-        <label>ETH 空投最小融资 USD<input id="s_airdrop_min_funding_usd" type="number" /></label>
-        <label>BTC 空投最小融资 USD<input id="s_airdrop_btc_min_funding_usd" type="number" /></label>
-        <label>X 接口令牌 Bearer（可选，打新默认读公开关注页）<input id="s_twitter_bearer_token" type="password" placeholder="可留空" /></label>
+        <label>X 接口令牌 Bearer（可选）<input id="s_twitter_bearer_token" type="password" placeholder="可留空" /></label>
         <label>OKX API Key（合约跟单可选）<input id="s_okx_api_key" type="password" /></label>
         <label>OKX Secret<input id="s_okx_api_secret" type="password" /></label>
         <label>OKX Passphrase<input id="s_okx_passphrase" type="password" /></label>
+        <label>妖币最小流动性 USD<input id="s_meme_min_liquidity_usd" type="number" /></label>
+        <label>ETH 空投最小融资 USD<input id="s_airdrop_min_funding_usd" type="number" /></label>
+        <label>BTC 空投最小融资 USD<input id="s_airdrop_btc_min_funding_usd" type="number" /></label>
         <button class="btn primary" id="saveSettings">保存设置</button>
+        <details class="advanced">
+          <summary>高级</summary>
+          <label>校准次数<input id="s_monte_carlo_sims" type="number" /></label>
+          <label>信号阈值<input id="s_signal_threshold" type="number" step="0.01" /></label>
+          <label>止损倍数<input id="s_atr_sl_mult" type="number" step="0.1" /></label>
+          <label>止盈倍数<input id="s_atr_tp_mult" type="number" step="0.1" /></label>
+          <button class="btn" id="refitWeights">重新校准</button>
+        </details>
       </div>
     </section>
   </main>

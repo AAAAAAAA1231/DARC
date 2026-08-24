@@ -21,6 +21,9 @@ def test_health_and_index():
     assert "只看高影响提醒" in page.text
     assert "只看推荐" in page.text
     assert "成功率" not in page.text
+    assert "套用已拟合模型" not in page.text
+    assert "10亿次" not in page.text
+    assert "综合分" not in page.text
     assert "分析此币" in page.text
     assert "名人喊单" in page.text
     assert "24 小时" in page.text
