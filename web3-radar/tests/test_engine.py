@@ -8,9 +8,9 @@ from web3_radar.collectors.airdrop import score_airdrop, parse_raise_text, _keep
 from web3_radar.collectors.ecosystem import classify_btc_eth, is_solana
 from web3_radar.collectors.meme import _passes_meme_filter
 from web3_radar.collectors.social import extract_deadline, looks_like_solana_launch, score_ambassador
-from web3_radar.engine.indicators import classify_regime, compute_all_indicators, rsi, td_sequential
+from web3_radar.engine.indicators import classify_regime, compute_all_indicators, last_atr, rsi, td_sequential
 from web3_radar.engine.monte_carlo import decision_from_score, monte_carlo_reweight
-from web3_radar.engine.signals import analyze_klines, average_weights_from_results, fit_global_weights, mark_top_recommendations, pool_expectancies
+from web3_radar.engine.signals import analyze_klines, average_weights_from_results, fit_global_weights, mark_top_recommendations, plan_limit_levels, pool_expectancies
 from web3_radar.engine.live_learn import (
     apply_live_feedback,
     recommend_count,
@@ -99,8 +99,28 @@ def test_analyze_klines_prices():
         assert out["recommend"] is False
     if out["decision"] == "涨":
         assert out["stop_loss"] < out["entry"] < out["take_profit"]
+        assert out["entry"] < out["price"]
     if out["decision"] == "跌":
         assert out["take_profit"] < out["entry"] < out["stop_loss"]
+        assert out["entry"] > out["price"]
+    if out["decision"] == "观望":
+        assert out["entry"] == out["price"]
+
+
+def test_limit_entry_waits_instead_of_hitting_last_price():
+    df = _ohlcv(trend=0.004)
+    price = float(df["close"].iloc[-1])
+    atr_v = last_atr(df)
+    long_e, sl, tp = plan_limit_levels(df, "涨", "单边", price, atr_v, 1.5, 2.5)
+    assert long_e < price
+    assert sl < long_e < tp
+    assert price - long_e <= 0.45 * atr_v * 1.05
+    short_e, sl2, tp2 = plan_limit_levels(df, "跌", "震荡", price, atr_v, 1.5, 2.5)
+    assert short_e > price
+    assert tp2 < short_e < sl2
+    assert short_e - price <= 0.70 * atr_v * 1.05
+    flat_e, _, _ = plan_limit_levels(df, "观望", "过渡", price, atr_v, 1.5, 2.5)
+    assert flat_e == price
 
 
 def _range_ohlcv(n: int = 180, seed: int = 7) -> pd.DataFrame:

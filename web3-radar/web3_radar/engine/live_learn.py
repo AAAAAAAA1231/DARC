@@ -327,7 +327,7 @@ def record_recommendations(
         symbol = str(row.get("symbol") or "").strip().upper()
         if not symbol or symbol == "?":
             continue
-        entry = float(row.get("price") or row.get("entry") or 0)
+        entry = float(row.get("entry") or row.get("price") or 0)
         if entry <= 0:
             continue
         pending.append(

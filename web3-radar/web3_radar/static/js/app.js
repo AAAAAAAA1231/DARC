@@ -1,5 +1,5 @@
 const views = {
-  contracts: ["合约分析", "涨跌、建仓、止损、止盈。仅供参考，不构成投资建议。"],
+  contracts: ["合约分析", "涨跌、挂单建仓、止损、止盈。仅供参考，不构成投资建议。"],
   news: ["单边快讯", "过去 24 小时的做多 / 做空 / 观望。仅供参考，不构成投资建议。"],
   meme: ["妖币监控", "可跟 / 观察 / 避开，附 CA 与链。仅供参考，不构成投资建议。"],
   copytrade: ["自动跟单", "跟随「可跟」信号。模拟盘默认开启，实盘需钱包确认。"],
@@ -284,7 +284,7 @@ function showDetail(id) {
         ${r.recommend ? " <span class='tag live'>推荐</span>" : ""}
       </h3>
       <p>胜率 <strong>${fmtWinRate(r)}</strong> · 行情 ${escapeHtml(r.regime || "-")}</p>
-      <p>现价 ${fmtPx(r.price)} · 建仓 ${fmtPx(r.entry)} · 止损 ${fmtPx(r.stop_loss)} · 止盈 ${fmtPx(r.take_profit)}</p>
+      <p>现价 ${fmtPx(r.price)} · 挂单 ${fmtPx(r.entry)} · 止损 ${fmtPx(r.stop_loss)} · 止盈 ${fmtPx(r.take_profit)}</p>
     </div>`;
 }
 
@@ -306,7 +306,7 @@ async function analyzeOneCoin() {
       setStatus(
         row.symbol + " · " + (row.decision || "观望")
         + " · 胜率 " + fmtWinRate(row)
-        + " · 建仓 " + fmtPx(row.entry)
+        + " · 挂单 " + fmtPx(row.entry)
         + " / 止损 " + fmtPx(row.stop_loss)
         + " / 止盈 " + fmtPx(row.take_profit)
       );

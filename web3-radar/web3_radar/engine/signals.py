@@ -10,6 +10,7 @@ from web3_radar.config import INITIAL_INDICATOR_SHARES, MONTE_CARLO_SIMS
 from web3_radar.engine.indicators import (
     classify_regime,
     compute_all_indicators,
+    ema,
     historical_expectancy,
     last_atr,
 )
@@ -88,6 +89,72 @@ def average_weights_from_results(results: list[dict[str, Any]]) -> dict[str, flo
     raw = np.array([float(np.mean(buckets[n])) for n in names], dtype=np.float64)
     raw = raw / max(raw.sum(), 1e-12)
     return {n: float(raw[i]) for i, n in enumerate(names)}
+
+
+def plan_limit_levels(
+    df: pd.DataFrame,
+    decision: str,
+    regime: str,
+    price: float,
+    atr_v: float,
+    sl_m: float,
+    tp_m: float,
+) -> tuple[float, float, float]:
+    """Hang a limit instead of lifting the last print; SL/TP are measured from that fill."""
+    price = float(price)
+    atr_v = float(atr_v)
+    sl_m, tp_m = float(sl_m), float(tp_m)
+    if price <= 0 or not math.isfinite(price):
+        return price, price, price
+    if not math.isfinite(atr_v) or atr_v <= 0:
+        atr_v = price * 0.02
+    if decision not in ("涨", "跌"):
+        return price, price - sl_m * atr_v, price + tp_m * atr_v
+
+    high = df["high"].to_numpy(dtype=float)
+    low = df["low"].to_numpy(dtype=float)
+    close = df["close"].to_numpy(dtype=float)
+    look = 8 if regime == "震荡" else 5
+    look = max(1, min(look, len(low)))
+    rec_low = float(np.min(low[-look:]))
+    rec_high = float(np.max(high[-look:]))
+    last_low = float(low[-1])
+    last_high = float(high[-1])
+    ema20 = float(ema(close, 20)[-1]) if len(close) else price
+    tick = max(price * 1e-4, atr_v * 0.02)
+
+    if regime == "震荡":
+        pull, max_wait = 0.45 * atr_v, 0.70 * atr_v
+    elif regime == "单边":
+        pull, max_wait = 0.22 * atr_v, 0.45 * atr_v
+    else:
+        pull, max_wait = 0.32 * atr_v, 0.55 * atr_v
+
+    if decision == "涨":
+        magnets = [price - pull, last_low]
+        if rec_low < price:
+            magnets.append(rec_low)
+        if ema20 < price:
+            magnets.append(ema20)
+        below = [m for m in magnets if math.isfinite(m) and m < price - tick * 0.25]
+        entry = max(below) if below else price - tick
+        entry = max(entry, price - max_wait)
+        entry = min(entry, price - tick)
+        sl = entry - sl_m * atr_v
+        tp = entry + tp_m * atr_v
+    else:
+        magnets = [price + pull, last_high]
+        if rec_high > price:
+            magnets.append(rec_high)
+        if ema20 > price:
+            magnets.append(ema20)
+        above = [m for m in magnets if math.isfinite(m) and m > price + tick * 0.25]
+        entry = min(above) if above else price + tick
+        entry = min(entry, price + max_wait)
+        entry = max(entry, price + tick)
+        sl = entry + sl_m * atr_v
+        tp = entry - tp_m * atr_v
+    return float(entry), float(sl), float(tp)
 
 
 def directional_hit_rate(df: pd.DataFrame, decision: str, hold_bars: int = 1) -> float:
@@ -205,14 +272,12 @@ def analyze_klines(
     if not math.isfinite(atr_v) or atr_v <= 0:
         atr_v = price * 0.02
 
+    entry, sl, tp = plan_limit_levels(df, decision, regime, price, atr_v, sl_m, tp_m)
     if decision == "涨":
-        entry, sl, tp = price, price - sl_m * atr_v, price + tp_m * atr_v
         side = "long"
     elif decision == "跌":
-        entry, sl, tp = price, price + sl_m * atr_v, price - tp_m * atr_v
         side = "short"
     else:
-        entry, sl, tp = price, price - sl_m * atr_v, price + tp_m * atr_v
         side = "flat"
 
     return {
