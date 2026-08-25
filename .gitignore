@@ -19,3 +19,11 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+
+# Football predictor
+football-predictor/build/
+football-predictor/dist/
+football-predictor/__pycache__/
+football-predictor/**/__pycache__/
+football-predictor/*.spec.bak
+.pytest_cache/
