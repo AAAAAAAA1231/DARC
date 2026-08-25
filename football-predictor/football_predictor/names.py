@@ -39,8 +39,8 @@ TEAMS: tuple[TeamInfo, ...] = (
     # —— 西甲 / 西乙 ——
     TeamInfo("Alaves", "阿拉维斯", ("Alavés", "Deportivo Alaves", "ALA"), 42.867, -2.688, "Mendizorrotza"),
     TeamInfo("Athletic Club", "毕尔巴鄂竞技", ("Ath Bilbao", "Athletic Bilbao", "Bilbao", "ATH"), 43.264, -2.949, "San Mamés"),
-    TeamInfo("Atletico Madrid", "马德里竞技", ("Ath Madrid", "Atlético Madrid", "Atletico", "ATM"), 40.436, -3.599, "Civitas Metropolitano"),
-    TeamInfo("Barcelona", "巴塞罗那", ("Barca", "FC Barcelona", "BAR"), 41.381, 2.123, "Spotify Camp Nou"),
+    TeamInfo("Atletico Madrid", "马德里竞技", ("Ath Madrid", "Atlético Madrid", "Atletico", "ATM", "马竞"), 40.436, -3.599, "Civitas Metropolitano"),
+    TeamInfo("Barcelona", "巴塞罗那", ("Barca", "FC Barcelona", "BAR", "巴萨"), 41.381, 2.123, "Spotify Camp Nou"),
     TeamInfo("Celta Vigo", "塞尔塔", ("Celta", "Celta de Vigo", "CEL"), 42.212, -8.740, "Abanca Balaídos"),
     TeamInfo("Deportivo", "拉科鲁尼亚", ("La Coruna", "Deportivo La Coruna", "Deportivo La Coruña", "DEP"), 43.369, -8.417, "Riazor"),
     TeamInfo("Elche", "埃尔切", ("Elche CF", "ELC"), 38.267, -0.663, "Martínez Valero"),
@@ -51,11 +51,11 @@ TEAMS: tuple[TeamInfo, ...] = (
     TeamInfo("Osasuna", "奥萨苏纳", ("CA Osasuna", "OSA"), 42.797, -1.637, "El Sadar"),
     TeamInfo("Racing Santander", "桑坦德竞技", ("Santander", "Racing", "RAC"), 43.438, -3.839, "El Sardinero"),
     TeamInfo("Rayo Vallecano", "巴列卡诺", ("Vallecano", "Rayo", "RAY"), 40.392, -3.659, "Vallecas"),
-    TeamInfo("Real Betis", "皇家贝蒂斯", ("Betis", "BET"), 37.356, -6.000, "Benito Villamarín"),
-    TeamInfo("Real Madrid", "皇家马德里", ("Madrid", "RMA"), 40.453, -3.688, "Santiago Bernabéu"),
+    TeamInfo("Real Betis", "皇家贝蒂斯", ("Betis", "BET", "贝蒂斯"), 37.356, -6.000, "Benito Villamarín"),
+    TeamInfo("Real Madrid", "皇家马德里", ("Madrid", "RMA", "皇马"), 40.453, -3.688, "Santiago Bernabéu"),
     TeamInfo("Real Sociedad", "皇家社会", ("Sociedad", "RSO"), 43.301, -1.974, "Reale Arena"),
     TeamInfo("Sevilla", "塞维利亚", ("Sevilla FC", "SEV"), 37.384, -5.971, "Ramón Sánchez-Pizjuán"),
-    TeamInfo("Valencia", "瓦伦西亚", ("Valencia CF", "VAL"), 39.475, -0.358, "Mestalla"),
+    TeamInfo("Valencia", "瓦伦西亚", ("Valencia CF", "VAL", "巴伦西亚"), 39.475, -0.358, "Mestalla"),
     TeamInfo("Villarreal", "比利亚雷亚尔", ("Villarreal CF", "VIL"), 39.944, -0.103, "Estadio de la Cerámica"),
     TeamInfo("Mallorca", "马略卡", ("RCD Mallorca",), 39.590, 2.630, "Son Moix"),
     TeamInfo("Girona", "赫罗纳", ("Girona FC",), 41.961, 2.828, "Montilivi"),
@@ -179,6 +179,21 @@ def stadium_coords(name: str) -> tuple[float, float, str] | None:
     if not info:
         return None
     return info.lat, info.lon, info.stadium
+
+
+def team_keywords(name: str) -> list[str]:
+    info = resolve_team(name)
+    if not info:
+        return [name]
+    keys = [info.canonical, info.name_cn, *info.aliases]
+    out: list[str] = []
+    seen: set[str] = set()
+    for key in keys:
+        k = key.strip()
+        if k and k.lower() not in seen:
+            seen.add(k.lower())
+            out.append(k)
+    return out
 
 
 def all_canonical_names() -> list[str]:

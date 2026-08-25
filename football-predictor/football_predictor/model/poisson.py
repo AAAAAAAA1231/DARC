@@ -63,6 +63,27 @@ def most_likely_score(mat: np.ndarray) -> str:
     return f"{int(i)}-{int(j)}"
 
 
+def most_likely_score_for_1x2(mat: np.ndarray, label: str) -> str:
+    """在给定胜平负结论下，取该区域内概率最高的精确比分，避免「主胜却报 1-1」。"""
+    n = mat.shape[0]
+    best_i = best_j = 0
+    best_p = -1.0
+    for i in range(n):
+        for j in range(n):
+            if label == "主胜" and i <= j:
+                continue
+            if label == "平局" and i != j:
+                continue
+            if label == "客胜" and i >= j:
+                continue
+            p = float(mat[i, j])
+            if p > best_p:
+                best_i, best_j, best_p = i, j, p
+    if best_p < 0:
+        return most_likely_score(mat)
+    return f"{best_i}-{best_j}"
+
+
 def expected_goals(mat: np.ndarray) -> tuple[float, float]:
     goals = np.arange(mat.shape[0])
     xg_h = float((mat.sum(axis=1) * goals).sum())

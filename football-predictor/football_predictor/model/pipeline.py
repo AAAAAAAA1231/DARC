@@ -9,7 +9,7 @@ from ..data.espn import Fixture, Injury, NewsItem, list_fixtures, list_injuries,
 from ..data.historical import Match, load_league_history
 from ..data.news import collect_match_news
 from ..data.weather import Weather, fetch_weather
-from ..names import canonical_name, display_cn, stadium_coords
+from ..names import canonical_name, display_cn, stadium_coords, team_keywords
 from .adjustments import (
     Adjustment,
     apply_multipliers,
@@ -21,7 +21,14 @@ from .adjustments import (
 from .calibrate import Calibration, calibrate_from_holdout, split_holdout
 from .dixon_coles import DixonColesModel, fit_dixon_coles
 from .elo import EloTable, elo_1x2, fit_elo
-from .poisson import expected_goals, matrix_1x2, most_likely_score, rescale_matrix_to_1x2, score_matrix, top_scores
+from .poisson import (
+    expected_goals,
+    matrix_1x2,
+    most_likely_score_for_1x2,
+    rescale_matrix_to_1x2,
+    score_matrix,
+    top_scores,
+)
 
 ProgressCb = Callable[[str], None]
 
@@ -182,6 +189,32 @@ class Predictor:
             progress=progress,
         )
 
+    def _attach_live_fixture(
+        self,
+        league_key: str,
+        home: str,
+        away: str,
+        kickoff: datetime | None,
+        venue: str,
+        market: tuple[float, float, float] | None,
+        home_form: str,
+        away_form: str,
+    ):
+        try:
+            fixtures = self.upcoming(league_key)
+        except Exception:
+            return kickoff, venue, market, home_form, away_form
+        for fx in fixtures:
+            if fx.home == home and fx.away == away:
+                return (
+                    fx.date if kickoff is None else kickoff,
+                    venue or fx.venue,
+                    market or fx.market,
+                    home_form or fx.home_form,
+                    away_form or fx.away_form,
+                )
+        return kickoff, venue, market, home_form, away_form
+
     def predict(
         self,
         league_key: str,
@@ -200,6 +233,10 @@ class Predictor:
         eng = self.engines[league_key]
         home = canonical_name(home)
         away = canonical_name(away)
+        if kickoff is None or market is None:
+            kickoff, venue, market, home_form, away_form = self._attach_live_fixture(
+                league_key, home, away, kickoff, venue, market, home_form, away_form
+            )
         kickoff = kickoff or datetime.now(timezone.utc)
         if kickoff.tzinfo is None:
             kickoff = kickoff.replace(tzinfo=timezone.utc)
@@ -235,14 +272,14 @@ class Predictor:
         except Exception:
             espn_news = []
 
-        home_names = [home, display_cn(home)]
-        away_names = [away, display_cn(away)]
+        home_names = team_keywords(home)
+        away_names = team_keywords(away)
         team_inj = [i for i in injuries if i.team in (home, away)]
         adjs.extend(injury_adjustments(team_inj, home, away, home_names, away_names))
 
         cb("检索赛前网络舆情（伤停/帅位/战意/天气）…")
         web_news = collect_match_news(display_cn(home), display_cn(away), home, away, eng.league.name_cn)
-        news = _merge_news(espn_news, web_news, home_names + away_names)
+        news = _merge_news(espn_news, web_news, home_names, away_names)
         adjs.extend(news_adjustments(news, home, away, home_names, away_names))
 
         wx: Weather | None = None
@@ -288,15 +325,15 @@ class Predictor:
         steps.append(eng.calibration.note)
         mat = rescale_matrix_to_1x2(mat, cal_h, cal_d, cal_a)
         xg_h, xg_a = expected_goals(mat)
-        score90 = most_likely_score(mat)
         tops = top_scores(mat, 8)
         label90 = _label_1x2(cal_h, cal_d, cal_a)
+        score90 = most_likely_score_for_1x2(mat, label90)
 
         # 联赛无加时点球，最终结果 = 90 分钟（含补时）赛果
         final_note = (
             "三大联赛常规赛没有加时与点球；"
             "「最终结果」等于 90 分钟（含伤停补时）赛果。"
-            "比分取概率最高的精确比分，胜平负取 1X2 最大后验。"
+            "胜平负取 1X2 最大后验，比分取该结论下最可能的精确比分。"
         )
         entropy = -(
             cal_h * _safe_log(cal_h) + cal_d * _safe_log(cal_d) + cal_a * _safe_log(cal_a)
@@ -368,21 +405,39 @@ def _safe_log(p: float) -> float:
     return log(max(p, 1e-12))
 
 
-def _merge_news(espn: list[NewsItem], web: list[NewsItem], names: list[str]) -> list[NewsItem]:
+def _merge_news(
+    espn: list[NewsItem],
+    web: list[NewsItem],
+    home_names: list[str],
+    away_names: list[str],
+) -> list[NewsItem]:
     from ..names import normalize_name
+    import re
 
-    keys = [normalize_name(n) for n in names if n]
+    home_keys = [normalize_name(n) for n in home_names if n]
+    away_keys = [normalize_name(n) for n in away_names if n]
+    all_keys = [k for k in home_keys + away_keys if k]
     out: list[NewsItem] = []
     seen: set[str] = set()
+    vs_pat = re.compile(r"\bvs\.?\b|对阵|VS|v\.", re.I)
+    spam = re.compile(
+        r"10bet|1xbet|博彩|充值|黄歰|银河游戏|womenofchina|彩票|外围|投注站",
+        re.I,
+    )
     for item in web + espn:
         title_key = item.title.strip().lower()
-        if title_key in seen:
+        if title_key in seen or not item.title:
+            continue
+        if spam.search(item.title) or spam.search(item.summary or ""):
             continue
         blob = normalize_name(f"{item.title} {item.summary}")
-        if keys and not any(k and k in blob for k in keys):
-            # 联盟新闻里不点名两队的丢掉，避免噪音
-            if item.source == "ESPN":
-                continue
+        if all_keys and not any(k in blob for k in all_keys):
+            continue
+        home_hit = any(k and k in blob for k in home_keys)
+        away_hit = any(k and k in blob for k in away_keys)
+        if vs_pat.search(item.title) and not (home_hit and away_hit):
+            # 该队打其他对手的旧闻/前瞻，丢掉
+            continue
         seen.add(title_key)
         out.append(item)
     return out

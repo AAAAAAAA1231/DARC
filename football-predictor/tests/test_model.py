@@ -79,6 +79,40 @@ def test_calibration_shrinks_toward_empirical():
     assert abs(h + d + a - 1) < 1e-9
 
 
+def test_score_consistent_with_1x2():
+    from football_predictor.model.poisson import most_likely_score_for_1x2, score_matrix
+
+    mat = score_matrix(1.5, 1.3, rho=-0.08)
+    score = most_likely_score_for_1x2(mat, "主胜")
+    h, a = map(int, score.split("-"))
+    assert h > a
+    score_d = most_likely_score_for_1x2(mat, "平局")
+    h, a = map(int, score_d.split("-"))
+    assert h == a
+
+
 def test_american_odds():
     assert abs(american_to_prob(-200) - 2 / 3) < 1e-6
     assert abs(american_to_prob(100) - 0.5) < 1e-6
+    assert abs(american_to_prob("+180") - (100 / 280)) < 1e-6
+
+
+def test_extract_espn_soccer_moneyline():
+    from football_predictor.data.espn import _extract_moneyline
+
+    odds = [
+        {
+            "drawOdds": {"moneyLine": 235},
+            "moneyline": {
+                "home": {"close": {"odds": "+180"}},
+                "away": {"close": {"odds": "+155"}},
+                "draw": {"close": {"odds": "+235"}},
+            },
+        }
+    ]
+    found = _extract_moneyline(odds)
+    assert found is not None
+    h, d, a = found
+    assert abs(h + d + a - 1) < 1e-9
+    assert 0.25 < h < 0.4
+    assert a > h  # +155 比 +180 更被看好

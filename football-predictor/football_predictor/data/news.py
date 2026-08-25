@@ -68,12 +68,12 @@ def google_news(query: str, lang: str = "zh") -> list[NewsItem]:
 
 def collect_match_news(home_cn: str, away_cn: str, home_en: str, away_en: str, league_cn: str) -> list[NewsItem]:
     queries = [
-        (f"{home_cn} {away_cn} {league_cn} 前瞻 伤停", "zh"),
-        (f"{home_cn} 伤停 停赛 缺阵", "zh"),
-        (f"{away_cn} 伤停 停赛 缺阵", "zh"),
-        (f"{home_en} vs {away_en} preview injury suspension", "en"),
-        (f"{home_en} injured suspended doubtful lineup", "en"),
-        (f"{away_en} injured suspended doubtful lineup", "en"),
+        (f'"{home_cn}" "{away_cn}" (前瞻 OR 伤停 OR 对阵) when:21d', "zh"),
+        (f'"{home_cn}" (伤停 OR 停赛 OR 缺阵) when:14d', "zh"),
+        (f'"{away_cn}" (伤停 OR 停赛 OR 缺阵) when:14d', "zh"),
+        (f'"{home_en}" "{away_en}" (preview OR injury OR suspension) when:21d', "en"),
+        (f'"{home_en}" (injured OR suspended OR doubtful OR lineup) when:14d', "en"),
+        (f'"{away_en}" (injured OR suspended OR doubtful OR lineup) when:14d', "en"),
     ]
     seen: set[str] = set()
     out: list[NewsItem] = []

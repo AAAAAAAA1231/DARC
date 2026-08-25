@@ -33,12 +33,22 @@ def _parse_iso(value: str | None) -> datetime | None:
         return None
 
 
-def american_to_prob(ml: float | int | None) -> float | None:
+def american_to_prob(ml: float | int | str | None) -> float | None:
     if ml is None:
         return None
+    if isinstance(ml, str):
+        text = ml.replace(",", "").strip()
+        if not text:
+            return None
+        try:
+            ml = float(text)
+        except ValueError:
+            return None
     try:
         ml = float(ml)
     except (TypeError, ValueError):
+        return None
+    if ml == 0:
         return None
     if ml > 0:
         p = 100.0 / (ml + 100.0)
@@ -56,6 +66,18 @@ def _normalize_odds(h: float | None, d: float | None, a: float | None) -> tuple[
     return h / s, d / s, a / s
 
 
+def _side_odds(block: Any) -> float | None:
+    if not isinstance(block, dict):
+        return american_to_prob(block)
+    for key in ("close", "open", "current"):
+        nested = block.get(key)
+        if isinstance(nested, dict) and nested.get("odds") is not None:
+            return american_to_prob(nested.get("odds"))
+        if nested is not None and not isinstance(nested, dict):
+            return american_to_prob(nested)
+    return american_to_prob(block.get("moneyLine") or block.get("odds"))
+
+
 def _extract_moneyline(odds: Any) -> tuple[float, float, float] | None:
     if not odds:
         return None
@@ -63,18 +85,17 @@ def _extract_moneyline(odds: Any) -> tuple[float, float, float] | None:
     for item in items:
         if not isinstance(item, dict):
             continue
-        home_ml = None
-        away_ml = None
-        draw_ml = None
-        for key in ("homeTeamOdds", "awayTeamOdds", "drawOdds"):
-            block = item.get(key) or {}
-            ml = block.get("moneyLine")
-            if key == "homeTeamOdds":
-                home_ml = american_to_prob(ml)
-            elif key == "awayTeamOdds":
-                away_ml = american_to_prob(ml)
-            else:
-                draw_ml = american_to_prob(ml)
+        home_ml = away_ml = draw_ml = None
+        # 旧结构
+        home_ml = _side_odds(item.get("homeTeamOdds") or {})
+        away_ml = _side_odds(item.get("awayTeamOdds") or {})
+        draw_ml = _side_odds(item.get("drawOdds") or {})
+        # ESPN soccer: moneyline.home.close.odds = "+180"
+        ml = item.get("moneyline") or item.get("moneyLine") or {}
+        if isinstance(ml, dict):
+            home_ml = home_ml or _side_odds(ml.get("home") or {})
+            away_ml = away_ml or _side_odds(ml.get("away") or {})
+            draw_ml = draw_ml or _side_odds(ml.get("draw") or {})
         found = _normalize_odds(home_ml, draw_ml, away_ml)
         if found:
             return found
