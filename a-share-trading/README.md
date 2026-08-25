@@ -32,19 +32,13 @@ python -m a_share_trading serve --port 8765
 
 ## Windows 可执行文件
 
-已经打好 Windows 安装包（NSIS，PE32）：
+和之前三大联赛工具同一打法：**PyInstaller 单文件便携版**，双击即用，不用安装。
 
-`dist/大A量化研判系统.exe`
+CI 打好后放在：
 
-在 Windows 上双击安装后，开始菜单会出现「大A量化研判系统」。启动会打开本机浏览器研判终端（默认 http://127.0.0.1:8765/）。关闭启动窗口即退出。
+`a-share-trading/release/大A量化研判系统.exe`
 
-重新打包（需 `nsis` / `makensis` 与 `pynsist`）：
-
-```bash
-pip install pynsist
-sudo apt-get install nsis   # 仅在 Linux 交叉打包时
-bash scripts/build_windows_exe.sh
-```
+重新打包：推送本仓库后 GitHub Actions（windows-latest）会生成 onefile exe。
 
 ## 本次交付结果
 

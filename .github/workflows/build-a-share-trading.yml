@@ -1,0 +1,35 @@
+name: Build A-Share Trading EXE
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "a-share-trading/**"
+      - "!a-share-trading/release/**"
+      - ".github/workflows/build-a-share-trading.yml"
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        working-directory: a-share-trading
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+      - name: Run unit tests
+        working-directory: a-share-trading
+        run: python -m pytest tests -q
+      - name: Build onefile EXE
+        working-directory: a-share-trading
+        run: pyinstaller --noconfirm a_share.spec
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: a-share-trading-windows
+          path: a-share-trading/dist/*.exe

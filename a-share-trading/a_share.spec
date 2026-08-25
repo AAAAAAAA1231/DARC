@@ -1,60 +1,47 @@
 # -*- mode: python ; coding: utf-8 -*-
-from pathlib import Path
+from PyInstaller.utils.hooks import collect_submodules
 
-root = Path(SPECPATH).resolve().parent
+hidden = [
+    "a_share_trading",
+    "a_share_trading.desktop",
+    "a_share_trading.webapp",
+    "a_share_trading.config",
+    "a_share_trading.method_catalog",
+]
+hidden += collect_submodules("uvicorn")
+hidden += collect_submodules("fastapi")
+hidden += collect_submodules("starlette")
+hidden += [
+    "pydantic",
+    "pydantic_core",
+    "annotated_types",
+    "typing_inspection",
+    "anyio",
+    "anyio._backends._asyncio",
+    "h11",
+    "click",
+    "colorama",
+    "idna",
+    "sniffio",
+    "jinja2",
+    "markupsafe",
+]
 
 a = Analysis(
-    [str(root / "a_share_trading" / "desktop.py")],
-    pathex=[str(root)],
+    ["run.py"],
+    pathex=["."],
     binaries=[],
     datas=[
-        (str(root / "web"), "web"),
-        (str(root / "data" / "universe.json"), "data"),
-        (str(root / "data" / "calibration.json"), "data"),
-        (str(root / "data" / "predictions.json"), "data"),
+        ("web", "web"),
+        ("data/universe.json", "data"),
+        ("data/calibration.json", "data"),
+        ("data/predictions.json", "data"),
     ],
-    hiddenimports=[
-        "uvicorn",
-        "uvicorn.logging",
-        "uvicorn.loops",
-        "uvicorn.loops.auto",
-        "uvicorn.protocols",
-        "uvicorn.protocols.http",
-        "uvicorn.protocols.http.auto",
-        "uvicorn.protocols.http.h11_impl",
-        "uvicorn.protocols.websockets",
-        "uvicorn.protocols.websockets.auto",
-        "uvicorn.lifespan",
-        "uvicorn.lifespan.on",
-        "uvicorn.lifespan.off",
-        "fastapi",
-        "starlette",
-        "starlette.responses",
-        "starlette.staticfiles",
-        "anyio",
-        "anyio._backends._asyncio",
-        "h11",
-        "pydantic",
-        "a_share_trading",
-        "a_share_trading.webapp",
-        "a_share_trading.config",
-        "a_share_trading.method_catalog",
-        "a_share_trading.desktop",
-    ],
+    hiddenimports=hidden,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[
-        "numba",
-        "numpy",
-        "pandas",
-        "pytest",
-        "httpx",
-        "matplotlib",
-        "scipy",
-        "IPython",
-        "pip",
-    ],
+    excludes=["numba", "numpy", "pandas", "pytest", "matplotlib", "scipy", "IPython", "pip"],
     noarchive=False,
 )
 pyz = PYZ(a.pure)
@@ -68,7 +55,7 @@ exe = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=False,
+    upx=True,
     upx_exclude=[],
     runtime_tmpdir=None,
     console=False,
