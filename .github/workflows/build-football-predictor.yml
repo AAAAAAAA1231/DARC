@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - "football-predictor/**"
+      - "!football-predictor/release/**"
       - ".github/workflows/build-football-predictor.yml"
 
 jobs:
