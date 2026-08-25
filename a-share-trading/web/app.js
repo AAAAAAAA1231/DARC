@@ -17,13 +17,31 @@ function dirClass(d) {
 async function loadMeta() {
   const meta = await (await fetch("/api/meta")).json();
   const cal = meta.calibration || {};
+  const pred = meta.predictions || {};
   const n = cal.n_sims ? Number(cal.n_sims).toLocaleString("zh-CN") : "--";
+  const markets = pred.markets || {};
   $("kpis").innerHTML = [
     kpi("模拟次数", n),
-    kpi("最佳夏普", cal.best_sharpe != null ? Number(cal.best_sharpe).toFixed(3) : "--"),
-    kpi("股票数量", meta.predictions.count ?? "--"),
-    kpi("持有期", `${meta.predictions.horizon_days || 5} 日`),
+    kpi("上证", markets["上证"] ?? "--"),
+    kpi("深证", markets["深证"] ?? "--"),
+    kpi("科创板", markets["科创板"] ?? "--"),
+    kpi("创业板", markets["创业板"] ?? "--"),
+    kpi("股票数量", pred.count ?? "--"),
   ].join("");
+  const labels = [
+    ["", "全部市场"],
+    ["上证", "上证"],
+    ["深证", "深证"],
+    ["科创板", "科创板"],
+    ["创业板", "创业板"],
+    ["北交所", "北交所"],
+  ];
+  $("board").innerHTML = labels
+    .map(([value, name]) => {
+      const extra = value && markets[name] != null ? ` (${markets[name]})` : "";
+      return `<option value="${value}">${name}${extra}</option>`;
+    })
+    .join("");
   const methods = (cal.methods || []).slice().sort((a, b) => b.corrected - a.corrected);
   $("weights").innerHTML = methods
     .map((m) => {
@@ -55,7 +73,7 @@ async function loadList() {
       (x) => `<tr data-code="${x.code}">
         <td>${x.code}</td>
         <td>${x.name}</td>
-        <td>${x.board}</td>
+        <td>${x.market || x.board}</td>
         <td>${x.last}</td>
         <td class="${x.change_pct >= 0 ? "dir-up" : "dir-down"}">${fmtPct(x.change_pct)}</td>
         <td class="${dirClass(x.direction)}">${x.direction}</td>
@@ -97,7 +115,7 @@ async function showDetail(code) {
   const x = await (await fetch(`/api/stocks/${code}`)).json();
   state.selected = x;
   $("detail").innerHTML = `
-    <h2>${x.name} <span class="badge">${x.code}</span> <span class="badge">${x.board}</span></h2>
+    <h2>${x.name} <span class="badge">${x.code}</span> <span class="badge">${x.market || x.board}</span> <span class="badge">${x.board}</span></h2>
     <p class="${dirClass(x.direction)}">${x.side} · ${x.direction} · 置信度 ${(x.confidence * 100).toFixed(0)}%</p>
     <canvas class="spark" id="spark" width="420" height="90"></canvas>
     <p>现价 <b>${x.last}</b>　止盈 <b class="dir-up">${x.take_profit}</b>　止损 <b class="dir-down">${x.stop_loss}</b>　盈亏比 ${x.reward_risk}</p>

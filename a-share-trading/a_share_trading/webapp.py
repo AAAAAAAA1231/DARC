@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config
+from .markets import classify_market, match_market
 from .method_catalog import METHODS
 
 app = FastAPI(title="大A量化研判系统", version="0.1.0")
@@ -54,6 +55,14 @@ def index():
     return FileResponse(index_path)
 
 
+def _market_counts(items: list) -> dict[str, int]:
+    counts = {"上证": 0, "深证": 0, "科创板": 0, "创业板": 0, "北交所": 0, "其他": 0}
+    for item in items:
+        label = classify_market(item.get("exchange") or "", item.get("board") or "")
+        counts[label] = counts.get(label, 0) + 1
+    return counts
+
+
 @app.get("/api/health")
 def health():
     pred = _predictions()
@@ -85,6 +94,7 @@ def meta():
             "count": pred.get("count") or 0,
             "generated_at": pred.get("generated_at"),
             "horizon_days": pred.get("horizon_days") or config.HORIZON_DAYS,
+            "markets": _market_counts(pred.get("items") or []),
         },
         "disclaimer": cal.get("disclaimer") or "研究工具，不构成投资建议。",
     }
@@ -109,7 +119,7 @@ def list_stocks(
     if direction:
         items = [x for x in items if x["direction"] == direction]
     if board:
-        items = [x for x in items if board in x["board"]]
+        items = [x for x in items if match_market(x.get("exchange") or "", x.get("board") or "", board)]
     reverse = True
     key = sort.lstrip("-")
     if sort.startswith("-"):
@@ -124,6 +134,7 @@ def list_stocks(
             "code": x["code"],
             "name": x["name"],
             "board": x["board"],
+            "market": classify_market(x.get("exchange") or "", x.get("board") or ""),
             "exchange": x["exchange"],
             "last": x["last"],
             "change_pct": x["change_pct"],
@@ -145,7 +156,13 @@ def list_stocks(
         "total": total,
         "page": page,
         "page_size": page_size,
-        "stats": {"up": up, "down": down, "flat": flat, "all": len(pred["items"])},
+        "stats": {
+            "up": up,
+            "down": down,
+            "flat": flat,
+            "all": len(pred["items"]),
+            "markets": _market_counts(pred["items"]),
+        },
         "items": slim,
     }
 
@@ -158,5 +175,7 @@ def stock_detail(code: str):
     code = code.zfill(6)
     for item in pred["items"]:
         if item["code"] == code:
+            item = dict(item)
+            item["market"] = classify_market(item.get("exchange") or "", item.get("board") or "")
             return item
     raise HTTPException(404, f"未找到 {code}")

@@ -7,6 +7,7 @@ hidden = [
     "a_share_trading.webapp",
     "a_share_trading.config",
     "a_share_trading.method_catalog",
+    "a_share_trading.markets",
 ]
 hidden += collect_submodules("uvicorn")
 hidden += collect_submodules("fastapi")
