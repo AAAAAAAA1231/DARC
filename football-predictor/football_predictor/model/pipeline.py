@@ -176,7 +176,30 @@ class Predictor:
         out.sort(key=lambda f: (f.league, f.date))
         return out
 
-    def predict_fixture(self, fixture: Fixture, progress: ProgressCb | None = None) -> PredictionResult:
+    def upcoming_unplayed(self, days: int = 8, max_per_league: int = 6) -> list[Fixture]:
+        out: list[Fixture] = []
+        for key in LEAGUE_ORDER:
+            live = [fx for fx in self.upcoming(key, days=days) if fx.status != "post"]
+            out.extend(live[:max_per_league])
+        out.sort(key=lambda f: (f.date, f.league))
+        return out
+
+    def predict_all_upcoming(self, progress: ProgressCb | None = None) -> list[PredictionResult]:
+        cb = progress or (lambda _: None)
+        fixtures = self.upcoming_unplayed()
+        if not fixtures:
+            return []
+        results: list[PredictionResult] = []
+        total = len(fixtures)
+        for i, fx in enumerate(fixtures, 1):
+            cb(f"正在联网预测 {i}/{total}  {LEAGUES[fx.league].name_cn}  {fx.home_cn} vs {fx.away_cn}")
+            try:
+                results.append(self.predict_fixture(fx, light=True))
+            except Exception as exc:
+                cb(f"{fx.home_cn} vs {fx.away_cn} 失败：{exc}")
+        return results
+
+    def predict_fixture(self, fixture: Fixture, progress: ProgressCb | None = None, light: bool = False) -> PredictionResult:
         return self.predict(
             fixture.league,
             fixture.home,
@@ -187,6 +210,7 @@ class Predictor:
             home_form=fixture.home_form,
             away_form=fixture.away_form,
             progress=progress,
+            light=light,
         )
 
     def _attach_live_fixture(
@@ -226,6 +250,7 @@ class Predictor:
         home_form: str = "",
         away_form: str = "",
         progress: ProgressCb | None = None,
+        light: bool = False,
     ) -> PredictionResult:
         if league_key not in self.engines:
             raise RuntimeError("模型尚未训练，请先加载数据")
@@ -278,7 +303,9 @@ class Predictor:
         adjs.extend(injury_adjustments(team_inj, home, away, home_names, away_names))
 
         cb("检索赛前网络舆情（伤停/帅位/战意/天气）…")
-        web_news = collect_match_news(display_cn(home), display_cn(away), home, away, eng.league.name_cn)
+        web_news = collect_match_news(
+            display_cn(home), display_cn(away), home, away, eng.league.name_cn, light=light
+        )
         news = _merge_news(espn_news, web_news, home_names, away_names)
         adjs.extend(news_adjustments(news, home, away, home_names, away_names))
 

@@ -66,15 +66,29 @@ def google_news(query: str, lang: str = "zh") -> list[NewsItem]:
     return items
 
 
-def collect_match_news(home_cn: str, away_cn: str, home_en: str, away_en: str, league_cn: str) -> list[NewsItem]:
-    queries = [
-        (f'"{home_cn}" "{away_cn}" (前瞻 OR 伤停 OR 对阵) when:21d', "zh"),
-        (f'"{home_cn}" (伤停 OR 停赛 OR 缺阵) when:14d', "zh"),
-        (f'"{away_cn}" (伤停 OR 停赛 OR 缺阵) when:14d', "zh"),
-        (f'"{home_en}" "{away_en}" (preview OR injury OR suspension) when:21d', "en"),
-        (f'"{home_en}" (injured OR suspended OR doubtful OR lineup) when:14d', "en"),
-        (f'"{away_en}" (injured OR suspended OR doubtful OR lineup) when:14d', "en"),
-    ]
+def collect_match_news(
+    home_cn: str,
+    away_cn: str,
+    home_en: str,
+    away_en: str,
+    league_cn: str,
+    light: bool = False,
+) -> list[NewsItem]:
+    if light:
+        queries = [
+            (f'"{home_cn}" "{away_cn}" (前瞻 OR 伤停) when:14d', "zh"),
+            (f'"{home_en}" "{away_en}" (preview OR injury) when:14d', "en"),
+        ]
+    else:
+        queries = [
+            (f'"{home_cn}" "{away_cn}" (前瞻 OR 伤停 OR 对阵) when:21d', "zh"),
+            (f'"{home_cn}" (伤停 OR 停赛 OR 缺阵) when:14d', "zh"),
+            (f'"{away_cn}" (伤停 OR 停赛 OR 缺阵) when:14d', "zh"),
+            (f'"{home_en}" "{away_en}" (preview OR injury OR suspension) when:21d', "en"),
+            (f'"{home_en}" (injured OR suspended OR doubtful OR lineup) when:14d', "en"),
+            (f'"{away_en}" (injured OR suspended OR doubtful OR lineup) when:14d', "en"),
+        ]
+    cap = 8 if light else 18
     seen: set[str] = set()
     out: list[NewsItem] = []
     for q, lang in queries:
@@ -84,6 +98,6 @@ def collect_match_news(home_cn: str, away_cn: str, home_en: str, away_en: str, l
                 continue
             seen.add(key)
             out.append(item)
-            if len(out) >= 18:
+            if len(out) >= cap:
                 return out
     return out
