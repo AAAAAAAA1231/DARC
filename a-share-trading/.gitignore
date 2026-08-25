@@ -5,3 +5,7 @@ __pycache__/
 .venv/
 *.egg-info/
 .coverage
+build/
+packaging/build/
+dist/*
+!dist/*.exe

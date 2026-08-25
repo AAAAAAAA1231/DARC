@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from . import config
-from .methods import METHODS
+from .method_catalog import METHODS
 
 app = FastAPI(title="大A量化研判系统", version="0.1.0")
 app.add_middleware(
