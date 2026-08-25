@@ -194,10 +194,10 @@
     if (easy) addSoldier(720, FLOOR, true);
     x = 1040;
 
-    addPlat(x + 40, FLOOR - 118, 96);
-    if (id === "ARB") addPlat(x + 30, FLOOR - 118, 110, "move");
-    addCoins(x + 50, 2, FLOOR - 140);
-    x += 170;
+    addPlat(x + 16, FLOOR - 108, 128);
+    if (id === "ARB") addPlat(x + 10, FLOOR - 108, 140, "move");
+    addCoins(x + 40, 2, FLOOR - 130);
+    x += 150;
     addGround(x, 820);
     addSoldier(x + 180, FLOOR, easy);
     addSoldier(x + 320, FLOOR, easy);
@@ -223,11 +223,11 @@
     }
     x += 980;
 
-    addPlat(x + 20, FLOOR - 100, 90);
+    addPlat(x + 8, FLOOR - 100, 120);
     if (id === "STARK" || id === "BASE") {
-      hazards.push({ type: "laser", x: x + 70, y0: 90, y1: FLOOR, period: 1.7, phase: 0.2, on: false });
+      hazards.push({ type: "laser", x: x + 60, y0: 90, y1: FLOOR, period: 1.7, phase: 0.2, on: false });
     }
-    x += 150;
+    x += 130;
     addGround(x, 760);
     addTurret(x + 200, FLOOR);
     addTurret(x + 420, FLOOR);
