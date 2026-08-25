@@ -19,3 +19,7 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+
+# A-share trading local cache
+a-share-trading/data/cache/
+a-share-trading/**/__pycache__/
