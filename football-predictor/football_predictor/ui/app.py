@@ -279,10 +279,15 @@ class PredictorApp(tk.Tk):
             self.fx_list.insert("end", "暂无赛程（可手动选择对阵）")
             self.status_var.set("未拉到赛程，可手动预测")
             return
-        for fx in self.fixtures:
+        first_live = None
+        for i, fx in enumerate(self.fixtures):
             flag = "✓" if fx.status == "post" else "·"
             self.fx_list.insert("end", f"{flag} {fx.label}")
-        self.fx_list.selection_set(0)
+            if first_live is None and fx.status != "post":
+                first_live = i
+        idx = first_live if first_live is not None else 0
+        self.fx_list.selection_set(idx)
+        self.fx_list.see(idx)
         self.status_var.set(f"已载入 {len(self.fixtures)} 场 {LEAGUES[self.league_var.get()].name_cn} 赛程")
 
     def _selected_fixture(self):
