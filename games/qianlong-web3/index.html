@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>潜龙勇闯 Web3</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="game"></canvas>
+
+    <div id="hud" class="hidden">
+      <div class="hud-top">
+        <div class="hud-hearts" id="hud-hearts"></div>
+        <div class="hud-level">
+          <div class="hud-level-name" id="hud-level-name">ETH</div>
+          <div class="hud-bar"><i id="hud-bar"></i></div>
+        </div>
+        <div class="hud-stats">
+          <span>武器 <b id="hud-weapon">龙息</b></span>
+          <span>命 <b id="hud-lives">3</b></span>
+          <span id="hud-special"></span>
+          <span>代币 <b id="hud-tokens">0</b></span>
+          <span>分数 <b id="hud-score">0</b></span>
+        </div>
+      </div>
+      <div class="hud-hint" id="hud-hint"></div>
+    </div>
+
+    <div id="touch" class="hidden">
+      <div id="stick-zone"></div>
+      <div id="jump-btn">跳</div>
+      <div id="fire-btn">火</div>
+    </div>
+
+    <section id="screen-menu" class="screen">
+      <div class="menu-glow"></div>
+      <p class="eyebrow">HIDDEN DRAGON · WEB3 RAID</p>
+      <h1>潜龙勇闯 <span>Web3</span></h1>
+      <p class="tagline">魂斗罗式闯关 · 连射步枪 · 高低通道 · 胶囊武装 · 关底 Boss</p>
+      <div class="menu-actions">
+        <button class="btn primary" id="btn-start">开始闯关</button>
+        <button class="btn" id="btn-select">选择关卡</button>
+        <button class="btn ghost" id="btn-help">操作说明</button>
+      </div>
+      <p class="fineprint">A D 跑 · 空格跳 · 按住 J 连射 · W 朝上 · 打胶囊换枪</p>
+    </section>
+
+    <section id="screen-select" class="screen hidden">
+      <h2>选择关卡</h2>
+      <p class="tagline">通关后解锁下一链。已解锁关卡可随时重打。</p>
+      <div class="level-grid" id="level-grid"></div>
+      <button class="btn" id="btn-select-back">返回</button>
+    </section>
+
+    <section id="screen-help" class="screen hidden">
+      <h2>操作说明</h2>
+      <ul class="help-list">
+        <li><b>A D / 左右</b> — 奔跑　<b>空格 / K</b> — 跳跃（空中可再扇一次翼）</li>
+        <li><b>W / 上</b> — 朝上瞄准　<b>S / 下</b> — 蹲下（空中则朝下开火）</li>
+        <li><b>J / F / 鼠标按住</b> — 连射。打掉飞行胶囊可换 <b>M 机枪 / S 散弹 / L 激光 / F 龙焰</b></li>
+        <li><b>P / Esc</b> — 暂停。每关有高低通道、中段坦克和关底 Boss，打完进传送门</li>
+        <li><b>触屏</b> — 左半屏滑动移动，右下「跳」和「火」</li>
+        <li><b>ETH</b> 教学；<b>ARB</b> 移动平台；<b>ZK</b> 高台收集证明；<b>STARK</b> 激光网；<b>L0</b> 传送垫；<b>BASE</b> 终章。</li>
+      </ul>
+      <button class="btn" id="btn-help-back">返回</button>
+    </section>
+
+    <section id="screen-pause" class="screen overlay hidden">
+      <h2>暂停</h2>
+      <div class="menu-actions">
+        <button class="btn primary" id="btn-resume">继续</button>
+        <button class="btn" id="btn-pause-menu">回主菜单</button>
+      </div>
+    </section>
+
+    <section id="screen-dead" class="screen overlay hidden">
+      <h2>潜龙受创</h2>
+      <p class="tagline" id="dead-text">Gas 把龙鳞烧穿了。</p>
+      <div class="menu-actions">
+        <button class="btn primary" id="btn-retry">再闯一次</button>
+        <button class="btn" id="btn-dead-select">换一条链</button>
+        <button class="btn ghost" id="btn-dead-menu">回主菜单</button>
+      </div>
+    </section>
+
+    <section id="screen-clear" class="screen overlay hidden">
+      <p class="eyebrow" id="clear-eyebrow">LEVEL CLEAR</p>
+      <h2 id="clear-title">关卡通过</h2>
+      <p class="tagline" id="clear-text"></p>
+      <div class="menu-actions">
+        <button class="btn primary" id="btn-next">下一关</button>
+        <button class="btn" id="btn-clear-retry">再打一遍</button>
+        <button class="btn ghost" id="btn-clear-menu">回主菜单</button>
+      </div>
+    </section>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
