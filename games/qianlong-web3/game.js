@@ -201,25 +201,30 @@
       });
     }
 
-    const grounds = plats.filter((p) => p.kind === "ground" && p.w > 180 && p.x < arena - 200);
+    const easy = lv.id === "ETH";
+    const grounds = plats.filter((p) => p.kind === "ground" && p.w > 180 && p.x > 820 && p.x < arena - 200);
+    if (!grounds.length) {
+      plats.push({ x: 900, y: FLOOR, w: 600, h: H - FLOOR, kind: "ground" });
+      grounds.push(plats[plats.length - 1]);
+    }
     for (let i = 0; i < lv.walkers; i++) {
       const g = grounds[i % grounds.length];
       enemies.push({
         type: "walker", x: g.x + 60 + (i * 47) % Math.max(40, g.w - 80), y: g.y,
-        hp: 2, dir: R() < 0.5 ? -1 : 1, shootCd: 0.8 + R(), r: 16, w: 28, h: 34,
+        hp: 2, dir: R() < 0.5 ? -1 : 1, shootCd: easy ? 99 : 0.8 + R(), r: 16, w: 28, h: 34, silent: easy,
       });
     }
-    const airs = plats.filter((p) => p.kind !== "ground");
+    const airs = plats.filter((p) => p.kind !== "ground" && p.x > 900);
     for (let i = 0; i < lv.turrets; i++) {
       const p = airs.length ? airs[i % airs.length] : plats[0];
       enemies.push({
-        type: "turret", x: p.x + p.w * 0.5, y: p.y, hp: 4, shootCd: 0.4 + R(), r: 16, w: 30, h: 24,
+        type: "turret", x: p.x + p.w * 0.5, y: p.y, hp: 4, shootCd: easy ? 2.4 + R() : 0.4 + R(), r: 16, w: 30, h: 24,
       });
     }
     for (let i = 0; i < lv.flyers; i++) {
       enemies.push({
-        type: "flyer", x: 700 + i * 380 + R() * 80, y: 160 + R() * 180,
-        hp: 1, phase: R() * 6, homeY: 180 + R() * 160, shootCd: 1 + R(), r: 14, w: 24, h: 18,
+        type: "flyer", x: 1100 + i * 380 + R() * 80, y: 160 + R() * 180,
+        hp: 1, phase: R() * 6, homeY: 180 + R() * 160, shootCd: easy ? 99 : 1 + R(), r: 14, w: 24, h: 18, silent: easy,
       });
     }
     for (let i = 0; i < lv.capsules; i++) {
@@ -279,7 +284,7 @@
     player.vy = 0;
     player.hp = MAX_HP;
     player.lives = MAX_LIVES;
-    player.inv = 1.4;
+    player.inv = 2.2;
     player.face = 1;
     player.weapon = "fire";
     player.wing = true;
@@ -512,7 +517,7 @@
         e.x += e.dir * 80 * dt;
         if (!groundedAt(e.x + e.dir * 18, e.y) || e.x < 40) e.dir *= -1;
         e.shootCd -= dt;
-        if (e.shootCd <= 0 && Math.abs(player.x - e.x) < 460) {
+        if (!e.silent && e.shootCd <= 0 && Math.abs(player.x - e.x) < 460) {
           e.shootCd = 1.6;
           fireAt(e.x, e.y - 22, player.x, player.y - 24, 280);
         }
@@ -526,9 +531,8 @@
         e.phase += dt;
         e.x -= 70 * dt;
         e.y = e.homeY + Math.sin(e.phase * 2.2) * 36;
-        if (e.x < camX - 80) e.x = camX + W + 40;
         e.shootCd -= dt;
-        if (e.shootCd <= 0 && Math.abs(player.x - e.x) < 500) {
+        if (!e.silent && e.shootCd <= 0 && Math.abs(player.x - e.x) < 500) {
           e.shootCd = 2;
           fireAt(e.x, e.y, player.x, player.y - 20, 260);
         }
@@ -595,7 +599,7 @@
         }
       }
     }
-    enemies = enemies.filter((e) => e.hp > 0);
+    enemies = enemies.filter((e) => e.hp > 0 && e.x > camX - 120);
 
     const pr = pRect();
     for (const e of enemies) {
@@ -707,9 +711,12 @@
 
     updatePlats(dt);
     movePlayer(dt);
+    if (state !== "play") return;
     updateEnemies(dt);
+    if (state !== "play") return;
     updateBoss(dt);
     updateHazards(dt);
+    if (state !== "play") return;
 
     for (const p of particles) {
       p.x += p.vx * dt;
