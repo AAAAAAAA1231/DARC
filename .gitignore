@@ -27,3 +27,6 @@ football-predictor/__pycache__/
 football-predictor/**/__pycache__/
 football-predictor/*.spec.bak
 .pytest_cache/
+# keep the clickable Windows exe
+!football-predictor/release/
+!football-predictor/release/*.exe
