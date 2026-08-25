@@ -14,6 +14,8 @@ def _bundle_dir() -> Path:
 
 def _writable_root() -> Path:
     if getattr(sys, "frozen", False):
+        if sys.platform == "darwin":
+            return Path.home() / "Library" / "Application Support" / "ChainRadar"
         return Path(sys.executable).resolve().parent
     return Path(__file__).resolve().parent.parent
 

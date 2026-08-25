@@ -1,13 +1,17 @@
 ﻿链上雷达 —— 不要点网页上的小箭头（那个对大文件经常没反应）
 
-方法一（推荐）：把下面整行复制到浏览器地址栏，按回车就会开始下载
+把下面整行复制到浏览器地址栏，按回车就会开始下载。
 
+Windows：
 https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
 
-如果上面打不开，用这一行：
+Mac（Apple 芯片 / M 系列）：
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.dmg
 
-https://github.com/AAAAAAAA1231/DARC/raw/cursor/web3-radar-desktop-d86a/web3-radar/dist/ChainRadar.exe
+Mac（Intel）：
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-intel.dmg
 
-方法二：双击同目录里的「下载链上雷达.bat」，它会自动帮你下载。
+也可以双击「下载链上雷达.bat」（Windows）或「下载链上雷达.command」（Mac）。
 
-下完后双击 ChainRadar.exe，浏览器会打开 http://127.0.0.1:8787
+Windows：下完后双击 ChainRadar.exe，浏览器打开 http://127.0.0.1:8787
+Mac：打开镜像，把「链上雷达」拖到「应用程序」，再双击打开。

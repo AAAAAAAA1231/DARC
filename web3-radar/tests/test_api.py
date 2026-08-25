@@ -114,6 +114,16 @@ def test_modules_return_catalog():
     assert added.json()["source"] == "手动"
 
 
+def test_mac_frozen_writes_to_application_support(monkeypatch):
+    from web3_radar import config
+
+    monkeypatch.setattr(config.sys, "platform", "darwin")
+    monkeypatch.setattr(config.sys, "frozen", True, raising=False)
+    root = config._writable_root()
+    assert root.name == "ChainRadar"
+    assert "Application Support" in str(root)
+
+
 def test_windows_packaging_is_signed_style_exe():
     from pathlib import Path
 
@@ -123,8 +133,16 @@ def test_windows_packaging_is_signed_style_exe():
     assert "upx=False" in spec
     assert 'version="version_info.txt"' in spec
     assert "chainradar.ico" in spec
+    assert "BUNDLE(" in spec
     ico = Path("web3_radar/resources/chainradar.ico")
     assert ico.is_file() and ico.stat().st_size > 100
     ver = Path("version_info.txt").read_text(encoding="utf-8")
     assert "链上雷达" in ver
     assert "FileDescription" in ver
+    workflow = Path(__file__).resolve().parents[2] / ".github/workflows/build-web3-radar.yml"
+    text = workflow.read_text(encoding="utf-8")
+    assert "macos-latest" in text
+    assert "macos-15-intel" in text
+    assert "ChainRadar.dmg" in text
+    assert "ChainRadar-intel.dmg" in text
+    assert "ChainRadar.exe" in text

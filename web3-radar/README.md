@@ -1,6 +1,6 @@
 # 链上雷达 ChainRadar
 
-Windows 桌面终端（也可在本机用 Python 直接运行）。覆盖合约综合研判、单边快讯、妖币监控、大使招募、打新、高融资空投，以及 OKX 等 Web3 钱包连接与确认队列。
+Windows 桌面终端，也提供 Mac 安装包（也可在本机用 Python 直接运行）。覆盖合约综合研判、单边快讯、妖币监控、大使招募、打新、高融资空投，以及 OKX 等 Web3 钱包连接与确认队列。
 
 ## 功能
 
@@ -42,22 +42,26 @@ python run.py
 
 建议在「设置」中填写 Twitter Bearer Token，以提高大使/打新覆盖率。
 
-## 下载 Windows EXE（不要点小箭头）
+## 下载（不要点小箭头）
 
-仓库文件旁的向下箭头对大文件经常没反应。用下面任一方式：
+仓库文件旁的向下箭头对大文件经常没反应。把对应链接复制到浏览器地址栏回车：
 
-1. 把这行复制到浏览器地址栏，按回车：  
-   https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
-2. 双击 `下载链上雷达.bat`
-3. 打开 `请用这个方式下载.txt` 按里面的链接
+**Windows**  
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe  
+下完后双击 `ChainRadar.exe`，浏览器打开 http://127.0.0.1:8787  
+也可双击 `下载链上雷达.bat`。Windows 若提示风险：这是未购买代码签名的研究工具，可在「Windows 安全中心 → 保护历史记录」里选允许。
 
-下完后双击 `ChainRadar.exe`，浏览器打开 http://127.0.0.1:8787
+**Mac（Apple 芯片 / M 系列）**  
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.dmg
 
-Windows 若仍提示风险：这是未购买代码签名的研究工具。可在「Windows 安全中心 → 保护历史记录」里选允许。
+**Mac（Intel）**  
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-intel.dmg
 
-## 打包 Windows EXE
+打开镜像，把「链上雷达」拖到「应用程序」。第一次若提示未验证开发者：按住 Control 再点图标，选「打开」。也可双击 `下载链上雷达.command`。
 
-本机（需 Windows + Python 3.12 + MSVC）：
+## 打包 Windows EXE / Mac 应用
+
+Windows（需 Python 3.12 + MSVC）：
 
 ```bash
 cd web3-radar
@@ -67,7 +71,18 @@ pyinstaller --noconfirm ChainRadar.spec
 
 生成 `dist/ChainRadar.exe`。CI 会先用 MSVC 现场编译 PyInstaller 启动器再打包，避免公共启动器被杀毒误杀。首次运行会在 EXE 同目录创建 `data/`。
 
-仓库已配置 GitHub Actions：`.github/workflows/build-web3-radar.yml`，在 Actions 中手动运行后可下载 `ChainRadar-windows` 产物。
+Mac：
+
+```bash
+cd web3-radar
+pip install -r requirements.txt pyinstaller==6.14.2
+python packaging/make_icns.py
+pyinstaller --noconfirm ChainRadar.spec
+```
+
+生成 `dist/ChainRadar.app`。数据写在 `~/Library/Application Support/ChainRadar/`。
+
+仓库已配置 GitHub Actions：`.github/workflows/build-web3-radar.yml`，推送后会发布 Windows EXE 与两份 Mac DMG。
 
 ## 测试
 

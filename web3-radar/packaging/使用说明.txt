@@ -1,16 +1,23 @@
 链上雷达 ChainRadar
 ====================
 
-双击 ChainRadar.exe 启动（会弹出一个黑窗口，请不要关掉）。
+Windows：双击 ChainRadar.exe 启动（会弹出一个黑窗口，请不要关掉）。
+Mac：打开 dmg，把「链上雷达」拖到「应用程序」，再双击打开。
 浏览器打开 http://127.0.0.1:8787
 
-关于杀毒软件误报
-----------------
+关于系统拦截
+------------
 本程序是研究用本地工具，不收集助记词/私钥，也不会偷偷联网安装别的软件。
-Windows 有时会把未购买代码签名的程序误判成病毒。
 
-如果仍被拦截：打开「Windows 安全中心 → 病毒和威胁防护 → 保护历史记录」，
-把链上雷达标为「允许」。
+Windows 若误报：打开「Windows 安全中心 → 病毒和威胁防护 → 保护历史记录」，标为「允许」。
+Mac 第一次若提示未验证开发者：按住 Control 再点图标，选「打开」。
 
 请只用 GitHub 发行版：
+Windows
 https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
+
+Mac（Apple 芯片）
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.dmg
+
+Mac（Intel）
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-intel.dmg

@@ -1,4 +1,4 @@
-name: Build ChainRadar EXE
+name: Build ChainRadar
 
 on:
   workflow_dispatch:
@@ -50,8 +50,64 @@ jobs:
         with:
           name: ChainRadar-windows
           path: web3-radar/dist/ChainRadar.exe
+
+  macos-app:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            dmg: ChainRadar.dmg
+          - os: macos-15-intel
+            dmg: ChainRadar-intel.dmg
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: web3-radar
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install app dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller==6.14.2
+      - name: Test
+        run: python -m pytest tests -q
+      - name: Make app icon
+        run: python packaging/make_icns.py
+      - name: Build app
+        run: pyinstaller --noconfirm ChainRadar.spec
+      - name: Sign and wrap DMG
+        run: |
+          set -euo pipefail
+          test -d dist/ChainRadar.app
+          codesign --force --deep --sign - dist/ChainRadar.app
+          rm -rf dist/dmg
+          mkdir dist/dmg
+          cp -R dist/ChainRadar.app "dist/dmg/链上雷达.app"
+          cp packaging/mac打开说明.txt "dist/dmg/打开说明.txt"
+          hdiutil create -volname ChainRadar -srcfolder dist/dmg -ov -format UDZO "dist/${{ matrix.dmg }}"
+          ls -lh "dist/${{ matrix.dmg }}"
+      - name: Upload DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.dmg }}
+          path: web3-radar/dist/${{ matrix.dmg }}
+
+  publish:
+    needs: [windows-exe, macos-app]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-files
+          merge-multiple: true
+      - name: Show release files
+        run: ls -lh release-files
       - name: Drop zip-only release leftover
-        working-directory: .
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
@@ -62,11 +118,21 @@ jobs:
           tag_name: chainradar
           name: 链上雷达 ChainRadar
           target_commitish: ${{ github.sha }}
-          files: web3-radar/dist/ChainRadar.exe
+          files: |
+            release-files/ChainRadar.exe
+            release-files/ChainRadar.dmg
+            release-files/ChainRadar-intel.dmg
           fail_on_unmatched_files: true
           make_latest: true
           body: |
-            直接点下面的 **ChainRadar.exe** 就会下载，不要点仓库文件旁的小箭头。
+            直接点下面的文件就会下载，不要点仓库文件旁的小箭头。
 
-            或把这行粘贴到浏览器地址栏回车：
+            **Windows**
             https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
+
+            **Mac（Apple 芯片 / M 系列）**
+            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.dmg
+            打开镜像，把「链上雷达」拖到「应用程序」。第一次若提示未验证开发者：按住 Control 再点图标，选「打开」。
+
+            **Mac（Intel）**
+            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-intel.dmg

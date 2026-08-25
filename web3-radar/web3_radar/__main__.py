@@ -39,7 +39,10 @@ def main() -> None:
 
     url = f"http://{args.host}:{args.port}"
     print("=" * 50, flush=True)
-    print("链上雷达正在启动，请不要关闭这个黑窗口。", flush=True)
+    if sys.platform == "darwin":
+        print("链上雷达正在启动，请不要退出。", flush=True)
+    else:
+        print("链上雷达正在启动，请不要关闭这个黑窗口。", flush=True)
     print(f"启动后请打开：{url}", flush=True)
     print(f"静态资源目录：{STATIC_DIR} 存在={STATIC_DIR.exists()}", flush=True)
     print("=" * 50, flush=True)
@@ -53,7 +56,15 @@ def main() -> None:
     except Exception:
         traceback.print_exc()
         print("\n启动失败。请把上面的英文报错截图发回来。", flush=True)
-        if getattr(sys, "frozen", False):
+        try:
+            ensure_dirs()
+            from web3_radar.config import DATA_DIR
+            err_path = DATA_DIR / "last-error.txt"
+            err_path.write_text(traceback.format_exc(), encoding="utf-8")
+            print(f"错误已保存到 {err_path}", flush=True)
+        except Exception:
+            pass
+        if getattr(sys, "frozen", False) and sys.stdin and sys.stdin.isatty():
             input("按回车键退出...")
         raise SystemExit(1)
 

@@ -95,7 +95,7 @@ async def wallet_page() -> FileResponse:
 
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
-    return {"ok": True, "app": "链上雷达", "version": "1.2.2"}
+    return {"ok": True, "app": "链上雷达", "version": "1.2.3"}
 
 
 @app.get("/api/settings")

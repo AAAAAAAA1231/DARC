@@ -1,4 +1,7 @@
 # -*- mode: python ; coding: utf-8 -*-
+import sys
+from pathlib import Path
+
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 datas = [("web3_radar/static", "web3_radar/static"), ("web3_radar/resources", "web3_radar/resources")]
@@ -36,6 +39,12 @@ for pkg in ("uvicorn", "starlette", "fastapi", "anyio"):
     binaries += b
     hiddenimports += h
 
+icns = Path("web3_radar/resources/chainradar.icns")
+if sys.platform == "darwin" and icns.is_file():
+    icon_file = "web3_radar/resources/chainradar.icns"
+else:
+    icon_file = "web3_radar/resources/chainradar.ico"
+
 a = Analysis(
     ["run.py"],
     pathex=["."],
@@ -62,13 +71,29 @@ exe = EXE(
     upx=False,
     upx_exclude=[],
     runtime_tmpdir=None,
-    console=True,
+    console=sys.platform != "darwin",
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon="web3_radar/resources/chainradar.ico",
-    version="version_info.txt",
+    icon=icon_file,
+    version="version_info.txt" if sys.platform == "win32" else None,
     uac_admin=False,
 )
+
+if sys.platform == "darwin":
+    app = BUNDLE(
+        exe,
+        name="ChainRadar.app",
+        icon=icon_file,
+        bundle_identifier="com.chainradar.app",
+        info_plist={
+            "CFBundleName": "链上雷达",
+            "CFBundleDisplayName": "链上雷达",
+            "CFBundleShortVersionString": "1.2.3",
+            "CFBundleVersion": "1.2.3",
+            "NSHighResolutionCapable": True,
+            "LSMinimumSystemVersion": "12.0",
+        },
+    )
