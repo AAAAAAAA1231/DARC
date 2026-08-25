@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>潜龙勇闯 Web3</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <canvas id="game"></canvas>
+
+    <div id="hud" class="hidden">
+      <div class="hud-top">
+        <div class="hud-hearts" id="hud-hearts"></div>
+        <div class="hud-level">
+          <div class="hud-level-name" id="hud-level-name">ETH</div>
+          <div class="hud-bar"><i id="hud-bar"></i></div>
+        </div>
+        <div class="hud-stats">
+          <span id="hud-special"></span>
+          <span>代币 <b id="hud-tokens">0</b></span>
+          <span>分数 <b id="hud-score">0</b></span>
+        </div>
+      </div>
+      <div class="hud-hint" id="hud-hint"></div>
+    </div>
+
+    <div id="touch" class="hidden">
+      <div id="stick-zone"></div>
+      <div id="fire-btn">火</div>
+    </div>
+
+    <section id="screen-menu" class="screen">
+      <div class="menu-glow"></div>
+      <p class="eyebrow">HIDDEN DRAGON · WEB3 RAID</p>
+      <h1>潜龙勇闯 <span>Web3</span></h1>
+      <p class="tagline">穿越主网、L2 与跨链桥，把法则烧进区块里</p>
+      <div class="menu-actions">
+        <button class="btn primary" id="btn-start">开始闯关</button>
+        <button class="btn" id="btn-select">选择关卡</button>
+        <button class="btn ghost" id="btn-help">操作说明</button>
+      </div>
+      <p class="fineprint">原型演示 · WASD 移动 · 空格喷火</p>
+    </section>
+
+    <section id="screen-select" class="screen hidden">
+      <h2>选择关卡</h2>
+      <p class="tagline">通关后解锁下一链。已解锁关卡可随时重打。</p>
+      <div class="level-grid" id="level-grid"></div>
+      <button class="btn" id="btn-select-back">返回</button>
+    </section>
+
+    <section id="screen-help" class="screen hidden">
+      <h2>操作说明</h2>
+      <ul class="help-list">
+        <li><b>W A S D / 方向键</b> — 驾驭潜龙</li>
+        <li><b>空格 / 鼠标左键</b> — 喷出龙息，击毁敌人和障碍</li>
+        <li><b>P / Esc</b> — 暂停</li>
+        <li><b>触屏</b> — 左半屏滑动移动，右下按钮喷火</li>
+        <li><b>ETH</b> 教学关；<b>ARB</b> 加速；<b>ZK</b> 需收集证明；<b>STARK</b> 躲开正弦激光；<b>L0</b> 可钻虫洞；<b>BASE</b> 终章。</li>
+      </ul>
+      <button class="btn" id="btn-help-back">返回</button>
+    </section>
+
+    <section id="screen-pause" class="screen overlay hidden">
+      <h2>暂停</h2>
+      <div class="menu-actions">
+        <button class="btn primary" id="btn-resume">继续</button>
+        <button class="btn" id="btn-pause-menu">回主菜单</button>
+      </div>
+    </section>
+
+    <section id="screen-dead" class="screen overlay hidden">
+      <h2>潜龙受创</h2>
+      <p class="tagline" id="dead-text">Gas 把龙鳞烧穿了。</p>
+      <div class="menu-actions">
+        <button class="btn primary" id="btn-retry">再闯一次</button>
+        <button class="btn" id="btn-dead-select">换一条链</button>
+        <button class="btn ghost" id="btn-dead-menu">回主菜单</button>
+      </div>
+    </section>
+
+    <section id="screen-clear" class="screen overlay hidden">
+      <p class="eyebrow" id="clear-eyebrow">LEVEL CLEAR</p>
+      <h2 id="clear-title">关卡通过</h2>
+      <p class="tagline" id="clear-text"></p>
+      <div class="menu-actions">
+        <button class="btn primary" id="btn-next">下一关</button>
+        <button class="btn" id="btn-clear-retry">再打一遍</button>
+        <button class="btn ghost" id="btn-clear-menu">回主菜单</button>
+      </div>
+    </section>
+  </div>
+  <script src="game.js"></script>
+</body>
+</html>
