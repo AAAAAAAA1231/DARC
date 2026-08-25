@@ -143,6 +143,7 @@ def test_windows_packaging_is_signed_style_exe():
     text = workflow.read_text(encoding="utf-8")
     assert "macos-latest" in text
     assert "macos-15-intel" in text
-    assert "ChainRadar.dmg" in text
-    assert "ChainRadar-intel.dmg" in text
+    assert "ChainRadar-mac.zip" in text
+    assert "ChainRadar-mac-intel.zip" in text
     assert "ChainRadar.exe" in text
+    assert "hdiutil" not in text

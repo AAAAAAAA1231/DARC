@@ -1,20 +1,5 @@
-链上雷达 ChainRadar（Mac）
-==========================
+苹果电脑：下完后双击「链上雷达」就能用。
 
-把「链上雷达」拖到「应用程序」，再双击打开。
-浏览器会打开 http://127.0.0.1:8787 ，请不要退出菜单栏里的链上雷达。
+要是打不开：按住 Control 再点「链上雷达」，选打开。
 
-第一次打不开时（系统提示未验证开发者）：
-1. 按住 Control 键，再点图标，选「打开」
-2. 或：系统设置 → 隐私与安全性 → 仍要打开
-3. 或在「终端」执行：
-   xattr -cr /Applications/ChainRadar.app
-
-本工具不收集助记词 / 私钥。链上操作都要在钱包里确认。
-
-下载地址：
-Apple 芯片（M 系列）：
-https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.dmg
-
-Intel 芯片：
-https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-intel.dmg
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-mac.zip

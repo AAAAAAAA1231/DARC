@@ -48,16 +48,14 @@ python run.py
 
 **Windows**  
 https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe  
-下完后双击 `ChainRadar.exe`，浏览器打开 http://127.0.0.1:8787  
-也可双击 `下载链上雷达.bat`。Windows 若提示风险：这是未购买代码签名的研究工具，可在「Windows 安全中心 → 保护历史记录」里选允许。
+下完后双击 `ChainRadar.exe`。
 
-**Mac（Apple 芯片 / M 系列）**  
-https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.dmg
+**苹果电脑**  
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-mac.zip  
+下完后双击「链上雷达」。要是打不开：按住 Control 再点一下，选打开。
 
-**Mac（Intel）**  
-https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-intel.dmg
-
-打开镜像，把「链上雷达」拖到「应用程序」。第一次若提示未验证开发者：按住 Control 再点图标，选「打开」。也可双击 `下载链上雷达.command`。
+比较旧的 Intel 苹果电脑用：  
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-mac-intel.zip
 
 ## 打包 Windows EXE / Mac 应用
 
@@ -82,7 +80,7 @@ pyinstaller --noconfirm ChainRadar.spec
 
 生成 `dist/ChainRadar.app`。数据写在 `~/Library/Application Support/ChainRadar/`。
 
-仓库已配置 GitHub Actions：`.github/workflows/build-web3-radar.yml`，推送后会发布 Windows EXE 与两份 Mac DMG。
+仓库已配置 GitHub Actions：`.github/workflows/build-web3-radar.yml`，推送后会发布 Windows EXE 与 Mac 应用。
 
 ## 测试
 

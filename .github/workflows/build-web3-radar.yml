@@ -57,9 +57,9 @@ jobs:
       matrix:
         include:
           - os: macos-latest
-            dmg: ChainRadar.dmg
+            zip: ChainRadar-mac.zip
           - os: macos-15-intel
-            dmg: ChainRadar-intel.dmg
+            zip: ChainRadar-mac-intel.zip
     runs-on: ${{ matrix.os }}
     defaults:
       run:
@@ -80,22 +80,21 @@ jobs:
         run: python packaging/make_icns.py
       - name: Build app
         run: pyinstaller --noconfirm ChainRadar.spec
-      - name: Sign and wrap DMG
+      - name: Sign and zip app
         run: |
           set -euo pipefail
           test -d dist/ChainRadar.app
           codesign --force --deep --sign - dist/ChainRadar.app
-          rm -rf dist/dmg
-          mkdir dist/dmg
-          cp -R dist/ChainRadar.app "dist/dmg/链上雷达.app"
-          cp packaging/mac打开说明.txt "dist/dmg/打开说明.txt"
-          hdiutil create -volname ChainRadar -srcfolder dist/dmg -ov -format UDZO "dist/${{ matrix.dmg }}"
-          ls -lh "dist/${{ matrix.dmg }}"
-      - name: Upload DMG
+          rm -rf dist/macout
+          mkdir dist/macout
+          cp -R dist/ChainRadar.app "dist/macout/链上雷达.app"
+          ditto -c -k --keepParent "dist/macout/链上雷达.app" "dist/${{ matrix.zip }}"
+          ls -lh "dist/${{ matrix.zip }}"
+      - name: Upload Mac app
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.dmg }}
-          path: web3-radar/dist/${{ matrix.dmg }}
+          name: ${{ matrix.zip }}
+          path: web3-radar/dist/${{ matrix.zip }}
 
   publish:
     needs: [windows-exe, macos-app]
@@ -107,11 +106,14 @@ jobs:
           merge-multiple: true
       - name: Show release files
         run: ls -lh release-files
-      - name: Drop zip-only release leftover
+      - name: Drop leftover assets
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         continue-on-error: true
-        run: gh release delete-asset chainradar ChainRadar.zip --yes --repo ${{ github.repository }}
+        run: |
+          gh release delete-asset chainradar ChainRadar.zip --yes --repo ${{ github.repository }}
+          gh release delete-asset chainradar ChainRadar.dmg --yes --repo ${{ github.repository }}
+          gh release delete-asset chainradar ChainRadar-intel.dmg --yes --repo ${{ github.repository }}
       - name: Publish downloadable release
         uses: softprops/action-gh-release@v2
         with:
@@ -120,19 +122,20 @@ jobs:
           target_commitish: ${{ github.sha }}
           files: |
             release-files/ChainRadar.exe
-            release-files/ChainRadar.dmg
-            release-files/ChainRadar-intel.dmg
+            release-files/ChainRadar-mac.zip
+            release-files/ChainRadar-mac-intel.zip
           fail_on_unmatched_files: true
           make_latest: true
           body: |
-            直接点下面的文件就会下载，不要点仓库文件旁的小箭头。
+            点对应链接就会下载，不要点仓库文件旁的小箭头。
 
-            **Windows**
+            Windows：下完双击 ChainRadar.exe
             https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
 
-            **Mac（Apple 芯片 / M 系列）**
-            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.dmg
-            打开镜像，把「链上雷达」拖到「应用程序」。第一次若提示未验证开发者：按住 Control 再点图标，选「打开」。
+            苹果电脑：下完双击「链上雷达」
+            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-mac.zip
 
-            **Mac（Intel）**
-            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-intel.dmg
+            比较旧的 Intel 苹果电脑用这个：
+            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-mac-intel.zip
+
+            要是打不开：按住 Control 再点「链上雷达」，选打开。
