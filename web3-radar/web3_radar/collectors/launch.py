@@ -120,9 +120,8 @@ async def scan_launches(twitter_bearer: str = "", lookback_days: int = 7) -> dic
         "items": items,
         "errors": errors,
         "note": (
-            "Solana 官方只推 @solana / @toly 正在关注的项目；BSC 官方只推 @cz_binance / @heyibinance。"
-            " 另外跟踪 Raj Gokal、Mert、Jupiter、Superteam、PancakeSwap、BNB Chain 等行业名人关注，会单独标记并写明理由，不与官方关注混算。"
+            "只看 @solana / @toly / CZ 正在关注、尚未发币的 Web3 项目。个人账号和已经出名的网站不显示。"
             + ((" " + stats_note + "。") if stats_note else "")
-            + (" 当前没有核实到任何关注项目。" if not items else "")
+            + (" 当前没有核实到未发币项目。" if not items else "")
         ),
     }

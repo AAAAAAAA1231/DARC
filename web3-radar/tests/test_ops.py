@@ -155,37 +155,56 @@ def test_solana_follow_launch_timing():
     assert row["verified_follow"] is True
     assert "solana" in row["followed_by"] and "toly" in row["followed_by"]
     assert row["official_follow_count"] == 2
-    assert row["official_follow_total"] == 3
-    assert row["follow_count_label"] == "官方关注 2/3"
+    assert row["official_follow_total"] == 2
+    assert row["follow_count_label"] == "官方关注 2/2"
     assert "@solana" in row["follow_proof"] and "@toly" in row["follow_proof"]
     assert row["followers"] == 3000
+    assert row["token_status"] == "未发币"
     assert "北京时间" in row["launch_when_label"]
     fake = to_item(
         {"username": "pumpfun", "name": "Pump", "description": "not followed", "public_metrics": {}},
         False, None, "seed", followed_by=[],
     )
     assert fake is None
-    from web3_radar.collectors.solana_watch import verified_followers
+    from web3_radar.collectors.solana_watch import keep_unissued_project, verified_followers
     assert verified_followers(["solana"]) == ["solana"]
     assert verified_followers(["binance", "someone"]) == []
+    assert verified_followers(["0xmert_", "heyibinance"]) == []
+    assert keep_unissued_project({
+        "username": "helixsvm", "name": "Helix SVM", "description": "SVM runtime for Solana apps",
+        "public_metrics": {"followers_count": 1200},
+    })[0]
+    assert not keep_unissued_project({
+        "username": "austin_federa", "name": "Austin Federa", "description": "Head of strategy. He is a founder.",
+        "public_metrics": {"followers_count": 80000},
+    })[0]
+    assert not keep_unissued_project({
+        "username": "jupiter_exchange", "name": "Jupiter", "description": "Solana DEX aggregator",
+        "public_metrics": {"followers_count": 500000},
+    })[0]
     bsc = to_item(
-        {"username": "fourmeme", "name": "Four", "description": "BSC launch", "public_metrics": {"followers_count": 2000}},
-        True, None, "following", rank=2, followed_by=["cz_binance", "heyibinance"],
+        {"username": "nimbusfi", "name": "Nimbus", "description": "BNB DeFi protocol", "public_metrics": {"followers_count": 2000}},
+        True, None, "following", rank=2, followed_by=["cz_binance"],
     )
     assert bsc["chain"] == "BSC"
-    assert bsc["official_follow_total"] == 2
-    assert bsc["follow_count_label"] == "官方关注 2/2"
-    assert "cz_binance" in bsc["followed_by"]
-    industry = to_item(
+    assert bsc["official_follow_total"] == 1
+    assert bsc["follow_count_label"] == "官方关注 1/1"
+    assert bsc["followed_by"] == ["cz_binance"]
+    assert bsc["token_status"] == "未发币"
+    assert to_item(
         {"username": "newthing", "name": "New", "description": "Solana app", "public_metrics": {"followers_count": 900}},
         True, None, "following", rank=3, followed_by=["0xmert_"],
-    )
-    assert industry["follow_tier"] == "industry"
-    assert industry["official_follow_count"] == 0
-    assert industry["industry_follow_count"] == 1
-    assert industry["verified_follow"] is True
-    assert "Helius" in (industry["follow_proof"] + industry.get("follow_reason", ""))
-    assert industry["follow_count_label"].startswith("行业名人")
+    ) is None
+    assert to_item(
+        {"username": "austin_federa", "name": "Austin Federa", "description": "Head of strategy",
+         "public_metrics": {"followers_count": 80000}},
+        True, None, "following", rank=4, followed_by=["solana", "toly"],
+    ) is None
+    assert to_item(
+        {"username": "orca_so", "name": "Orca", "description": "Solana DEX",
+         "public_metrics": {"followers_count": 200000}},
+        True, None, "following", rank=5, followed_by=["solana"],
+    ) is None
 
 
 def test_public_following_parser_requires_real_list():
@@ -195,6 +214,11 @@ def test_public_following_parser_requires_real_list():
 Title: People followed by @solana
 [@solana](https://nitter.example/solana "@solana")
 [@toly](https://nitter.example/toly "@toly")
+[@helixsvm](https://nitter.example/helixsvm "@helixsvm")
+[@nimbusfi](https://nitter.example/nimbusfi "@nimbusfi")
+[@orbitprotocol](https://nitter.example/orbitprotocol "@orbitprotocol")
+[@zedlabs](https://nitter.example/zedlabs "@zedlabs")
+[@quarklayer](https://nitter.example/quarklayer "@quarklayer")
 [@staratlas](https://nitter.example/staratlas "@staratlas")
 [@orca_so](https://nitter.example/orca_so "@orca_so")
 [@solanamobile](https://nitter.example/solanamobile "@solanamobile")
@@ -203,7 +227,10 @@ Title: People followed by @solana
 """
     rows = parse_public_following(page, "solana")
     names = {r["username"] for r in rows}
-    assert "staratlas" in names and "orca_so" in names
+    assert "helixsvm" in names and "nimbusfi" in names
+    assert "orbitprotocol" in names and "zedlabs" in names
+    assert "staratlas" not in names and "orca_so" not in names
+    assert "austin_federa" not in names and "therealchaseeb" not in names
     assert "solana" not in names and "toly" not in names
     assert parse_public_following("Loading...\nAnubis is a compromise", "solana") == []
     assert parse_public_following("random @pumpfun @meme coin page", "solana") == []

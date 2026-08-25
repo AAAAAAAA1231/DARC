@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any
@@ -20,114 +21,174 @@ WATCH_PROFILES: dict[str, dict[str, str]] = {
         "label": "@solana",
         "tier": "official",
         "chain": "Solana",
-        "reason": "Solana 官方账号，关注列表代表生态认可",
+        "reason": "Solana 官方",
     },
     "toly": {
         "handle": "toly",
         "label": "@toly",
         "tier": "official",
         "chain": "Solana",
-        "reason": "Solana 联合创始人 Anatoly",
-    },
-    "aeyakovenko": {
-        "handle": "aeyakovenko",
-        "label": "@aeyakovenko",
-        "tier": "official",
-        "chain": "Solana",
-        "reason": "Solana 联合创始人，与 @toly 同属官方观察",
+        "reason": "Solana 联合创始人 Toly",
     },
     "cz_binance": {
         "handle": "cz_binance",
         "label": "@cz_binance",
         "tier": "official",
         "chain": "BSC",
-        "reason": "币安创始人 CZ",
-    },
-    "heyibinance": {
-        "handle": "heyibinance",
-        "label": "@heyibinance",
-        "tier": "official",
-        "chain": "BSC",
-        "reason": "币安何一",
-    },
-    "rajgokal": {
-        "handle": "rajgokal",
-        "label": "@rajgokal",
-        "tier": "industry",
-        "chain": "Solana",
-        "reason": "Solana 联合创始人，常转发生态新项目；不是官方关注口径，单独标记",
-    },
-    "0xmert_": {
-        "handle": "0xMert_",
-        "label": "@0xMert_",
-        "tier": "industry",
-        "chain": "Solana",
-        "reason": "Helius 创始人，Solana 基础设施意见领袖",
-    },
-    "jupiterexchange": {
-        "handle": "jupiterexchange",
-        "label": "@jupiterexchange",
-        "tier": "industry",
-        "chain": "Solana",
-        "reason": "Jupiter 官方账号，Solana 最大 DEX 聚合器",
-    },
-    "superteam": {
-        "handle": "Superteam",
-        "label": "@Superteam",
-        "tier": "industry",
-        "chain": "Solana",
-        "reason": "Solana Superteam，常推生态创业与发射",
-    },
-    "pancakeswap": {
-        "handle": "PancakeSwap",
-        "label": "@PancakeSwap",
-        "tier": "industry",
-        "chain": "BSC",
-        "reason": "BSC 最大 DEX 官方账号，常转发链上新项目",
-    },
-    "bnbchain": {
-        "handle": "BNBCHAIN",
-        "label": "@BNBCHAIN",
-        "tier": "industry",
-        "chain": "BSC",
-        "reason": "BNB Chain 官方，常转发链上发射与生态项目",
+        "reason": "CZ",
     },
 }
-SOL_WATCH = ("solana", "toly", "aeyakovenko")
-SOL_INDUSTRY = ("rajgokal", "0xmert_", "jupiterexchange", "superteam")
-BSC_WATCH = ("cz_binance", "heyibinance")
-BSC_INDUSTRY = ("pancakeswap", "bnbchain")
+SOL_WATCH = ("solana", "toly")
+BSC_WATCH = ("cz_binance",)
 WATCH_ACCOUNTS = SOL_WATCH
 WATCH_TOTAL = len(WATCH_ACCOUNTS)
 WATCH_GROUPS = {
-    "solana": {"chain": "Solana", "accounts": SOL_WATCH + SOL_INDUSTRY, "cache": "solana_follow_snapshot_v2"},
-    "bsc": {"chain": "BSC", "accounts": BSC_WATCH + BSC_INDUSTRY, "cache": "bsc_follow_snapshot_v2"},
+    "solana": {"chain": "Solana", "accounts": SOL_WATCH, "cache": "solana_follow_snapshot_v3"},
+    "bsc": {"chain": "BSC", "accounts": BSC_WATCH, "cache": "bsc_follow_snapshot_v3"},
 }
 FOLLOW_LABEL = {k: v["label"] for k, v in WATCH_PROFILES.items()}
+FAMOUS_PROJECT_HANDLES = {
+    "jupiterexchange", "jupiter", "orca_so", "orca", "raydiumprotocol", "raydium",
+    "phantom", "magiceden", "tensor_hq", "heliuslabs", "helius", "backpack",
+    "solflare", "solanamobile", "staratlas", "marinadefinance", "jito_sol",
+    "driftprotocol", "kamino", "mangomarkets", "metaplex", "wormhole", "pythnetwork",
+    "uniswap", "aaveaave", "opensea", "blur_io", "pancakeswap", "1inch", "sushiswap",
+    "compoundfinance", "makerdao", "ensdomains", "lensprotocol", "farcaster_xyz",
+    "pumpdotfun", "pumpfun", "dexscreener", "birdeye_so", "gmgnai", "coingecko",
+    "coinmarketcap", "messaricrypto", "theblock__", "decryptmedia", "blockworks_",
+    "solanalabs", "solanastatus", "solanafndn", "solanafdsn", "binance", "binancezh",
+    "okx", "bybit_official", "coinbase", "ethereum", "bitcoin", "base", "arbitrum",
+    "optimism", "polygon", "avalancheavax", "bnbchain", "opensea", "blur",
+    "dydx", "gmx_io", "lido", "eigenlayer", "ethena", "hyperliquid", "hyperliquidx",
+    "aeyakovenko", "rajgokal", "0xmert_", "heyibinance", "superteam",
+    "jupiter_exchange", "orcaso", "star_atlas",
+}
 SKIP_HANDLES = {
     "solana",
-    "solanalabs",
-    "solanastatus",
-    "solanafdsn",
-    "solanafndn",
     "toly",
-    "aeyakovenko",
     "cz_binance",
-    "heyibinance",
-    "binance",
-    "binancezh",
-    "coinbase",
-    "okx",
-    "bybit_official",
-    "ethereum",
-    "rajgokal",
-    "0xmert_",
-    "jupiterexchange",
-    "superteam",
-    "heliuslabs",
-    "pancakeswap",
-    "bnbchain",
-}
+} | FAMOUS_PROJECT_HANDLES
+MAX_FAME_FOLLOWERS = 120_000
+PROJECT_HINTS = (
+    "protocol", "network", "layer 1", "layer 2", "layer1", "layer2", "l1 ", "l2 ",
+    "svm", "zk", "rollup", "modular", "restaking", "defi", "dex", "perps",
+    "mainnet", "testnet", "tge", "token generation", "whitelist", "allowlist",
+    "points program", "we're building", "we are building", "our protocol",
+    "our network", "on-chain", "onchain", "appchain", "infra",
+)
+PROJECT_NAME_BITS = ("labs", "protocol", "finance", "network", "chain", "swap", "fi")
+PERSON_BIO_HINTS = (
+    "opinions are my own", "opinions my own", "views my own", "personal account",
+    "tweets are my own", "not the official",
+)
+TOKEN_LIVE_HINTS = (
+    "token is live", "now trading", "trading live", "listed on binance",
+    "listed on coinbase", "available on jupiter", "swap on raydium",
+    "chart is live", "already live token",
+)
+
+
+def is_famous_web3(name: str, handle: str = "") -> bool:
+    h = profile_key(handle or name)
+    n = (name or "").strip().lower()
+    if h in FAMOUS_PROJECT_HANDLES or h in SKIP_HANDLES:
+        return True
+    if is_mega_brand(name, h):
+        return True
+    blob = f"{n} {h}"
+    famous_bits = (
+        "jupiter", "orca", "raydium", "phantom", "magic eden", "star atlas",
+        "pump.fun", "uniswap", "opensea", "coinbase", "binance", "coingecko",
+    )
+    return any(bit in blob for bit in famous_bits)
+
+
+def looks_like_project_account(name: str, handle: str, bio: str = "") -> bool:
+    blob = f"{name or ''} {handle or ''} {bio or ''}".lower()
+    if any(k in blob for k in PROJECT_HINTS):
+        return True
+    if any(re.search(rf"\b{re.escape(bit)}\b", blob) for bit in PROJECT_NAME_BITS):
+        return True
+    if re.search(r"\bwe('re| are) (building|launching|shipping)\b", blob):
+        return True
+    h = profile_key(handle)
+    if h.endswith(("labs", "fi", "protocol", "svm", "dex", "app", "xyz")):
+        return True
+    return False
+
+
+def looks_like_person(name: str, handle: str, bio: str = "") -> bool:
+    h = profile_key(handle)
+    n = (name or "").strip()
+    b = (bio or "").lower()
+    if not h:
+        return False
+    if looks_like_project_account(n, h, b):
+        return False
+    if re.match(r"^the(real)?[a-z]{3,}$", h):
+        return True
+    if re.match(r"^[a-z]+_[a-z]+$", h) and not h.endswith(("_fi", "_so", "_xyz", "_app", "_labs", "_svm")):
+        parts = h.split("_")
+        if all(p.isalpha() and 3 <= len(p) <= 14 for p in parts):
+            return True
+    if re.match(r"^[A-Z][a-z]+(?:\s+[A-Z]\.)?(?:\s+[A-Z][a-z]+)+$", n):
+        if not re.search(r"\b(labs|protocol|finance|network|chain)\b", n, re.I):
+            return True
+    if any(x in b for x in PERSON_BIO_HINTS):
+        return True
+    if re.search(r"\b(i am|i'm)\b.{0,48}\b(founder|co-founder|ceo|cto|investor|trader)\b", b):
+        return True
+    return False
+
+
+def keep_unissued_project(user: dict[str, Any]) -> tuple[bool, str]:
+    """Only keep unissued Web3 projects — not people, not famous sites."""
+    handle = (user.get("username") or "").lstrip("@")
+    name = user.get("name") or handle
+    bio = user.get("description") or ""
+    followers = int((user.get("public_metrics") or {}).get("followers_count") or 0)
+    if not handle or handle.lower() in SKIP_HANDLES:
+        return False, "skip"
+    if is_famous_web3(name, handle):
+        return False, "famous"
+    if followers >= MAX_FAME_FOLLOWERS:
+        return False, "famous"
+    if looks_like_person(name, handle, bio):
+        return False, "person"
+    blob = f"{name} {bio}".lower()
+    if any(h in blob for h in TOKEN_LIVE_HINTS):
+        return False, "issued"
+    if not looks_like_project_account(name, handle, bio):
+        if (bio or "").strip():
+            return False, "not_project"
+    return True, "ok"
+
+
+async def token_looks_issued(name: str, handle: str) -> bool:
+    q = (handle or name or "").strip()
+    if not q or len(q) < 3:
+        return False
+    try:
+        async with http_client(timeout=8.0) as c:
+            resp = await c.get("https://api.dexscreener.com/latest/dex/search", params={"q": q})
+            data = resp.json() if resp.status_code < 400 else {}
+    except Exception:
+        return False
+    pairs = data.get("pairs") if isinstance(data, dict) else None
+    if not isinstance(pairs, list):
+        return False
+    handle_l = profile_key(handle)
+    name_l = (name or "").strip().lower()
+    for pair in pairs[:8]:
+        if not isinstance(pair, dict):
+            continue
+        blob = str(pair).lower()
+        if handle_l not in blob and name_l not in blob:
+            continue
+        liq = float(((pair.get("liquidity") or {}) if isinstance(pair.get("liquidity"), dict) else {}).get("usd") or 0)
+        if liq >= 500_000:
+            return True
+    return False
 
 LAUNCH_ALERT_HINTS = (
     "launch",
@@ -450,28 +511,19 @@ def follow_badge_text(followed_by: list[str] | None) -> str:
     if not names:
         return ""
     official = official_followers(names)
-    industry = industry_followers(names)
     bits = follow_reason_bits(names)
     if official:
         total = official_follow_total(official)
         head = f"官方关注 {len(official)}/{total}"
-        if industry:
-            head += " · 另有行业名人关注"
         return head + " · " + "、".join(bits)
-    return "行业名人关注 · " + "、".join(bits)
+    return ""
 
 
 def follow_count_label(followed_by: list[str] | None) -> str:
     official = official_followers(followed_by)
-    industry = industry_followers(followed_by)
     if official:
         total = official_follow_total(official)
-        label = f"官方关注 {len(official)}/{total}"
-        if industry:
-            label += " · 另有行业名人"
-        return label
-    if industry:
-        return "行业名人关注 " + " / ".join(FOLLOW_LABEL.get(n, "@" + n) for n in industry)
+        return f"官方关注 {len(official)}/{total}"
     return ""
 
 
@@ -572,6 +624,8 @@ async def fetch_account_following(
             handle = u["username"].lower()
             if not handle or handle in SKIP_HANDLES or u.get("protected") or is_mega_brand(u["name"], handle):
                 continue
+            if not keep_unissued_project(u)[0]:
+                continue
             users.append(u)
             if len(users) >= limit:
                 break
@@ -614,6 +668,8 @@ async def fetch_solana_mentioned_projects(bearer: str, lookback_days: int = 14) 
             cur = mentioned.get(name) or users.get(name) or {"username": name, "name": name, "description": "", "public_metrics": {}}
             cur["username"] = name
             cur.setdefault("name", name)
+            if not keep_unissued_project(cur)[0]:
+                continue
             cur["_from_mention"] = True
             cur["_welcome"] = bool(welcome or cur.get("_welcome"))
             mentioned[name] = cur
@@ -659,9 +715,10 @@ def parse_public_following(text: str, owner: str) -> list[dict[str, Any]]:
     for rx in (FOLLOW_CARD, FOLLOW_HTML):
         for m in rx.finditer(raw):
             name = m.group(1).lower()
-            if name == owner or name in SKIP_HANDLES or name in handles:
+            if name == owner or name in handles:
                 continue
-            if is_mega_brand(name, name):
+            dummy = {"username": name, "name": name, "description": "", "public_metrics": {}}
+            if not keep_unissued_project(dummy)[0]:
                 continue
             handles.append(name)
         if handles:
@@ -756,6 +813,8 @@ def to_item(
     followed_by: list[str] | None = None,
 ) -> dict[str, Any] | None:
     handle = (user.get("username") or "").lstrip("@")
+    if not keep_unissued_project(user)[0]:
+        return None
     verified = verified_followers(followed_by or user.get("followed_by"))
     if not verified:
         return None
@@ -804,6 +863,7 @@ def to_item(
         "follow_proof": proof,
         "follow_count_label": follow_count_label(verified),
         "verified_follow": True,
+        "token_status": "未发币",
         "url": (launch or {}).get("url") or twitter_url(handle),
         "twitter": twitter_url(handle),
         "created_at": (launch or {}).get("created_at") or user.get("created_at"),
@@ -864,6 +924,18 @@ async def watch_solana_projects(
             await _merge(account, users)
 
     users = [u for u in merged.values() if verified_followers(u.get("followed_by"))]
+    users = [u for u in users if keep_unissued_project(u)[0]]
+    if users:
+        sem = asyncio.Semaphore(4)
+
+        async def _keep(u: dict[str, Any]) -> dict[str, Any] | None:
+            async with sem:
+                if await token_looks_issued(str(u.get("name") or ""), str(u.get("username") or "")):
+                    return None
+                return u
+
+        checked = await asyncio.gather(*[_keep(u) for u in users[:40]])
+        users = [u for u in checked if u] + [u for u in users[40:] if keep_unissued_project(u)[0]]
     if not users:
         errors.append("没有从关注列表核实到项目，宁可不显示，避免把观察池/其它项目混进来")
         return {

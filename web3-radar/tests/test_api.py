@@ -27,7 +27,14 @@ def test_health_and_index():
     assert "分析此币" in page.text
     assert "名人喊单" in page.text
     assert "24 小时" in page.text
-    assert "行业名人" in page.text
+    assert "@solana" in page.text
+    assert "@toly" in page.text
+    assert "未发币项目" in page.text
+    assert "行业名人" not in page.text
+    js = client.get("/static/js/app.js")
+    assert js.status_code == 200
+    assert "行业名人" not in js.text
+    assert "未发币" in js.text
     assert "$1M" in page.text or "$1,000,000" in page.text or "池子 ≥ $1M" in page.text
 
 
@@ -87,17 +94,15 @@ def test_modules_return_catalog():
         assert x.get("followed_by"), x.get("name")
         assert x.get("watch_kind") != "onchain_pool"
         names = set(x.get("followed_by") or [])
-        tier = x.get("follow_tier") or ("official" if int(x.get("official_follow_count") or 0) else "industry")
-        if tier == "official":
-            assert int(x.get("official_follow_count") or 0) >= 1
-            chain = str(x.get("chain") or "")
-            if "BSC" in chain:
-                assert names & {"cz_binance", "heyibinance"}
-            if chain == "Solana":
-                assert names & {"solana", "toly", "aeyakovenko"}
-        else:
-            assert int(x.get("industry_follow_count") or len(names) or 0) >= 1
-            assert x.get("follow_reason") or x.get("follow_reasons") or x.get("follow_proof")
+        assert names <= {"solana", "toly", "cz_binance"}
+        assert int(x.get("official_follow_count") or 0) >= 1
+        assert x.get("follow_tier") == "official"
+        assert x.get("token_status") == "未发币"
+        chain = str(x.get("chain") or "")
+        if "BSC" in chain and "Solana" not in chain:
+            assert names <= {"cz_binance"}
+        if chain == "Solana":
+            assert names <= {"solana", "toly"}
     n = client.get("/api/news")
     assert n.status_code == 200
     news_body = n.json()

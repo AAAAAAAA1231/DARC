@@ -4,7 +4,7 @@ const views = {
   meme: ["妖币监控", "可跟 / 观察 / 避开，附 CA 与链。仅供参考，不构成投资建议。"],
   copytrade: ["自动跟单", "跟随「可跟」信号。模拟盘默认开启，实盘需钱包确认。"],
   ambassador: ["大使招募", "项目方发布的招募窗口。可标记申请与结果。"],
-  launch: ["打新监测", "官方或行业名人关注的项目，附时间与链接。"],
+  launch: ["打新监测", "只看 @solana、@toly、CZ 正在关注、尚未发币的 Web3 项目。个人账号和已出名的网站不显示。"],
   airdrop: ["空投雷达", "比特币与 ETH 生态未发币项目。"],
   wallet: ["钱包执行", "连接钱包后，将任务加入确认队列。不会索取助记词。"],
   settings: ["设置", "接口令牌、钱包接口与过滤条件。"],
@@ -182,7 +182,7 @@ async function loadView(name, refresh) {
       if ($("launchAlerts")) {
         $("launchAlerts").innerHTML = alerts.slice(0, 6).map((a) => `
           <div class="alert-banner">
-            <strong>${a.follow_tier === "industry" ? "行业名人" : "官方"} · ${escapeHtml(a.launch_status || "")}</strong>
+            <strong>官方 · 未发币 · ${escapeHtml(a.launch_status || "")}</strong>
             <div>${escapeHtml(a.name)} ${a.username ? "(@" + escapeHtml(a.username) + ")" : ""}</div>
             <div class="launch-when">${escapeHtml(a.launch_when_label || a.launch_when || "时间待确认")}</div>
           </div>`).join("");
@@ -191,7 +191,7 @@ async function loadView(name, refresh) {
       $("launchCards").innerHTML = launchItems.map((a) => {
         store.launch[a.key] = a;
         return launchCard(a);
-      }).join("") || "<p class='muted'>暂无官方或行业名人关注的项目。</p>";
+      }).join("") || "<p class='muted'>暂无未发币项目。</p>";
       const bits = [];
       if (data.sol_count) bits.push(`Solana ${data.sol_count}`);
       if (data.bsc_count) bits.push(`BSC ${data.bsc_count}`);
@@ -424,16 +424,11 @@ function launchCard(a) {
   const id = encodeURIComponent(a.key);
   const klass = a.alert ? "card alert-card" : "card";
   const when = a.launch_when_label || a.launch_when;
-  const officialN = Number(a.official_follow_count || 0);
-  const industry = a.follow_tier === "industry" || (!officialN && (a.industry_follow_count || 0));
-  const badge = industry
-    ? `<span class="tag industry">行业名人</span>`
-    : `<span class="tag live">官方</span>`;
-  const who = (a.followed_by || []).map((n) => `<span class="tag ${industry && !officialN ? "industry" : "live"}">@${escapeHtml(n)}</span>`).join(" ");
+  const badge = `<span class="tag live">官方</span> <span class="tag wait">未发币</span>`;
+  const who = (a.followed_by || []).map((n) => `<span class="tag live">@${escapeHtml(n)}</span>`).join(" ");
   return `<article class="${klass}">
     <h3>${badge} ${escapeHtml(a.name)}${a.username ? " <span class='muted'>@" + escapeHtml(a.username) + "</span>" : ""}</h3>
     <p>${escapeHtml(a.chain || "")}</p>
-    ${a.follow_reason ? `<p>${escapeHtml(a.follow_reason)}</p>` : ""}
     ${who ? `<p>${who}</p>` : ""}
     ${a.launch_status ? `<p><span class="tag ${a.alert ? "range" : "wait"}">${escapeHtml(a.launch_status)}</span></p>` : ""}
     ${when ? `<p class="launch-when">${escapeHtml(when)}</p>` : ""}
