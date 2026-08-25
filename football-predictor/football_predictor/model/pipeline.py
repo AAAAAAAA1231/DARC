@@ -10,6 +10,7 @@ from ..data.historical import Match, load_league_history
 from ..data.news import collect_match_news
 from ..data.weather import Weather, fetch_weather
 from ..names import canonical_name, display_cn, stadium_coords, team_keywords
+from ..search import SearchQuery, parse_query
 from .adjustments import (
     Adjustment,
     apply_multipliers,
@@ -183,6 +184,52 @@ class Predictor:
             out.extend(live[:max_per_league])
         out.sort(key=lambda f: (f.date, f.league))
         return out
+
+    def search_fixtures(self, text: str, days: int = 21) -> tuple[SearchQuery, list[Fixture]]:
+        query = parse_query(text)
+        pool = [
+            fx
+            for fx in self.upcoming(query.league, days=days)
+            if fx.status != "post"
+        ]
+        pool.sort(key=lambda f: f.date)
+        teams = [canonical_name(t) for t in query.teams]
+
+        def involves(fx: Fixture, team: str) -> bool:
+            return fx.home == team or fx.away == team
+
+        if len(teams) >= 2:
+            a, b = teams[0], teams[1]
+            matched = [
+                fx
+                for fx in pool
+                if (involves(fx, a) and involves(fx, b))
+            ]
+        elif len(teams) == 1:
+            matched = [fx for fx in pool if involves(fx, teams[0])]
+            if query.want_next:
+                matched = matched[:1]
+        else:
+            matched = pool if query.league else []
+            if query.want_next and matched:
+                matched = matched[:1]
+        return query, matched
+
+    def predict_search(self, text: str, progress: ProgressCb | None = None) -> tuple[str, list[PredictionResult]]:
+        cb = progress or (lambda _: None)
+        query, fixtures = self.search_fixtures(text)
+        if not fixtures:
+            hint = query.describe() or text
+            return f"没有找到「{hint}」的近期未赛场次，可换个队名或联赛再搜。", []
+        results: list[PredictionResult] = []
+        total = len(fixtures)
+        for i, fx in enumerate(fixtures, 1):
+            cb(f"搜索预测 {i}/{total}  {LEAGUES[fx.league].name_cn}  {fx.home_cn} vs {fx.away_cn}")
+            try:
+                results.append(self.predict_fixture(fx, light=True))
+            except Exception as exc:
+                cb(f"{fx.home_cn} vs {fx.away_cn} 失败：{exc}")
+        return f"搜索「{query.describe()}」共 {len(results)} 场", results
 
     def predict_all_upcoming(self, progress: ProgressCb | None = None) -> list[PredictionResult]:
         cb = progress or (lambda _: None)

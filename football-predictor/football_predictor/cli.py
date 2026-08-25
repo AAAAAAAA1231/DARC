@@ -19,9 +19,11 @@ def run_cli(argv: list[str] | None = None) -> int:
 
     sub.add_parser("upcoming", help="列出未来赛程")
     p = sub.add_parser("predict", help="预测一场比赛")
-    p.add_argument("--league", required=True, choices=LEAGUE_ORDER, help="laliga / bundesliga / seriea")
+    p.add_argument("--league", required=True, choices=LEAGUE_ORDER)
     p.add_argument("--home", required=True)
     p.add_argument("--away", required=True)
+    s = sub.add_parser("search", help="搜索：下一场皇马 / 巴萨vs马竞 / 德甲")
+    s.add_argument("query", nargs="+")
 
     args = parser.parse_args(argv)
     if not args.cmd:
@@ -45,6 +47,14 @@ def run_cli(argv: list[str] | None = None) -> int:
             league_cn = LEAGUES[fx.league].name_cn
             _print(f"[{league_cn}] {fx.label}  ({status})")
         return 0
+
+    if args.cmd == "search":
+        q = " ".join(args.query)
+        msg, results = pred.predict_search(q, progress=_print)
+        _print(msg)
+        for r in results:
+            _print(format_report(r))
+        return 0 if results else 1
 
     result = pred.predict(args.league, args.home, args.away, progress=_print)
     _print(format_report(result))

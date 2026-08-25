@@ -91,6 +91,23 @@ def test_score_consistent_with_1x2():
     assert h == a
 
 
+def test_search_next_real_madrid():
+    from football_predictor.search import parse_query
+
+    q = parse_query("我想搜索下一场皇马的比赛")
+    assert q.want_next
+    assert q.teams == ["Real Madrid"]
+    q2 = parse_query("巴萨vs马竞")
+    assert "Barcelona" in q2.teams
+    assert "Atletico Madrid" in q2.teams
+    q3 = parse_query("德甲")
+    assert q3.league == "bundesliga"
+    q4 = parse_query("下一场拜仁")
+    assert q4.teams == ["Bayern Munich"]
+    q5 = parse_query("国米")
+    assert q5.teams == ["Internazionale"]
+
+
 def test_american_odds():
     assert abs(american_to_prob(-200) - 2 / 3) < 1e-6
     assert abs(american_to_prob(100) - 0.5) < 1e-6

@@ -72,8 +72,8 @@ TEAMS: tuple[TeamInfo, ...] = (
     # —— 德甲 / 德乙 ——
     TeamInfo("Union Berlin", "柏林联合", ("1. FC Union Berlin", "FC Union Berlin", "FCU"), 52.457, 13.568, "Stadion An der Alten Försterei"),
     TeamInfo("Bayer Leverkusen", "勒沃库森", ("Leverkusen", "Bayer 04", "B04"), 51.038, 7.002, "BayArena"),
-    TeamInfo("Bayern Munich", "拜仁慕尼黑", ("Bayern", "FC Bayern", "Munich", "MUN"), 48.219, 11.625, "Allianz Arena"),
-    TeamInfo("Borussia Dortmund", "多特蒙德", ("Dortmund", "BVB", "DOR"), 51.493, 7.452, "Signal Iduna Park"),
+    TeamInfo("Bayern Munich", "拜仁慕尼黑", ("Bayern", "FC Bayern", "Munich", "MUN", "拜仁"), 48.219, 11.625, "Allianz Arena"),
+    TeamInfo("Borussia Dortmund", "多特蒙德", ("Dortmund", "BVB", "DOR", "多特"), 51.493, 7.452, "Signal Iduna Park"),
     TeamInfo("Borussia Monchengladbach", "门兴格拉德巴赫", ("M'gladbach", "Gladbach", "Monchengladbach", "Mönchengladbach", "BMG"), 51.175, 6.385, "Borussia-Park"),
     TeamInfo("Eintracht Frankfurt", "法兰克福", ("Ein Frankfurt", "Frankfurt", "SGE"), 50.069, 8.645, "Deutsche Bank Park"),
     TeamInfo("Augsburg", "奥格斯堡", ("FC Augsburg", "FCA"), 48.323, 10.884, "WWK Arena"),
@@ -102,7 +102,7 @@ TEAMS: tuple[TeamInfo, ...] = (
     TeamInfo("Kaiserslautern", "凯泽斯劳滕", ("1. FC Kaiserslautern",), 49.435, 7.776, "Fritz-Walter-Stadion"),
     TeamInfo("Fortuna Dusseldorf", "杜塞尔多夫", ("Fortuna Düsseldorf", "Dusseldorf"), 51.262, 6.733, "Merkur Spiel-Arena"),
     # —— 意甲 / 意乙 ——
-    TeamInfo("AC Milan", "AC米兰", ("Milan", "MIL"), 45.478, 9.124, "San Siro"),
+    TeamInfo("AC Milan", "AC米兰", ("Milan", "MIL", "米兰"), 45.478, 9.124, "San Siro"),
     TeamInfo("AS Roma", "罗马", ("Roma", "ROMA"), 41.934, 12.455, "Stadio Olimpico"),
     TeamInfo("Atalanta", "亚特兰大", ("Atalanta BC", "ATA"), 45.709, 9.681, "Gewiss Stadium"),
     TeamInfo("Bologna", "博洛尼亚", ("Bologna FC", "BOL"), 44.492, 11.310, "Renato Dall'Ara"),
@@ -111,8 +111,8 @@ TEAMS: tuple[TeamInfo, ...] = (
     TeamInfo("Fiorentina", "佛罗伦萨", ("ACF Fiorentina", "FIO"), 43.781, 11.282, "Artemio Franchi"),
     TeamInfo("Frosinone", "弗洛西诺内", ("Frosinone Calcio", "FRO"), 41.635, 13.322, "Benito Stirpe"),
     TeamInfo("Genoa", "热那亚", ("Genoa CFC", "GEN"), 44.416, 8.952, "Luigi Ferraris"),
-    TeamInfo("Internazionale", "国际米兰", ("Inter", "Inter Milan", "FC Internazionale", "INT"), 45.478, 9.124, "San Siro"),
-    TeamInfo("Juventus", "尤文图斯", ("Juve", "JUV"), 45.110, 7.641, "Allianz Stadium"),
+    TeamInfo("Internazionale", "国际米兰", ("Inter", "Inter Milan", "FC Internazionale", "INT", "国米"), 45.478, 9.124, "San Siro"),
+    TeamInfo("Juventus", "尤文图斯", ("Juve", "JUV", "尤文"), 45.110, 7.641, "Allianz Stadium"),
     TeamInfo("Lazio", "拉齐奥", ("SS Lazio", "LAZ"), 41.934, 12.455, "Stadio Olimpico"),
     TeamInfo("Lecce", "莱切", ("US Lecce", "LEC"), 40.365, 18.209, "Via del Mare"),
     TeamInfo("Monza", "蒙扎", ("AC Monza", "MON"), 45.583, 9.308, "U-Power Stadium"),
@@ -196,8 +196,12 @@ def team_keywords(name: str) -> list[str]:
     return out
 
 
-def all_canonical_names() -> list[str]:
+def all_team_infos() -> list[TeamInfo]:
     seen: dict[str, TeamInfo] = {}
     for info in TEAMS:
         seen[info.canonical] = info
-    return sorted(seen)
+    return list(seen.values())
+
+
+def all_canonical_names() -> list[str]:
+    return sorted(info.canonical for info in all_team_infos())
