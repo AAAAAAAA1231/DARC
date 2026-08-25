@@ -1,7 +1,7 @@
 import numpy as np
 
-from a_share_trading.data_source import Bars, Stock, synthesize_bars
-from a_share_trading.ensemble import apply_correction, combine_signals, prior_weights
+from a_share_trading.data_source import Stock, synthesize_bars
+from a_share_trading.ensemble import aligned_method_returns, apply_correction, combine_signals, prior_weights
 from a_share_trading.methods import METHODS, all_score_matrix, last_signals
 from a_share_trading.risk import build_risk_plan
 
@@ -61,6 +61,16 @@ def test_ensemble_weights_and_risk_sides():
     elif ens.direction == "下跌":
         assert plan.take_profit <= plan.entry
         assert plan.stop_loss >= plan.entry
+
+
+def test_aligned_method_returns_shapes():
+    bars = synthesize_bars(_stock(), n=180)
+    mu, cov = aligned_method_returns([bars], horizon=5, cost=0.0008)
+    n = len(METHODS)
+    assert mu.shape == (n,)
+    assert cov.shape == (n, n)
+    assert np.isfinite(mu).all()
+    assert np.isfinite(cov).all()
 
 
 def test_correction_normalizes():

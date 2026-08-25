@@ -71,18 +71,26 @@ def _worker_predict(payload: tuple[Stock, np.ndarray, int]) -> dict[str, Any]:
 
 
 def _calibration_bars(stocks: list[Stock], limit: int) -> list[Bars]:
-    chosen: list[Bars] = []
+    from .data_source import load_bars
+
     ranked = sorted(stocks, key=lambda s: (s.mktcap or 0), reverse=True)
+    live: list[Bars] = []
+    fallback: list[Bars] = []
     for stock in ranked:
-        bars = load_or_make_bars(stock, allow_synthetic=True)
-        if len(bars) >= config.MIN_BARS:
-            chosen.append(bars)
-        if len(chosen) >= limit:
+        bars = load_bars(stock.symbol)
+        if bars is not None and len(bars) >= config.MIN_BARS:
+            live.append(bars)
+        elif len(fallback) < limit:
+            fallback.append(synthesize_bars(stock))
+        if len(live) >= limit:
             break
+    chosen = live[:limit]
+    if len(chosen) < limit:
+        chosen.extend(fallback[: limit - len(chosen)])
     if len(chosen) < 16:
-        for stock in ranked[: max(16, limit)]:
+        for stock in ranked[:16]:
             chosen.append(synthesize_bars(stock))
-    return chosen[:limit]
+    return chosen[: max(limit, 16)]
 
 
 def calibrate(

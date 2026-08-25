@@ -106,7 +106,7 @@ def aligned_method_returns(bars_list: list[Bars], horizon: int = 5, cost: float 
         pos = np.clip(matrix, -1.0, 1.0)
         # T+1: today's signal trades tomorrow's move, held `horizon` days / horizon
         daily = pos[:-1] * (close[1:] / close[:-1] - 1.0)[:, None]
-        turnover = np.abs(np.diff(pos, axis=0, prepend=pos[:1]))
+        turnover = np.abs(pos[1:] - pos[:-1])
         daily -= turnover * cost
         for i, day in enumerate(bars.dates[1:]):
             date_to_ret.setdefault(str(day), []).append(daily[i])
