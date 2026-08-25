@@ -18,6 +18,8 @@
           <div class="hud-bar"><i id="hud-bar"></i></div>
         </div>
         <div class="hud-stats">
+          <span>武器 <b id="hud-weapon">龙息</b></span>
+          <span>命 <b id="hud-lives">3</b></span>
           <span id="hud-special"></span>
           <span>代币 <b id="hud-tokens">0</b></span>
           <span>分数 <b id="hud-score">0</b></span>
@@ -28,6 +30,7 @@
 
     <div id="touch" class="hidden">
       <div id="stick-zone"></div>
+      <div id="jump-btn">跳</div>
       <div id="fire-btn">火</div>
     </div>
 
@@ -35,13 +38,13 @@
       <div class="menu-glow"></div>
       <p class="eyebrow">HIDDEN DRAGON · WEB3 RAID</p>
       <h1>潜龙勇闯 <span>Web3</span></h1>
-      <p class="tagline">穿越主网、L2 与跨链桥，把法则烧进区块里</p>
+      <p class="tagline">魂斗罗式横版射击 · 潜龙战士闯过 ETH / ARB / ZK / STARK / L0 / BASE</p>
       <div class="menu-actions">
         <button class="btn primary" id="btn-start">开始闯关</button>
         <button class="btn" id="btn-select">选择关卡</button>
         <button class="btn ghost" id="btn-help">操作说明</button>
       </div>
-      <p class="fineprint">原型演示 · WASD 移动 · 空格喷火</p>
+      <p class="fineprint">A D 移动 · 空格跳跃 · J 或鼠标喷火 · W 向上瞄准</p>
     </section>
 
     <section id="screen-select" class="screen hidden">
@@ -54,11 +57,12 @@
     <section id="screen-help" class="screen hidden">
       <h2>操作说明</h2>
       <ul class="help-list">
-        <li><b>W A S D / 方向键</b> — 驾驭潜龙</li>
-        <li><b>空格 / 鼠标左键</b> — 喷出龙息，击毁敌人和障碍</li>
-        <li><b>P / Esc</b> — 暂停</li>
-        <li><b>触屏</b> — 左半屏滑动移动，右下按钮喷火</li>
-        <li><b>ETH</b> 教学关；<b>ARB</b> 加速；<b>ZK</b> 需收集证明；<b>STARK</b> 躲开正弦激光；<b>L0</b> 可钻虫洞；<b>BASE</b> 终章。</li>
+        <li><b>A D / 左右</b> — 奔跑　<b>空格 / K</b> — 跳跃（空中可再扇一次翼）</li>
+        <li><b>W / 上</b> — 朝上瞄准　<b>S / 下</b> — 蹲下（空中则朝下开火）</li>
+        <li><b>J / F / 鼠标</b> — 喷火。打掉红色胶囊可换成散弹或激光</li>
+        <li><b>P / Esc</b> — 暂停。每关末尾有 Boss，打完走进传送门过关</li>
+        <li><b>触屏</b> — 左半屏滑动移动，右下「跳」和「火」</li>
+        <li><b>ETH</b> 教学；<b>ARB</b> 移动平台；<b>ZK</b> 先收集证明；<b>STARK</b> 间歇激光；<b>L0</b> 传送垫；<b>BASE</b> 终章。</li>
       </ul>
       <button class="btn" id="btn-help-back">返回</button>
     </section>

@@ -216,11 +216,12 @@ h2 {
 
 .hud-stats {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   font-size: 13px;
   color: var(--dim);
-  min-width: 180px;
+  min-width: 280px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 .hud-stats b { color: var(--ink); font-weight: 700; }
 
@@ -253,21 +254,29 @@ h2 {
   pointer-events: auto;
 }
 
-#fire-btn {
+#fire-btn, #jump-btn {
   position: absolute;
-  right: 28px;
   bottom: 28px;
   width: 74px;
   height: 74px;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  background: rgba(240, 120, 60, 0.35);
-  border: 1px solid rgba(255, 180, 80, 0.55);
-  color: #ffe7c2;
   font-weight: 800;
   pointer-events: auto;
   backdrop-filter: blur(4px);
+}
+#fire-btn {
+  right: 28px;
+  background: rgba(240, 120, 60, 0.35);
+  border: 1px solid rgba(255, 180, 80, 0.55);
+  color: #ffe7c2;
+}
+#jump-btn {
+  right: 118px;
+  background: rgba(77, 226, 200, 0.28);
+  border: 1px solid rgba(77, 226, 200, 0.55);
+  color: #d7fff7;
 }
 
 @media (min-width: 901px) {
