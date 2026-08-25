@@ -29,12 +29,15 @@ def test_health_and_index():
     assert "24 小时" in page.text
     assert "@solana" in page.text
     assert "@toly" in page.text
+    assert "近一个月" in page.text
     assert "未发币项目" in page.text
     assert "行业名人" not in page.text
+    assert '<span class="pill">CZ</span>' not in page.text
     js = client.get("/static/js/app.js")
     assert js.status_code == 200
     assert "行业名人" not in js.text
     assert "未发币" in js.text
+    assert "最近一个月" in js.text
     assert "$1M" in page.text or "$1,000,000" in page.text or "池子 ≥ $1M" in page.text
 
 
@@ -62,7 +65,7 @@ def test_wallet_participate_queue():
     assert all(any(str(c).lower() in {"ethereum", "bitcoin", "base", "arbitrum"} or "eth" in str(c).lower() or "bitcoin" in str(c).lower() for c in (x.get("chains") or [])) for x in data["airdrops"])
     assert data["launches"]
     assert data["news"]
-    assert all((x.get("chain") or "") in {"Solana", "BSC", "Solana + BSC"} for x in data["launches"])
+    assert all((x.get("chain") or "") == "Solana" for x in data["launches"])
     merged = merge_items([], data["airdrops"])
     assert len(merged) == len(data["airdrops"])
     r = client.post(
@@ -94,15 +97,12 @@ def test_modules_return_catalog():
         assert x.get("followed_by"), x.get("name")
         assert x.get("watch_kind") != "onchain_pool"
         names = set(x.get("followed_by") or [])
-        assert names <= {"solana", "toly", "cz_binance"}
+        assert names <= {"solana", "toly"}
+        assert names
         assert int(x.get("official_follow_count") or 0) >= 1
         assert x.get("follow_tier") == "official"
         assert x.get("token_status") == "未发币"
-        chain = str(x.get("chain") or "")
-        if "BSC" in chain and "Solana" not in chain:
-            assert names <= {"cz_binance"}
-        if chain == "Solana":
-            assert names <= {"solana", "toly"}
+        assert str(x.get("chain") or "") == "Solana"
     n = client.get("/api/news")
     assert n.status_code == 200
     news_body = n.json()

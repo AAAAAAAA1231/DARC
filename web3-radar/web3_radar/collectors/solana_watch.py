@@ -30,21 +30,14 @@ WATCH_PROFILES: dict[str, dict[str, str]] = {
         "chain": "Solana",
         "reason": "Solana 联合创始人 Toly",
     },
-    "cz_binance": {
-        "handle": "cz_binance",
-        "label": "@cz_binance",
-        "tier": "official",
-        "chain": "BSC",
-        "reason": "CZ",
-    },
 }
 SOL_WATCH = ("solana", "toly")
-BSC_WATCH = ("cz_binance",)
 WATCH_ACCOUNTS = SOL_WATCH
 WATCH_TOTAL = len(WATCH_ACCOUNTS)
+FOLLOW_WINDOW = 300
+FOLLOW_LOOKBACK_DAYS = 30
 WATCH_GROUPS = {
-    "solana": {"chain": "Solana", "accounts": SOL_WATCH, "cache": "solana_follow_snapshot_v3"},
-    "bsc": {"chain": "BSC", "accounts": BSC_WATCH, "cache": "bsc_follow_snapshot_v3"},
+    "solana": {"chain": "Solana", "accounts": SOL_WATCH, "cache": "solana_follow_snapshot_v4"},
 }
 FOLLOW_LABEL = {k: v["label"] for k, v in WATCH_PROFILES.items()}
 FAMOUS_PROJECT_HANDLES = {
@@ -476,12 +469,9 @@ def industry_followers(followed_by: list[str] | None) -> list[str]:
 
 def official_follow_total(followed_by: list[str] | None) -> int:
     names = set(official_followers(followed_by))
-    n = 0
     if names & set(SOL_WATCH):
-        n += len(SOL_WATCH)
-    if names & set(BSC_WATCH):
-        n += len(BSC_WATCH)
-    return n or len(names)
+        return len(SOL_WATCH)
+    return len(names)
 
 
 def chain_for_follows(followed_by: list[str] | None, default: str = "Solana") -> str:
@@ -587,21 +577,23 @@ async def _lookup_user(bearer: str, username: str) -> dict[str, Any] | None:
 
 
 async def fetch_account_following(
-    bearer: str, username: str, limit: int = 100
+    bearer: str, username: str, limit: int = 80
 ) -> tuple[list[dict[str, Any]], str, dict[str, Any]]:
+    """Newest follows first. Only scan FOLLOW_WINDOW rows (~last month)."""
     owner = await _lookup_user(bearer, username)
     stats = {
         "account": username,
         "following_total": int((owner or {}).get("public_metrics", {}).get("following_count") or 0) if owner else 0,
         "fetched": 0,
         "kept": 0,
+        "window": FOLLOW_WINDOW,
     }
     if not owner:
         return [], f"无法读取 @{username}", stats
     users: list[dict[str, Any]] = []
     token = None
     scanned = 0
-    while scanned < max(limit, 100):
+    while scanned < FOLLOW_WINDOW:
         params: dict[str, Any] = {
             "max_results": "100",
             "user.fields": "description,public_metrics,created_at,username,protected,url,entities",
@@ -617,9 +609,11 @@ async def fetch_account_following(
         rows = data.get("data") or []
         if not rows:
             break
-        scanned += len(rows)
-        stats["fetched"] = scanned
         for row in rows:
+            if scanned >= FOLLOW_WINDOW:
+                break
+            scanned += 1
+            stats["fetched"] = scanned
             u = _user_from_api(row)
             handle = u["username"].lower()
             if not handle or handle in SKIP_HANDLES or u.get("protected") or is_mega_brand(u["name"], handle):
@@ -630,7 +624,7 @@ async def fetch_account_following(
             if len(users) >= limit:
                 break
         token = (data.get("meta") or {}).get("next_token")
-        if not token or len(users) >= limit:
+        if not token or scanned >= FOLLOW_WINDOW or len(users) >= limit:
             break
     stats["kept"] = len(users)
     return users, "", stats
@@ -878,7 +872,7 @@ def to_item(
 
 async def watch_solana_projects(
     twitter_bearer: str = "",
-    lookback_days: int = 14,
+    lookback_days: int = FOLLOW_LOOKBACK_DAYS,
     group: str = "solana",
 ) -> dict[str, Any]:
     from web3_radar import db

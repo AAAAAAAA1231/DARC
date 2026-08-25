@@ -166,10 +166,17 @@ def test_solana_follow_launch_timing():
         False, None, "seed", followed_by=[],
     )
     assert fake is None
-    from web3_radar.collectors.solana_watch import keep_unissued_project, verified_followers
+    from web3_radar.collectors.solana_watch import (
+        FOLLOW_LOOKBACK_DAYS,
+        FOLLOW_WINDOW,
+        keep_unissued_project,
+        verified_followers,
+    )
+    assert FOLLOW_LOOKBACK_DAYS == 30
+    assert FOLLOW_WINDOW == 300
     assert verified_followers(["solana"]) == ["solana"]
     assert verified_followers(["binance", "someone"]) == []
-    assert verified_followers(["0xmert_", "heyibinance"]) == []
+    assert verified_followers(["0xmert_", "heyibinance", "cz_binance"]) == []
     assert keep_unissued_project({
         "username": "helixsvm", "name": "Helix SVM", "description": "SVM runtime for Solana apps",
         "public_metrics": {"followers_count": 1200},
@@ -182,15 +189,19 @@ def test_solana_follow_launch_timing():
         "username": "jupiter_exchange", "name": "Jupiter", "description": "Solana DEX aggregator",
         "public_metrics": {"followers_count": 500000},
     })[0]
-    bsc = to_item(
+    assert to_item(
         {"username": "nimbusfi", "name": "Nimbus", "description": "BNB DeFi protocol", "public_metrics": {"followers_count": 2000}},
         True, None, "following", rank=2, followed_by=["cz_binance"],
+    ) is None
+    only_sol = to_item(
+        {"username": "nimbusfi", "name": "Nimbus", "description": "Solana DeFi protocol", "public_metrics": {"followers_count": 2000}},
+        True, None, "following", rank=2, followed_by=["solana"],
     )
-    assert bsc["chain"] == "BSC"
-    assert bsc["official_follow_total"] == 1
-    assert bsc["follow_count_label"] == "官方关注 1/1"
-    assert bsc["followed_by"] == ["cz_binance"]
-    assert bsc["token_status"] == "未发币"
+    assert only_sol["chain"] == "Solana"
+    assert only_sol["official_follow_total"] == 2
+    assert only_sol["follow_count_label"] == "官方关注 1/2"
+    assert only_sol["followed_by"] == ["solana"]
+    assert only_sol["token_status"] == "未发币"
     assert to_item(
         {"username": "newthing", "name": "New", "description": "Solana app", "public_metrics": {"followers_count": 900}},
         True, None, "following", rank=3, followed_by=["0xmert_"],

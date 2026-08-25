@@ -638,11 +638,11 @@ async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
 async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "launches_v12",
+        "launches_v13",
         "launch",
         180,
         refresh,
-        lambda: scan_launches(twitter_bearer=str(settings.get("twitter_bearer_token") or ""), lookback_days=7),
+        lambda: scan_launches(twitter_bearer=str(settings.get("twitter_bearer_token") or ""), lookback_days=30),
     )
 
 

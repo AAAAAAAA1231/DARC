@@ -33,7 +33,7 @@
       "name": "盯 @solana 最近关注",
       "kind": "打新流程（方法）",
       "chain": "Solana",
-      "text": "只盯 @solana、@toly、CZ 最近关注、尚未发币的 Web3 项目。个人账号和 Jupiter、Orca 这类已出名网站不显示。出现 launch、发射、TGE 时会标北京时间。",
+      "text": "只盯 @solana 或 @toly 最近一个月关注、尚未发币的 Web3 项目。个人账号不显示。出现 launch、发射、TGE 时会标北京时间。",
       "url": "https://x.com/solana",
       "twitter": "https://x.com/solana",
       "source": "观察池",
@@ -52,12 +52,12 @@
     },
     {
       "key": "seed-pump-launchlab",
-      "name": "盯 CZ 最近关注",
+      "name": "近一个月关注窗口",
       "kind": "打新流程（方法）",
-      "chain": "BSC",
-      "text": "只看 CZ 正在关注、尚未发币的 Web3 项目。已出名的交易所、DEX、媒体不显示。",
-      "url": "https://x.com/cz_binance",
-      "twitter": "https://x.com/cz_binance",
+      "chain": "Solana",
+      "text": "关注列表越靠前越新。只取最近一个月这一段，再去掉个人账号和已经发币的项目。",
+      "url": "https://x.com/solana",
+      "twitter": "https://x.com/solana",
       "source": "观察池",
       "price_usd": null
     }
