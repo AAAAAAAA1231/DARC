@@ -34,10 +34,10 @@ WATCH_PROFILES: dict[str, dict[str, str]] = {
 SOL_WATCH = ("solana", "toly")
 WATCH_ACCOUNTS = SOL_WATCH
 WATCH_TOTAL = len(WATCH_ACCOUNTS)
-FOLLOW_WINDOW = 300
+FOLLOW_WINDOW = 400
 FOLLOW_LOOKBACK_DAYS = 30
 WATCH_GROUPS = {
-    "solana": {"chain": "Solana", "accounts": SOL_WATCH, "cache": "solana_follow_snapshot_v4"},
+    "solana": {"chain": "Solana", "accounts": SOL_WATCH, "cache": "solana_follow_snapshot_v5"},
 }
 FOLLOW_LABEL = {k: v["label"] for k, v in WATCH_PROFILES.items()}
 FAMOUS_PROJECT_HANDLES = {
@@ -63,16 +63,26 @@ SKIP_HANDLES = {
 } | FAMOUS_PROJECT_HANDLES
 MAX_FAME_FOLLOWERS = 120_000
 PROJECT_HINTS = (
-    "protocol", "network", "layer 1", "layer 2", "layer1", "layer2", "l1 ", "l2 ",
-    "svm", "zk", "rollup", "modular", "restaking", "defi", "dex", "perps",
-    "mainnet", "testnet", "tge", "token generation", "whitelist", "allowlist",
-    "points program", "we're building", "we are building", "our protocol",
-    "our network", "on-chain", "onchain", "appchain", "infra",
+    "protocol", "layer 1", "layer 2", "layer1", "layer2", "l1 ", "l2 ",
+    "svm", "rollup", "appchain", "restaking", "perps",
+    "tge", "token generation", "whitelist", "allowlist",
+    "points program", "we're building", "we are building", "we are launching",
+    "our protocol", "our network", "our app", "official account",
 )
 PROJECT_NAME_BITS = ("labs", "protocol", "finance", "network", "chain", "swap", "fi")
+PROJECT_HANDLE_SUFFIXES = (
+    "labs", "fi", "protocol", "svm", "dex", "xyz", "layer", "chain",
+    "network", "finance", "app",
+)
 PERSON_BIO_HINTS = (
     "opinions are my own", "opinions my own", "views my own", "personal account",
-    "tweets are my own", "not the official",
+    "tweets are my own", "not the official", "my tweets", "my opinions",
+    "not financial advice", "personal views",
+)
+PERSON_ROLE_HINTS = (
+    "angel investor", "solo founder", "independent researcher",
+    "head of", "working at", "working on", "engineer at", "researcher at", "investor at",
+    "founder at", "building in public", "i work", "i build",
 )
 TOKEN_LIVE_HINTS = (
     "token is live", "now trading", "trading live", "listed on binance",
@@ -104,38 +114,53 @@ def looks_like_project_account(name: str, handle: str, bio: str = "") -> bool:
         return True
     if re.search(r"\bwe('re| are) (building|launching|shipping)\b", blob):
         return True
+    return strong_project_identity(name, handle)
+
+
+def strong_project_identity(name: str, handle: str) -> bool:
     h = profile_key(handle)
-    if h.endswith(("labs", "fi", "protocol", "svm", "dex", "app", "xyz")):
+    if h.endswith(PROJECT_HANDLE_SUFFIXES):
+        return True
+    if re.search(r"\b(labs|protocol|finance|network|chain|svm)\b", name or "", re.I):
         return True
     return False
 
 
 def looks_like_person(name: str, handle: str, bio: str = "") -> bool:
+    """People win over weak project-looking bios."""
     h = profile_key(handle)
+    raw = (handle or "").lstrip("@")
     n = (name or "").strip()
     b = (bio or "").lower()
     if not h:
         return False
-    if looks_like_project_account(n, h, b):
-        return False
     if re.match(r"^the(real)?[a-z]{3,}$", h):
         return True
-    if re.match(r"^[a-z]+_[a-z]+$", h) and not h.endswith(("_fi", "_so", "_xyz", "_app", "_labs", "_svm")):
-        parts = h.split("_")
-        if all(p.isalpha() and 3 <= len(p) <= 14 for p in parts):
-            return True
+    if re.match(r"^0x[a-z0-9_]{2,20}$", h):
+        return True
+    if re.match(r"^[a-z]{2,14}_[a-z]{2,14}$", h) and not h.endswith(
+        ("_fi", "_so", "_xyz", "_app", "_labs", "_svm", "_layer")
+    ):
+        return True
+    if re.search(r"[a-z][A-Z]", raw) and not strong_project_identity(n, h):
+        return True
     if re.match(r"^[A-Z][a-z]+(?:\s+[A-Z]\.)?(?:\s+[A-Z][a-z]+)+$", n):
-        if not re.search(r"\b(labs|protocol|finance|network|chain)\b", n, re.I):
+        if not re.search(r"\b(Labs|Protocol|Finance|Network|Chain|Foundation|Ventures)\b", n):
             return True
     if any(x in b for x in PERSON_BIO_HINTS):
         return True
-    if re.search(r"\b(i am|i'm)\b.{0,48}\b(founder|co-founder|ceo|cto|investor|trader)\b", b):
+    if any(x in b for x in PERSON_ROLE_HINTS) and not strong_project_identity(n, h):
+        return True
+    if re.search(
+        r"\b(i am|i'm|i’m|im a)\b.{0,48}\b(founder|co-founder|ceo|cto|cmo|investor|trader|engineer|dev|builder)\b",
+        b,
+    ):
         return True
     return False
 
 
 def keep_unissued_project(user: dict[str, Any]) -> tuple[bool, str]:
-    """Only keep unissued Web3 projects — not people, not famous sites."""
+    """Keep only unissued Web3 project accounts. People and unknowns are dropped."""
     handle = (user.get("username") or "").lstrip("@")
     name = user.get("name") or handle
     bio = user.get("description") or ""
@@ -148,12 +173,11 @@ def keep_unissued_project(user: dict[str, Any]) -> tuple[bool, str]:
         return False, "famous"
     if looks_like_person(name, handle, bio):
         return False, "person"
+    if not looks_like_project_account(name, handle, bio):
+        return False, "not_project"
     blob = f"{name} {bio}".lower()
     if any(h in blob for h in TOKEN_LIVE_HINTS):
         return False, "issued"
-    if not looks_like_project_account(name, handle, bio):
-        if (bio or "").strip():
-            return False, "not_project"
     return True, "ok"
 
 
@@ -717,7 +741,7 @@ def parse_public_following(text: str, owner: str) -> list[dict[str, Any]]:
             handles.append(name)
         if handles:
             break
-    if len(handles) < 5:
+    if len(handles) < 3:
         return []
     return [{"username": h, "name": h, "description": "", "public_metrics": {}} for h in handles[:80]]
 

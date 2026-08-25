@@ -60,7 +60,7 @@ async def scan_launches(twitter_bearer: str = "", lookback_days: int = FOLLOW_LO
         "items": items,
         "errors": errors,
         "note": (
-            "只看 @solana 或 @toly 最近一个月关注、尚未发币的 Web3 项目。个人账号不显示。"
+            "只看 @solana 或 @toly 最近一个月关注、尚未发币的 Web3 项目。只要项目，不要人物。"
             + ((" " + stats_note + "。") if stats_note else "")
             + (" 当前没有核实到未发币项目。" if not items else "")
         ),

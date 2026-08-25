@@ -30,13 +30,14 @@ def test_health_and_index():
     assert "@solana" in page.text
     assert "@toly" in page.text
     assert "近一个月" in page.text
-    assert "未发币项目" in page.text
+    assert "只要项目" in page.text
+    assert "不要人物" in page.text
     assert "行业名人" not in page.text
     assert '<span class="pill">CZ</span>' not in page.text
     js = client.get("/static/js/app.js")
     assert js.status_code == 200
     assert "行业名人" not in js.text
-    assert "未发币" in js.text
+    assert "只要项目" in js.text
     assert "最近一个月" in js.text
     assert "$1M" in page.text or "$1,000,000" in page.text or "池子 ≥ $1M" in page.text
 

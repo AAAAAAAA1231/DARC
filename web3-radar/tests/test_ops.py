@@ -173,13 +173,29 @@ def test_solana_follow_launch_timing():
         verified_followers,
     )
     assert FOLLOW_LOOKBACK_DAYS == 30
-    assert FOLLOW_WINDOW == 300
+    assert FOLLOW_WINDOW == 400
     assert verified_followers(["solana"]) == ["solana"]
     assert verified_followers(["binance", "someone"]) == []
     assert verified_followers(["0xmert_", "heyibinance", "cz_binance"]) == []
     assert keep_unissued_project({
         "username": "helixsvm", "name": "Helix SVM", "description": "SVM runtime for Solana apps",
         "public_metrics": {"followers_count": 1200},
+    })[0]
+    assert keep_unissued_project({
+        "username": "helixsvm", "name": "helixsvm", "description": "",
+        "public_metrics": {},
+    })[0]
+    assert not keep_unissued_project({
+        "username": "mert", "name": "mert", "description": "",
+        "public_metrics": {"followers_count": 40000},
+    })[0]
+    assert not keep_unissued_project({
+        "username": "jack", "name": "jack", "description": "",
+        "public_metrics": {},
+    })[0]
+    assert not keep_unissued_project({
+        "username": "0xmert_", "name": "Mert Mumtaz", "description": "building DeFi on Solana",
+        "public_metrics": {"followers_count": 90000},
     })[0]
     assert not keep_unissued_project({
         "username": "austin_federa", "name": "Austin Federa", "description": "Head of strategy. He is a founder.",
@@ -211,10 +227,13 @@ def test_solana_follow_launch_timing():
          "public_metrics": {"followers_count": 80000}},
         True, None, "following", rank=4, followed_by=["solana", "toly"],
     ) is None
+    assert not keep_unissued_project({
+        "username": "alice", "name": "Alice", "description": "working on the protocol",
+        "public_metrics": {"followers_count": 1200},
+    })[0]
     assert to_item(
-        {"username": "orca_so", "name": "Orca", "description": "Solana DEX",
-         "public_metrics": {"followers_count": 200000}},
-        True, None, "following", rank=5, followed_by=["solana"],
+        {"username": "coolguy", "name": "coolguy", "description": "", "public_metrics": {}},
+        True, None, "following", rank=6, followed_by=["solana"],
     ) is None
 
 
@@ -230,6 +249,8 @@ Title: People followed by @solana
 [@orbitprotocol](https://nitter.example/orbitprotocol "@orbitprotocol")
 [@zedlabs](https://nitter.example/zedlabs "@zedlabs")
 [@quarklayer](https://nitter.example/quarklayer "@quarklayer")
+[@mert](https://nitter.example/mert "@mert")
+[@jack](https://nitter.example/jack "@jack")
 [@staratlas](https://nitter.example/staratlas "@staratlas")
 [@orca_so](https://nitter.example/orca_so "@orca_so")
 [@solanamobile](https://nitter.example/solanamobile "@solanamobile")
@@ -240,8 +261,10 @@ Title: People followed by @solana
     names = {r["username"] for r in rows}
     assert "helixsvm" in names and "nimbusfi" in names
     assert "orbitprotocol" in names and "zedlabs" in names
+    assert "quarklayer" in names
     assert "staratlas" not in names and "orca_so" not in names
     assert "austin_federa" not in names and "therealchaseeb" not in names
+    assert "mert" not in names and "jack" not in names
     assert "solana" not in names and "toly" not in names
     assert parse_public_following("Loading...\nAnubis is a compromise", "solana") == []
     assert parse_public_following("random @pumpfun @meme coin page", "solana") == []
