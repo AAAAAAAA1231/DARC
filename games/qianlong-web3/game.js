@@ -778,18 +778,24 @@
     ctx.translate(-camX, 0);
 
     for (const p of plats) {
-      ctx.fillStyle = p.kind === "ground" ? "#121a2c" : "#1b2740";
-      ctx.strokeStyle = level.accent;
-      ctx.lineWidth = 2;
-      roundRect(p.x, p.y, p.w, p.h, p.kind === "ground" ? 0 : 6);
-      ctx.fill();
-      ctx.beginPath();
-      ctx.moveTo(p.x, p.y + 1);
-      ctx.lineTo(p.x + p.w, p.y + 1);
-      ctx.stroke();
       if (p.kind === "ground") {
-        ctx.fillStyle = level.accent + "33";
-        ctx.fillRect(p.x, p.y, p.w, 6);
+        const dirt = ctx.createLinearGradient(0, p.y, 0, p.y + p.h);
+        dirt.addColorStop(0, "#2a3d62");
+        dirt.addColorStop(0.08, "#151e33");
+        dirt.addColorStop(1, "#080b14");
+        ctx.fillStyle = dirt;
+        ctx.fillRect(p.x, p.y, p.w, p.h);
+        ctx.fillStyle = level.accent;
+        ctx.fillRect(p.x, p.y, p.w, 7);
+        ctx.fillStyle = level.accent + "55";
+        for (let gx = p.x; gx < p.x + p.w; gx += 28) ctx.fillRect(gx, p.y + 10, 14, 3);
+      } else {
+        ctx.fillStyle = "#2c3f64";
+        ctx.strokeStyle = level.accent;
+        ctx.lineWidth = 2;
+        roundRect(p.x, p.y, p.w, p.h, 6);
+        ctx.fill();
+        ctx.stroke();
       }
     }
 
@@ -950,7 +956,7 @@
     const blink = player.inv > 0 && Math.sin(t * 28) > 0 ? 0.35 : 1;
     ctx.save();
     ctx.translate(player.x, player.y);
-    ctx.scale(player.face, 1);
+    ctx.scale(player.face * 1.2, 1.2);
     ctx.globalAlpha = blink;
     const duck = player.duck && player.onGround;
     const flap = player.onGround ? 0.15 : 0.55 + Math.sin(t * 16) * 0.2;
