@@ -17,6 +17,14 @@
 | 验证 | Walk-Forward（稳健分数选参，而非样本内最高收益）+ 有限次蒙特卡洛（收益序列 block bootstrap，以及滑点/成交抖动） |
 | 风控 | 总仓、单票、板块、持仓只数、流动性参与率；模拟分布可下调仓位与方法权重上限 |
 
+## 单机版直接下载（Windows）
+
+无需安装 Python、无需联网：
+
+**https://github.com/AAAAAAAA1231/DARC/raw/cursor/ashare-quant-system-e784/ashare-quant/release/AShareQuant.exe**
+
+下载后双击 `AShareQuant.exe`。数据写在同目录 `AShareQuant_data\`。说明见 `ashare-quant/release/使用说明.txt`。
+
 ## 直接用 Windows EXE（双击）
 
 不装 Python 也可以：
