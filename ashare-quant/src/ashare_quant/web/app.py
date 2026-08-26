@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from ..config import AppConfig, load_config
+from ..data.schema import read_symbol_csv
 from ..paper.simulator import DISCLAIMER
 from ..paths import output_dir as default_output_dir
 from ..pipeline import run_pipeline
@@ -41,11 +42,7 @@ def create_app(cfg: AppConfig | None = None, output_dir: str | Path | None = Non
         ideas_path = out / "ideas.csv"
         ideas = []
         if ideas_path.exists():
-            import pandas as pd
-
-            df = pd.read_csv(ideas_path, dtype={"symbol": str})
-            if "symbol" in df.columns:
-                df["symbol"] = df["symbol"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(6)
+            df = read_symbol_csv(ideas_path)
             ideas = df.head(40).fillna("").to_dict(orient="records")
         folds = []
         fp = out / "walkforward_folds.csv"
@@ -84,11 +81,7 @@ def create_app(cfg: AppConfig | None = None, output_dir: str | Path | None = Non
         p = out / "ideas.csv"
         if not p.exists():
             return JSONResponse({"ideas": []})
-        import pandas as pd
-
-        df = pd.read_csv(p, dtype={"symbol": str})
-        if "symbol" in df.columns:
-            df["symbol"] = df["symbol"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(6)
+        df = read_symbol_csv(p)
         return JSONResponse({"ideas": df.fillna("").to_dict(orient="records")})
 
     @app.get("/health")

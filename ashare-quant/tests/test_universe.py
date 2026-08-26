@@ -13,6 +13,9 @@ def test_board_mapping():
     assert infer_board("301002") is Board.CHINEXT
     assert not is_supported_ashare("430001")
     assert normalize_symbol("sz000001") == "000001"
+    assert normalize_symbol("1") == "000001"
+    assert normalize_symbol("1.0") == "000001"
+    assert normalize_symbol("000001.0") == "000001"
     assert is_st_name("ST华海电子")
     assert is_st_name("*ST退市测试")
 

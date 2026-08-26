@@ -78,7 +78,7 @@ def generate_synthetic_market(
             long_suspend = serial % 31 == 0
             if is_new:
                 listing = sessions[max(0, len(sessions) - int(rng.integers(10, 50)))]
-            name = f"{names_cn_pool[serial % len(names_cn_pool)]}{industry[serial % len(industry)]}"
+            name = f"演示{names_cn_pool[serial % len(names_cn_pool)]}{industry[serial % len(industry)]}"
             if is_st:
                 name = f"ST{name}"
             float_shares = float(rng.uniform(3.5e8, 5.0e9))

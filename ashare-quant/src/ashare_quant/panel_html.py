@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .paper.simulator import DISCLAIMER
 from .paths import output_dir
+from .data.schema import read_symbol_csv
 
 
 def _pct(v) -> str:
@@ -31,13 +32,9 @@ def write_panel_html(out: Path | None = None, ideas: list[dict] | None = None, s
         sp = out / "snapshot.json"
         snap = json.loads(sp.read_text(encoding="utf-8")) if sp.exists() else {}
     if ideas is None:
-        import pandas as pd
-
         csv_path = out / "ideas.csv"
         if csv_path.exists():
-            df = pd.read_csv(csv_path, dtype={"symbol": str})
-            if "symbol" in df.columns:
-                df["symbol"] = df["symbol"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(6)
+            df = read_symbol_csv(csv_path)
             ideas = df.fillna("").to_dict(orient="records")
         else:
             ideas = []

@@ -12,13 +12,12 @@ import traceback
 import webbrowser
 from pathlib import Path
 
-import pandas as pd
-
 from .config import load_config
 from .paper.simulator import DISCLAIMER
 from .panel_html import write_panel_html
 from .paths import data_dir, log_path, output_dir
 from .pipeline import run_pipeline
+from .data.schema import read_symbol_csv
 
 PORT_RANGE = range(8765, 8780)
 IDEA_COLS = [
@@ -79,9 +78,7 @@ def load_idea_rows(path: Path | None = None) -> list[dict]:
     csv_path = Path(path) if path else output_dir() / "ideas.csv"
     if not csv_path.exists():
         return []
-    df = pd.read_csv(csv_path, dtype={"symbol": str})
-    if "symbol" in df.columns:
-        df["symbol"] = df["symbol"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(6)
+    df = read_symbol_csv(csv_path)
     return df.fillna("").to_dict(orient="records")
 
 

@@ -8,13 +8,14 @@ import pandas as pd
 
 from .calendar import next_trading_day
 from .config import Action, AppConfig, Board, LimitStatus
+from .data.schema import name_for_symbol
 from .ensemble.weighting import blend, compute_ensemble_panel, default_equal_weights
 from .market.costs import trade_cost
 from .market.rules import classify_limit, limit_ratio
 from .risk.atr_stops import atr_bands
 from .risk.confidence import residual_bootstrap_ci
 from .risk.position import BookState, size_long
-from .universe.boards import board_cn
+from .universe.boards import board_cn, normalize_symbol
 from .universe.filter import filter_universe
 
 
@@ -133,8 +134,8 @@ def generate_ideas(
         )
         rows.append(
             {
-                "symbol": sym,
-                "name": last.get("name", ""),
+                "symbol": normalize_symbol(str(sym)),
+                "name": name_for_symbol(meta, str(sym), str(last.get("name") or "")),
                 "board": board.value,
                 "board_cn": board_cn(board),
                 "signal_date": asof_d.isoformat(),

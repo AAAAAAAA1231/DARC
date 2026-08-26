@@ -10,11 +10,20 @@ _ST_RE = re.compile(r"(ST|退|N\s|\*ST)", re.IGNORECASE)
 
 
 def normalize_symbol(symbol: str) -> str:
-    s = str(symbol).strip().upper().replace(".SH", "").replace(".SZ", "").replace(".SS", "")
-    s = s.replace("SH", "").replace("SZ", "")
+    s = str(symbol).strip().upper()
+    for suf in (".XSHG", ".XSHE", ".SH", ".SZ", ".SS"):
+        if s.endswith(suf):
+            s = s[: -len(suf)]
+    if s.startswith("SH") or s.startswith("SZ"):
+        s = s[2:]
+    # Pandas may load 000001 as 1 or 1.0; do not treat "1.0" as digits 10 → 000010.
+    if re.fullmatch(r"\d+\.0+", s):
+        s = s.split(".", 1)[0]
     digits = "".join(ch for ch in s if ch.isdigit())
     if not digits:
         raise ValueError(f"invalid symbol: {symbol}")
+    if len(digits) > 6:
+        digits = digits[-6:]
     return digits.zfill(6)
 
 

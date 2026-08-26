@@ -109,9 +109,24 @@ def _kline_lines(start: date, end: date, px: float = 10.0) -> list[str]:
     return lines
 
 
-def _fake_http(symbols: list[str], end: date = date(2026, 8, 26)):
+REAL_NAMES = {
+    "600000": "浦发银行",
+    "601398": "工商银行",
+    "000001": "平安银行",
+    "002415": "海康威视",
+    "300750": "宁德时代",
+    "688981": "中芯国际",
+    "603259": "药明康德",
+    "000858": "五粮液",
+    "300124": "汇川技术",
+    "601318": "中国平安",
+}
+
+
+def _fake_http(symbols: list[str], end: date = date(2026, 8, 26), names: dict[str, str] | None = None):
     klines = _kline_lines(date(2026, 4, 1), end)
     index_lines = _kline_lines(date(2026, 4, 1), end, px=3800.0)
+    names = names or {c: REAL_NAMES.get(c, f"测试{c}") for c in symbols}
     spots = []
     for i, code in enumerate(symbols):
         market = 1 if code.startswith("6") else 0
@@ -122,7 +137,7 @@ def _fake_http(symbols: list[str], end: date = date(2026, 8, 26)):
                 "f6": 8.0e8,
                 "f12": code,
                 "f13": market,
-                "f14": f"测试{code}",
+                "f14": names[code],
                 "f15": 13.0 + i,
                 "f16": 12.0 + i,
                 "f17": 12.4 + i,
@@ -138,8 +153,9 @@ def _fake_http(symbols: list[str], end: date = date(2026, 8, 26)):
             return {"rc": 0, "data": {"total": len(spots), "diff": spots}}
         secid = str(params.get("secid") or "")
         if secid == "1.000001":
-            return {"rc": 0, "data": {"name": "上证指数", "klines": index_lines}}
-        return {"rc": 0, "data": {"klines": klines}}
+            return {"rc": 0, "data": {"code": "000001", "name": "上证指数", "klines": index_lines}}
+        code = secid.split(".", 1)[-1].zfill(6)
+        return {"rc": 0, "data": {"code": code, "name": names.get(code, f"测试{code}"), "klines": klines}}
 
     return http_get
 
@@ -159,6 +175,12 @@ def test_fetch_live_market_mocked_asof_is_today():
     assert bars["symbol"].nunique() >= 8
     last = bars.sort_values("date").groupby("symbol").tail(1)
     assert (last["close"] > 0).all()
+    by_code = meta.set_index("symbol")["name"].to_dict()
+    assert by_code["000001"] == "平安银行"
+    assert by_code["600000"] == "浦发银行"
+    assert by_code["300750"] == "宁德时代"
+    assert "嘉禾新能源" not in set(by_code.values())
+    assert "上证指数" not in set(by_code.values())
 
 
 def test_live_http_failure_does_not_synthesize(tiny_cfg, tmp_path, monkeypatch):
@@ -250,3 +272,81 @@ def test_write_panel_html_shows_quote_time(tmp_path):
     assert "行情时刻" in text
     assert "东方财富实时行情" in text
     assert "2025-06-30" not in text
+
+
+def test_kline_name_overrides_wrong_spot_label():
+    cfg = AppConfig()
+    cfg.data.live_max_symbols = 10
+    cfg.data.kline_workers = 2
+    cfg.universe.min_listing_days = 30
+    cfg.universe.min_market_cap = 1e9
+    symbols = list(REAL_NAMES)
+    wrong = {c: "嘉禾新能源" for c in symbols}
+    now = datetime(2026, 8, 26, 14, 19, tzinfo=SHANGHAI)
+    # spot list is mislabeled on purpose; K-line payload carries the real name.
+    http_get = _fake_http(symbols, names=wrong)
+
+    orig = http_get
+
+    def http_get_kline_truth(url, params, timeout=20.0, retries=4):
+        payload = orig(url, params, timeout=timeout, retries=retries)
+        if "kline" in url and str(params.get("secid")) != "1.000001":
+            code = str(params.get("secid")).split(".", 1)[-1].zfill(6)
+            payload = {
+                "rc": 0,
+                "data": {
+                    "code": code,
+                    "name": REAL_NAMES[code],
+                    "klines": payload["data"]["klines"],
+                },
+            }
+        return payload
+
+    bars, meta, _info = fetch_live_market(cfg, http_get=http_get_kline_truth, now=now)
+    assert meta.set_index("symbol").loc["000001", "name"] == "平安银行"
+    assert "嘉禾新能源" not in set(meta["name"])
+    assert (bars.loc[bars["symbol"] == "000001", "name"] == "平安银行").all()
+
+
+def test_symbol_csv_keeps_leading_zeros_and_name(tmp_path):
+    from ashare_quant.data.schema import read_symbol_csv, write_symbol_csv
+
+    path = tmp_path / "ideas.csv"
+    write_symbol_csv(pd.DataFrame([{"symbol": "000001", "name": "平安银行", "action": "buy"}]), path)
+    raw = path.read_text(encoding="utf-8")
+    assert "000001" in raw
+    rows = read_symbol_csv(path)
+    assert rows.iloc[0]["symbol"] == "000001"
+    assert rows.iloc[0]["name"] == "平安银行"
+
+    unquoted = tmp_path / "loose.csv"
+    unquoted.write_text("symbol,name\n1,平安银行\n000001.0,平安银行\n", encoding="utf-8")
+    loose = read_symbol_csv(unquoted)
+    assert list(loose["symbol"]) == ["000001", "000001"]
+    assert list(loose["name"]) == ["平安银行", "平安银行"]
+
+
+def test_float_symbol_does_not_become_000010():
+    from ashare_quant.data.schema import coerce_symbol_series, ensure_bars
+    from ashare_quant.universe.boards import normalize_symbol
+
+    assert normalize_symbol("1.0") == "000001"
+    assert coerce_symbol_series([1.0, 1, "000001"]).tolist() == ["000001", "000001", "000001"]
+    df = ensure_bars(
+        pd.DataFrame(
+            {
+                "date": ["2026-08-26", "2026-08-26"],
+                "symbol": [1.0, "000001"],
+                "open": [10, 10],
+                "high": [11, 11],
+                "low": [9, 9],
+                "close": [10.5, 10.5],
+                "volume": [100, 100],
+                "amount": [1000, 1000],
+                "market_cap": [1e9, 1e9],
+                "name": ["平安银行", "平安银行"],
+            }
+        )
+    )
+    assert set(df["symbol"]) == {"000001"}
+    assert set(df["name"]) == {"平安银行"}

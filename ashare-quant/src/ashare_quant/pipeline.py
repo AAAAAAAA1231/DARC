@@ -19,6 +19,7 @@ from .paper.simulator import DISCLAIMER, run_paper
 from .paths import data_dir
 from .report import write_report
 from .universe.filter import filter_universe
+from .data.schema import write_symbol_csv
 
 
 @dataclass
@@ -122,8 +123,8 @@ def run_pipeline(
 
     ideas = generate_ideas(market.bars, market.meta, cfg, asof, panel=bt.panel, weights=bt.weights_last)
 
-    uni.to_csv(out / "universe.csv", index=False)
-    ideas.to_csv(out / "ideas.csv", index=False)
+    write_symbol_csv(uni, out / "universe.csv")
+    write_symbol_csv(ideas, out / "ideas.csv")
     if not bt.trades.empty:
         bt.trades.to_csv(out / "trades.csv", index=False)
     if not bt.equity.empty:

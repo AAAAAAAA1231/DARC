@@ -22,7 +22,7 @@ import pandas as pd
 from ..calendar import now_shanghai, session_clock
 from ..config import AppConfig, Board
 from ..market.rules import classify_limit, limit_ratio
-from ..universe.boards import infer_board, is_st_name, is_supported_ashare
+from ..universe.boards import infer_board, is_st_name, is_supported_ashare, normalize_symbol
 from .schema import ensure_bars, meta_from_bars
 
 CLIST_URL = "https://push2.eastmoney.com/api/qt/clist/get"
@@ -42,6 +42,7 @@ SPOT_FIELDS = "f2,f3,f5,f6,f12,f13,f14,f15,f16,f17,f18,f20,f21,f26"
 KLINE_FIELDS1 = "f1,f2,f3,f4,f5,f6"
 KLINE_FIELDS2 = "f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61"
 INDEX_SECID = "1.000001"
+INDEX_NAMES = {"上证指数", "深证成指", "创业板指", "科创50", "沪深300", "上证50"}
 
 _SSL = ssl.create_default_context()
 
@@ -91,6 +92,23 @@ def http_get_json(url: str, params: dict[str, Any], timeout: float = 20.0, retri
             last = exc
             time.sleep(0.45 * (attempt + 1))
     raise LiveDataError(f"拉不到实时行情（网络或行情源不可用）：{last}") from last
+
+
+def parse_a_share_code(value: Any) -> str | None:
+    if value is None or value == "" or value == "-":
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, float):
+        if not value.is_integer():
+            return None
+        value = int(value)
+    if isinstance(value, int):
+        return str(value).zfill(6)
+    try:
+        return normalize_symbol(value)
+    except ValueError:
+        return None
 
 
 def _secid(code: str, market: int | None) -> str:
@@ -143,7 +161,7 @@ def fetch_spot_list(cfg: AppConfig | None = None, http_get: Callable = http_get_
     return rows[:scan]
 
 
-def fetch_klines(secid: str, cfg: AppConfig | None = None, http_get: Callable = http_get_json) -> list[str]:
+def fetch_kline_bundle(secid: str, cfg: AppConfig | None = None, http_get: Callable = http_get_json) -> dict:
     cfg = cfg or AppConfig()
     payload = http_get(
         KLINE_URL,
@@ -161,8 +179,16 @@ def fetch_klines(secid: str, cfg: AppConfig | None = None, http_get: Callable = 
     )
     if int(payload.get("rc") or 0) != 0:
         raise LiveDataError(f"K线失败 {secid} rc={payload.get('rc')}")
-    klines = (payload.get("data") or {}).get("klines") or []
-    return list(klines)
+    data = payload.get("data") or {}
+    return {
+        "code": str(data.get("code") or ""),
+        "name": str(data.get("name") or ""),
+        "klines": list(data.get("klines") or []),
+    }
+
+
+def fetch_klines(secid: str, cfg: AppConfig | None = None, http_get: Callable = http_get_json) -> list[str]:
+    return fetch_kline_bundle(secid, cfg, http_get=http_get)["klines"]
 
 
 def fetch_index_closes(cfg: AppConfig | None = None, http_get: Callable = http_get_json) -> dict[date, float]:
@@ -187,10 +213,10 @@ def fetch_index_closes(cfg: AppConfig | None = None, http_get: Callable = http_g
 def _spot_records(raw_rows: list[dict], asof: date, cfg: AppConfig) -> list[dict]:
     picked: list[dict] = []
     for item in raw_rows:
-        code = str(item.get("f12") or "").zfill(6)
-        if not is_supported_ashare(code):
+        code = parse_a_share_code(item.get("f12"))
+        if not code or not is_supported_ashare(code):
             continue
-        name = str(item.get("f14") or "")
+        name = str(item.get("f14") or "").strip()
         if cfg.universe.exclude_st and is_st_name(name):
             continue
         board = infer_board(code)
@@ -349,7 +375,16 @@ def fetch_live_market(
     errors: list[str] = []
 
     def _one(spot: dict) -> pd.DataFrame | None:
-        klines = fetch_klines(spot["secid"], cfg, http_get=http_get)
+        bundle = fetch_kline_bundle(spot["secid"], cfg, http_get=http_get)
+        got_code = parse_a_share_code(bundle.get("code")) or ""
+        got_name = str(bundle.get("name") or "").strip()
+        if got_code and got_code != spot["symbol"]:
+            raise LiveDataError(f"K线代码与请求不一致：请求 {spot['symbol']} 返回 {got_code}")
+        if got_name in INDEX_NAMES:
+            raise LiveDataError(f"{spot['symbol']} 返回了指数 {got_name}，已丢弃")
+        if got_name:
+            spot = {**spot, "name": got_name}
+        klines = bundle.get("klines") or []
         rows = _rows_from_klines(spot, klines, bench, cfg)
         if len(rows) < 40:
             return None
@@ -380,6 +415,11 @@ def fetch_live_market(
         mapped = bars["date"].dt.date.map(lambda d: bench.get(d))
         bars["benchmark_close"] = mapped.fillna(bars["benchmark_close"])
     meta = meta_from_bars(bars)
+    name_n = meta.groupby("symbol")["name"].nunique()
+    if (name_n > 1).any():
+        raise LiveDataError("同一代码对应了多个名称，已拒绝这份行情。")
+    if meta["name"].isin(INDEX_NAMES).any():
+        raise LiveDataError("股票池混入了指数名称，已拒绝这份行情。")
     info = {
         "source": "eastmoney_live",
         "source_cn": "东方财富实时行情",
