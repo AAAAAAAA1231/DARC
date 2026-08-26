@@ -29,9 +29,11 @@ def create_app(cfg: AppConfig | None = None, output_dir: str | Path | None = Non
     out = Path(output_dir) if output_dir else default_output_dir()
     out.mkdir(parents=True, exist_ok=True)
     app = FastAPI(title="A股量化辅助系统", docs_url="/api/docs")
-    templates = Jinja2Templates(directory=str(TEMPLATES))
-    app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
-    app.mount("/artifacts", StaticFiles(directory=str(out)), name="artifacts")
+    templates = Jinja2Templates(directory=str(TEMPLATES)) if TEMPLATES.is_dir() else None
+    if STATIC.is_dir():
+        app.mount("/static", StaticFiles(directory=str(STATIC)), name="static")
+    if out.is_dir():
+        app.mount("/artifacts", StaticFiles(directory=str(out)), name="artifacts")
 
     @app.get("/", response_class=HTMLResponse)
     def index(request: Request):
@@ -52,6 +54,8 @@ def create_app(cfg: AppConfig | None = None, output_dir: str | Path | None = Non
 
             folds = pd.read_csv(fp).fillna("").to_dict(orient="records")
         uni_n = {"selected": snap.get("universe_selected", 0), "eligible": snap.get("universe_eligible", 0)}
+        if templates is None:
+            return HTMLResponse("<h1>A股量化辅助</h1><p>请使用桌面窗口查看信号。模板未打包。</p>")
         return templates.TemplateResponse(
             request,
             "index.html",

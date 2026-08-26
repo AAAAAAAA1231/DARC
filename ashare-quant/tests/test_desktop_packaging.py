@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from ashare_quant.desktop import load_idea_rows
+from ashare_quant.desktop import load_idea_rows, port_is_open, wait_for_listen
 from ashare_quant.paths import resolve_config_path
 from ashare_quant.pipeline import run_pipeline
 
@@ -31,3 +31,18 @@ def test_quick_pipeline_writes_ideas(tiny_cfg, tiny_market, tmp_path):
     assert (out / "snapshot.json").exists()
     assert result.extra["snapshot"].get("mode") == "quick"
     assert len(result.ideas) >= 1
+
+
+def test_port_is_open_detects_listener():
+    import socket
+
+    srv = socket.socket()
+    srv.bind(("127.0.0.1", 0))
+    srv.listen(1)
+    port = srv.getsockname()[1]
+    try:
+        assert port_is_open("127.0.0.1", port)
+        assert wait_for_listen("127.0.0.1", port, seconds=1.0)
+    finally:
+        srv.close()
+    assert not port_is_open("127.0.0.1", port)

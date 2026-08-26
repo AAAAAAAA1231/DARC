@@ -34,6 +34,10 @@ hiddenimports += [
     "fastapi",
     "starlette",
     "dateutil",
+    "anyio",
+    "h11",
+    "sniffio",
+    "click",
 ]
 
 # matplotlib/scipy are optional for charts; excluding them is what makes the EXE attachable.
