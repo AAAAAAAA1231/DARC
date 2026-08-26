@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .config import load_config
 from .data.provider import MarketData, default_data_dir
+from .paths import output_dir as default_output_dir
 from .pipeline import run_pipeline
 
 
@@ -29,6 +30,7 @@ def cmd_demo(args) -> int:
         data_path=args.data,
         regenerate=args.regenerate,
         skip_monte_carlo=args.skip_mc,
+        mode="quick" if getattr(args, "quick", False) else "full",
     )
     snap = result.extra.get("snapshot", {})
     print(json.dumps({k: snap[k] for k in ("asof", "universe_selected", "n_buy", "walkforward", "monte_carlo") if k in snap}, ensure_ascii=False, indent=2, default=str))
@@ -124,6 +126,12 @@ def cmd_paper(args) -> int:
     return 0
 
 
+def cmd_desktop(args) -> int:
+    from .desktop import main as desktop_main
+
+    return desktop_main()
+
+
 def cmd_serve(args) -> int:
     import uvicorn
 
@@ -151,6 +159,7 @@ def build_parser() -> argparse.ArgumentParser:
     d = sub.add_parser("demo", help="生成数据并跑完整流水线", parents=[shared])
     d.add_argument("--regenerate", action="store_true")
     d.add_argument("--skip-mc", action="store_true")
+    d.add_argument("--quick", action="store_true", help="跳过 Walk-Forward / 蒙特卡洛，适合桌面首次启动")
     d.set_defaults(func=cmd_demo, regenerate=False)
 
     u = sub.add_parser("universe", parents=[shared])
@@ -183,6 +192,9 @@ def build_parser() -> argparse.ArgumentParser:
     sv.add_argument("--host", default="0.0.0.0")
     sv.add_argument("--port", type=int, default=8765)
     sv.set_defaults(func=cmd_serve)
+
+    desk = sub.add_parser("desktop", help="打开可双击使用的桌面窗口", parents=[shared])
+    desk.set_defaults(func=cmd_desktop)
     return p
 
 
@@ -190,5 +202,5 @@ def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
     if getattr(args, "output", None) is None:
-        args.output = str(Path(__file__).resolve().parents[2] / "output")
+        args.output = str(default_output_dir())
     return int(args.func(args) or 0)

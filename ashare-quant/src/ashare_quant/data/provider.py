@@ -7,6 +7,7 @@ from pathlib import Path
 import pandas as pd
 
 from ..config import AppConfig
+from ..paths import data_dir
 from .schema import ensure_bars, load_bars, meta_from_bars, save_bars
 from .synthetic import generate_synthetic_market
 
@@ -50,4 +51,4 @@ class MarketData:
 
 
 def default_data_dir() -> Path:
-    return Path(__file__).resolve().parents[3] / "data"
+    return data_dir()

@@ -157,12 +157,11 @@ class AppConfig(BaseModel):
     web: WebConfig = Field(default_factory=WebConfig)
 
 
-def _default_config_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "config" / "default.yaml"
+from .paths import resolve_config_path
 
 
 def load_config(path: str | Path | None = None) -> AppConfig:
-    cfg_path = Path(path) if path else _default_config_path()
+    cfg_path = resolve_config_path(path)
     if not cfg_path.exists():
         return AppConfig()
     with cfg_path.open("r", encoding="utf-8") as fh:

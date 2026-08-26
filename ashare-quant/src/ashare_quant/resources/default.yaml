@@ -1,0 +1,112 @@
+# A股量化辅助系统默认配置
+# 定位：概率信号 + 风险控制，而非点预测或实盘下单引擎。
+
+seed: 42
+base_currency: CNY
+
+universe:
+  boards: [sse_main, szse_main, chinext, star]
+  min_listing_days: 60
+  min_avg_amount: 50000000          # 近20日均成交额（元），过滤流动性不足标的
+  min_market_cap: 3000000000        # 最低总市值（元）
+  max_suspend_days: 5               # 近60个交易日允许的停牌天数
+  exclude_st: true
+  exclude_long_suspend: true
+  lookback_days: 60
+  stratification: turnover          # turnover | market_cap | index
+  max_names: 80                     # 分层后保留的最大标的数，避免全市场无效计算
+  layers: 4
+
+market:
+  lot_size: 100
+  t_plus: 1
+  main_limit: 0.10
+  chinext_limit: 0.20
+  star_limit: 0.20
+  st_limit: 0.05
+  ipo_no_limit_days: 5
+  max_adv_participation: 0.02       # 单笔不超过近20日均量的 2%
+  sealed_limit_fill_prob: 0.0
+  touch_limit_fill_prob: 0.35
+
+costs:
+  commission_rate: 0.0003           # 双边佣金
+  commission_min: 5.0               # 单边最低 5 元
+  stamp_tax_sell: 0.0005            # 印花税：仅卖出
+  transfer_fee: 0.00001             # 过户费（按成交金额）
+  base_slippage: 0.001              # 基础滑点 10bp
+  atr_slippage_k: 0.05              # 额外滑点随 ATR% 放大
+
+signals:
+  lookback: 60
+  trend:
+    fast: 12
+    slow: 48
+    adx_window: 14
+  momentum:
+    roc_window: 20
+    rsi_window: 14
+  mean_reversion:
+    z_window: 20
+    entry_z: 1.2
+  volatility:
+    atr_window: 14
+    breakout_k: 1.8
+  relative_strength:
+    window: 20
+  long_threshold: 0.25              # 集成分高于此才考虑买入
+  exit_threshold: -0.10
+
+ensemble:
+  oos_lookback: 60
+  half_life: 20
+  temperature: 0.75
+  min_weight: 0.04
+  max_weight: 0.45
+  negative_sharpe_floor: -0.5
+  methods:
+    - trend
+    - momentum
+    - mean_reversion
+    - volatility
+    - relative_strength
+
+risk:
+  initial_cash: 1000000.0
+  max_gross_exposure: 0.80          # 总仓上限，现金缓冲优先
+  max_single_weight: 0.08           # 单票上限
+  max_board_weight: 0.45
+  per_name_risk: 0.008              # 单票风险预算（相对净值，按止损距离计）
+  max_names_held: 12
+  atr_window: 14
+  stop_atr_k: 1.8                   # 止损 = 入场 - k * ATR（自适应）
+  take_atr_k: 2.6                   # 止盈 = 入场 + k * ATR
+  vol_adapt: true
+  ci_levels: [0.10, 0.50, 0.90]
+  bootstrap_paths: 200
+
+walkforward:
+  train_days: 252
+  test_days: 63
+  step_days: 63
+  inner_validation_frac: 0.25
+  min_folds: 3
+  selection: robust                 # robust: 样本外稳定性，而非样本内最高收益
+  param_grid_cap: 8                 # 有限网格，抑制过拟合
+
+monte_carlo:
+  n_sims: 120                       # 有限次数，避免伪精确
+  block_size: 5
+  slippage_low: 0.6
+  slippage_high: 2.2
+  fill_jitter: 0.25
+  dd_alert: 0.22
+  dd_prob_cap: 0.20
+
+paper:
+  days: 40
+  require_confirmation: true
+
+web:
+  host: 0.0.0.0
+  port: 8765

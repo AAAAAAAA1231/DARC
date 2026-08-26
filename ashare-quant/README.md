@@ -17,6 +17,29 @@
 | 验证 | Walk-Forward（稳健分数选参，而非样本内最高收益）+ 有限次蒙特卡洛（收益序列 block bootstrap，以及滑点/成交抖动） |
 | 风控 | 总仓、单票、板块、持仓只数、流动性参与率；模拟分布可下调仓位与方法权重上限 |
 
+## 直接用 Windows EXE（双击）
+
+不装 Python 也可以：
+
+1. 从 GitHub Actions 下载产物 **AShareQuant-windows** 里的 `AShareQuant.exe`（本仓库 workflow「Build AShareQuant Windows EXE」）。
+2. 双击 `AShareQuant.exe`。
+3. 首次会生成演示行情并计算今日信号（约 1 分钟），随后自动打开浏览器面板。
+4. 数据写在 exe 同目录的 `AShareQuant_data\`，可整夹拷贝带走。
+
+窗口按钮：
+
+- **打开浏览器面板**：T 日候选、ATR 止盈止损、置信区间、Walk-Forward
+- **刷新今日信号**：快速模式（不做完整样本外）
+- **完整验证 Walk-Forward**：滚动样本外 + 蒙特卡洛（数分钟）
+
+本机已有 Python 时，也可在 `ashare-quant` 目录执行：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File packaging/build_windows.ps1
+```
+
+生成 `dist\AShareQuant.exe`。这是研究/风控工具，不是实盘下单软件。
+
 ## 安装
 
 ```bash

@@ -10,6 +10,7 @@ from fastapi.templating import Jinja2Templates
 
 from ..config import AppConfig, load_config
 from ..paper.simulator import DISCLAIMER
+from ..paths import output_dir as default_output_dir
 from ..pipeline import run_pipeline
 
 TEMPLATES = Path(__file__).with_name("templates")
@@ -25,7 +26,7 @@ def _load_snapshot(output_dir: Path) -> dict:
 
 def create_app(cfg: AppConfig | None = None, output_dir: str | Path | None = None, data_path: str | Path | None = None) -> FastAPI:
     cfg = cfg or load_config()
-    out = Path(output_dir) if output_dir else Path(__file__).resolve().parents[3] / "output"
+    out = Path(output_dir) if output_dir else default_output_dir()
     out.mkdir(parents=True, exist_ok=True)
     app = FastAPI(title="A股量化辅助系统", docs_url="/api/docs")
     templates = Jinja2Templates(directory=str(TEMPLATES))

@@ -26,7 +26,8 @@ __pycache__/
 *.egg-info/
 .venv/
 .pytest_cache/
-ashare-quant/.venv/
+ashare-quant/dist/
+ashare-quant/build/
 ashare-quant/output/*
 !ashare-quant/output/.gitkeep
 ashare-quant/data/*.csv
