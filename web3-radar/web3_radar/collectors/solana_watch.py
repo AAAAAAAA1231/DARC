@@ -213,6 +213,7 @@ LAUNCH_ALERT_HINTS = (
     "launching",
     "launches",
     "fair launch",
+    "token launch",
     "stealth launch",
     "token generation",
     "tge",

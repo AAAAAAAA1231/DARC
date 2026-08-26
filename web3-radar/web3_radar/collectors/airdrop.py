@@ -180,6 +180,7 @@ def _keep_airdrop_focus(item: dict[str, Any]) -> bool:
 async def scan_airdrops(
     min_funding_usd: float = 20_000_000,
     btc_min_funding_usd: float = 5_000_000,
+    twitter_bearer: str = "",
 ) -> dict[str, Any]:
     errors: list[str] = []
     items: list[dict[str, Any]] = []
@@ -206,13 +207,14 @@ async def scan_airdrops(
         if _keep_airdrop_focus(x) and _funding_ok(x, min_funding_usd, btc_min_funding_usd)
     ]
     dropped = len(items) - len(focused)
+    focused = await _attach_kol_mentions(focused, twitter_bearer, errors)
     focused.sort(
         key=lambda x: (
-            0 if x.get("ecosystem") == "other" else 1,
-            x.get("score") or 0,
-            x.get("total_funding_usd") or 0,
-        ),
-        reverse=True,
+            0 if x.get("ecosystem") == "bitcoin" else 1 if x.get("ecosystem") in {"ethereum", "btc-eth"} else 2,
+            -int(x.get("mention_count") or 0),
+            -(x.get("score") or 0),
+            -(x.get("total_funding_usd") or 0),
+        )
     )
     return {
         "updated_at": datetime.now(timezone.utc).isoformat(),
@@ -222,10 +224,93 @@ async def scan_airdrops(
         "items": focused[:150],
         "errors": errors,
         "note": (
-            "空投雷达只盯比特币生态与 ETH 生态。BTC 生态融资 ≥ $500 万，ETH 生态 ≥ $2000 万。"
+            "空投雷达：近一周 KOL/推特提及优先整理，比特币生态排最前，其余按提及次数、融资、团队打分。"
             + (f" 已过滤 {dropped} 条其他链或金额不够的项目。" if dropped else "")
         ),
     }
+
+
+AIRDROP_QUERIES = [
+    "airdrop (points OR testnet OR TGE) (crypto OR web3) -giveaway",
+    "空投 (交互 OR 测试网 OR 积分)",
+    "(bitcoin OR btc OR babylon OR stacks OR bitvm) airdrop",
+]
+
+
+async def _attach_kol_mentions(
+    items: list[dict[str, Any]],
+    twitter_bearer: str,
+    errors: list[str],
+) -> list[dict[str, Any]]:
+    from web3_radar.collectors.kol_calls import KOL_WATCH
+    from web3_radar.collectors.social import collect_social
+
+    tweets: list[dict[str, Any]] = []
+    try:
+        tweets = await asyncio.wait_for(collect_social(AIRDROP_QUERIES, twitter_bearer, 7), timeout=12)
+    except Exception as exc:
+        errors.append(f"twitter_airdrop: {exc}")
+        tweets = []
+    kol = {str(k.get("handle") or "").lower() for k in KOL_WATCH}
+    for item in items:
+        name = str(item.get("name") or "").strip()
+        needle = name.lower()
+        n = 0
+        if needle:
+            for tw in tweets:
+                blob = f"{tw.get('text') or ''} {tw.get('name') or ''}".lower()
+                if needle not in blob:
+                    continue
+                n += 1
+                if str(tw.get("username") or "").lower() in kol:
+                    n += 2
+        item["mention_count"] = n
+        if n:
+            item["mention_note"] = f"近一周推特提及 {n} 次"
+    seen = {_norm(str(x.get("name") or "")) for x in items}
+    extra_map: dict[str, dict[str, Any]] = {}
+    for tw in tweets:
+        text = tw.get("text") or ""
+        blob = f"{text} {tw.get('name') or ''}"
+        if "airdrop" not in blob.lower() and "空投" not in blob:
+            continue
+        eco = classify_btc_eth(text, tw.get("name") or "")
+        title = (text.strip().split("\n")[0][:72] or tw.get("name") or "空投讨论")
+        key = _norm(title)[:40]
+        if not key or key in seen:
+            continue
+        row = extra_map.get(key)
+        bump = 2 if str(tw.get("username") or "").lower() in kol else 1
+        if row:
+            row["mention_count"] = int(row.get("mention_count") or 0) + bump
+            continue
+        extra_map[key] = _decorate_airdrop(
+            {
+                "key": f"tw:{key}",
+                "name": title,
+                "total_funding_usd": 0,
+                "latest_round": "",
+                "latest_date": "",
+                "sector": "BTC 生态 · 近一周讨论" if eco == "bitcoin" else "近一周 KOL/推特讨论",
+                "chains": ["Bitcoin"] if eco == "bitcoin" else [],
+                "famous_investors": [],
+                "famous_count": 1 if str(tw.get("username") or "").lower() in kol else 0,
+                "investor_count": 0,
+                "token_status": "未发币（待核验）",
+                "source": tw.get("url") or "",
+                "mention_count": bump,
+                "mention_note": "近一周推特提及",
+                "source_kind": "twitter",
+            }
+        )
+    extra = list(extra_map.values())
+    extra.sort(
+        key=lambda x: (
+            0 if x.get("ecosystem") == "bitcoin" else 1,
+            -int(x.get("mention_count") or 0),
+        )
+    )
+    return items + extra[:18]
 
 
 async def _scan_llama(

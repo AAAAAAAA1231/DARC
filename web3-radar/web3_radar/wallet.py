@@ -16,7 +16,12 @@ ACTION_SPECS = {
     "launch": {
         "action": "presale",
         "title": "打新认购",
-        "description": "按设置中的单笔上限生成认购意图，需钱包确认。",
+        "description": "按设置中的单笔上限生成认购意图，需钱包确认。不会使用私钥。",
+    },
+    "watch": {
+        "action": "presale",
+        "title": "自动打新",
+        "description": "盯盘到发射时间后生成认购意图，需钱包确认。不会索取或使用私钥。",
     },
     "meme": {
         "action": "swap",

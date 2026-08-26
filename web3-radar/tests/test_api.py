@@ -32,13 +32,22 @@ def test_health_and_index():
     assert "近一个月" in page.text
     assert "只要项目" in page.text
     assert "不要人物" in page.text
+    assert "token launch" in page.text
+    assert "自动打新盯盘" in page.text
+    assert "发币 ≤ 3 天" in page.text
+    assert "24h 提及" in page.text
+    assert "近一周 KOL" in page.text
+    assert "不会索取助记词或私钥" in page.text
     assert "行业名人" not in page.text
     assert '<span class="pill">CZ</span>' not in page.text
+    assert 'id="s_private_key"' not in page.text
+    assert "private_key" not in page.text
     js = client.get("/static/js/app.js")
     assert js.status_code == 200
     assert "行业名人" not in js.text
     assert "只要项目" in js.text
     assert "最近一个月" in js.text
+    assert "private_key" not in js.text
     assert "$1M" in page.text or "$1,000,000" in page.text or "池子 ≥ $1M" in page.text
 
 
@@ -94,9 +103,12 @@ def test_modules_return_catalog():
     assert l.status_code == 200
     assert int(l.json().get("onchain_count") or 0) == 0
     for x in l.json().get("items") or []:
+        assert x.get("watch_kind") != "onchain_pool"
+        kind = x.get("source_kind") or x.get("watch_kind") or ""
+        if kind in {"search", "watch"} or x.get("watch_kind") in {"search", "manual_watch"}:
+            continue
         assert x.get("verified_follow") is True, x.get("name")
         assert x.get("followed_by"), x.get("name")
-        assert x.get("watch_kind") != "onchain_pool"
         names = set(x.get("followed_by") or [])
         assert names <= {"solana", "toly"}
         assert names
@@ -118,6 +130,20 @@ def test_modules_return_catalog():
     added = client.post("/api/ambassadors", json={"project": "测试项目", "url": "https://example.com"})
     assert added.status_code == 200
     assert added.json()["source"] == "手动"
+
+
+def test_settings_reject_private_key():
+    r = client.post("/api/settings", json={"settings": {"private_key": "0xabc"}})
+    assert r.status_code == 400
+    r2 = client.post("/api/settings", json={"settings": {"mnemonic": "alpha beta"}})
+    assert r2.status_code == 400
+    ok = client.post("/api/launch-watches", json={"handle": "helixsvm"})
+    assert ok.status_code == 200
+    assert ok.json()["handle"] == "helixsvm"
+    bad = client.post("/api/launch-watches", json={"handle": "not a handle!!!"})
+    assert bad.status_code == 400
+    gone = client.post("/api/launch-watches/remove", json={"handle": "helixsvm"})
+    assert gone.status_code == 200
 
 
 def test_mac_frozen_writes_to_application_support(monkeypatch):

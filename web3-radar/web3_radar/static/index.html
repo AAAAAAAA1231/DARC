@@ -39,6 +39,13 @@
         <button class="btn" id="refreshBtn">刷新</button>
       </div>
     </header>
+    <div id="cycleBanner" class="cycle-banner wait">
+      <div class="market">周期判断</div>
+      <div>
+        <strong>正在读取四年减半时钟…</strong>
+        <div class="muted">抄底 / 逃顶与持 U 还是持币会显示在这里。仅供参考。</div>
+      </div>
+    </div>
 
     <section id="view-contracts" class="view">
       <div class="toolbar">
@@ -91,15 +98,17 @@
     <section id="view-meme" class="view hidden">
       <div class="toolbar">
         <span class="pill">池子 ≥ $1M</span>
+        <span class="pill">24h 提及</span>
+        <span class="pill">发币 ≤ 3 天</span>
         <span class="pill">名人喊单</span>
-        <input id="memeFilter" placeholder="筛选 可跟 / 观察 / 链 / CA / 名人" />
+        <input id="memeFilter" placeholder="筛选 可跟 / 观察 / 链 / CA / 名人 / 提及" />
       </div>
       <p class="muted hidden" id="memeMsg"></p>
       <div class="table-wrap">
         <table>
           <thead>
             <tr>
-              <th>评级</th><th>链</th><th>币种</th><th>CA</th><th>价格</th><th>流动性</th><th>操作</th>
+              <th>评级</th><th>链</th><th>币种</th><th>CA</th><th>24h 提及</th><th>价格</th><th>流动性</th><th>操作</th>
             </tr>
           </thead>
           <tbody id="memeRows"></tbody>
@@ -141,7 +150,10 @@
 
     <section id="view-ambassador" class="view hidden">
       <div class="toolbar">
-        <span class="pill">7 天内 · 项目方发布</span>
+        <span class="pill">近一周</span>
+        <span class="pill">大使 / ambassador</span>
+        <span class="pill">只要项目方</span>
+        <span class="pill">不要个人求职</span>
         <select id="ambStatusFilter">
           <option value="">全部标记</option>
           <option value="none">未标记</option>
@@ -159,11 +171,22 @@
 
     <section id="view-launch" class="view hidden">
       <div class="toolbar">
+        <span class="pill">token launch / fair launch / 发射</span>
         <span class="pill">@solana</span>
         <span class="pill">@toly</span>
         <span class="pill">近一个月</span>
         <span class="pill">只要项目</span>
         <span class="pill">不要人物</span>
+      </div>
+      <div class="panel" id="launchWatchBox">
+        <h3>自动打新盯盘</h3>
+        <p class="muted">手动添加项目方推特。读到发币 / 发射时间后换成北京时间，并提示加入钱包确认队列。本程序不会索取或保存私钥。</p>
+        <div class="watch-row">
+          <input id="watchHandle" placeholder="@项目方推特，例如 helixsvm" />
+          <input id="watchNote" placeholder="备注（可选）" />
+          <button class="btn primary" id="watchAdd">添加盯盘</button>
+        </div>
+        <div id="watchList"></div>
       </div>
       <div id="launchAlerts"></div>
       <p class="muted hidden" id="launchMsg"></p>
@@ -172,7 +195,8 @@
 
     <section id="view-airdrop" class="view hidden">
       <div class="toolbar">
-        <span class="pill">比特币生态 + ETH 生态</span>
+        <span class="pill">近一周 KOL / 推特提及</span>
+        <span class="pill">BTC 生态优先</span>
         <span class="pill">BTC 融资 ≥ $500 万</span>
         <span class="pill">ETH 融资 ≥ $2000 万</span>
         <span class="pill">优先未发币</span>
@@ -188,7 +212,7 @@
         <table>
           <thead>
             <tr>
-              <th>项目</th><th>生态</th><th>融资</th><th>机构</th><th>发币预期</th>
+              <th>项目</th><th>生态</th><th>提及</th><th>融资</th><th>机构</th><th>发币预期</th>
               <th>赛道</th><th>标记</th><th>操作</th>
             </tr>
           </thead>
@@ -201,7 +225,7 @@
       <div class="grid-2">
         <div class="panel">
           <h3>连接 Web3 钱包</h3>
-          <p class="muted">支持 OKX、MetaMask、Rabby 等注入钱包。不会索取助记词。链上交易一律需钱包确认。</p>
+          <p class="muted">支持 OKX、MetaMask、Rabby 等注入钱包。不会索取助记词或私钥。打新买入和卖出一律要你在钱包里确认。</p>
           <p>当前地址：<code id="walletAddr">未连接</code></p>
           <a class="btn primary" href="/wallet" target="_blank" rel="noopener">打开钱包连接页</a>
           <button class="btn" id="disconnectWallet">断开</button>

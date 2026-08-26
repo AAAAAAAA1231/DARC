@@ -15,24 +15,18 @@ NITTER_INSTANCES = [
 
 # New-project ambassador hunts — not CEX campus programs.
 AMBASSADOR_QUERIES = [
-    "\"ambassador program\" apply web3 -binance -okx -bybit",
-    "\"we're looking for ambassadors\" crypto",
-    "\"regional ambassador\" web3 apply",
-    "招募社区大使 报名 web3",
-    "\"community ambassador\" (testnet OR TGE OR whitelist) apply",
-    "\"content creator program\" web3 ambassador",
+    "大使 (招募 OR 报名 OR 计划 OR 申请) -求职 -想当 -应聘",
+    "ambassador (program OR hiring OR recruiting OR apply) -\"i want\" -\"hire me\"",
+    '"ambassador program" (apply OR hiring OR we)',
+    "\"we're looking for ambassadors\"",
+    "招募社区大使 (报名 OR 申请)",
 ]
 
-# New project launches / TGE / whitelist on Solana — not CEX listings.
 LAUNCH_QUERIES = [
-    "solana (presale OR whitelist OR TGE) -binance -okx",
-    "solana \"fair launch\" (token OR crypto)",
-    "solana IDO (token OR launchpad) -binance",
-    "\"pump.fun\" (migrate OR TGE OR whitelist)",
-    "solana \"public sale\" whitelist",
-    "sol 白名单 (TGE OR 公售 OR 新项目)",
-    "solana \"testnet is live\" (points OR whitelist)",
-    "(raydium launchlab OR jup launchpad OR \"pump.fun\") (live OR open)",
+    '"token launch" OR "fair launch" OR 发射 -binance -okx -listed',
+    '"token launch" (TGE OR whitelist OR crypto)',
+    '"fair launch" (token OR TGE OR solana)',
+    "发射 (TGE OR 代币 OR 主网 OR 白名单) -上线现货",
 ]
 
 MEGA_BRANDS = (
@@ -85,6 +79,7 @@ LAUNCH_HINTS = (
     "allowlist",
     "ido",
     "fair launch",
+    "token launch",
     "token generation",
     "tge",
     "public sale",
@@ -95,6 +90,7 @@ LAUNCH_HINTS = (
     "testnet is live",
     "points program",
     "genesis nft",
+    "发射",
     "白名单",
     "公售",
     "新项目",

@@ -62,7 +62,9 @@ async def scan_ambassadors(twitter_bearer: str = "", lookback_days: int = 7) -> 
             }
         )
 
-    items.extend(jobs)
+    live_n = sum(1 for x in items if x.get("source_kind") == "live")
+    if not live_n:
+        items.extend(jobs)
 
     manual = await db.cache_get("manual_ambassadors") or []
     if isinstance(manual, list):
@@ -73,8 +75,10 @@ async def scan_ambassadors(twitter_bearer: str = "", lookback_days: int = 7) -> 
             items.append(item)
 
     items.sort(key=lambda x: x.get("score") or 0, reverse=True)
-    items = merge_items(items, load_fallback().get("ambassadors") or [])
     live_n = sum(1 for x in items if x.get("source_kind") == "live")
+    if not live_n:
+        items = merge_items(items, load_fallback().get("ambassadors") or [])
+        live_n = sum(1 for x in items if x.get("source_kind") == "live")
     return {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "lookback_days": lookback_days,
@@ -84,7 +88,7 @@ async def scan_ambassadors(twitter_bearer: str = "", lookback_days: int = 7) -> 
         "social_skipped": not bool((twitter_bearer or "").strip()),
         "live_count": live_n,
         "note": (
-            "大使只展示项目方发布的招募，不展示个人求职/求大使帖。"
+            "大使只展示近一周项目方发布的招募（检索 大使 / ambassador），个人求职帖不显示。"
             + (" 未配置 Twitter Bearer 时 X 可能为空，已用项目方大使岗位补齐。" if not twitter_bearer else " 已检索 X。")
         ),
     }

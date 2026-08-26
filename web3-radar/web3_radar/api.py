@@ -35,7 +35,7 @@ from web3_radar.engine.signals import (
 )
 from web3_radar.wallet import enqueue_participate, wallet_status
 
-app = FastAPI(title="链上雷达", version="1.0.0")
+app = FastAPI(title="链上雷达", version="1.3.0")
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 _jobs: dict[str, dict[str, Any]] = {}
@@ -95,7 +95,7 @@ async def wallet_page() -> FileResponse:
 
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
-    return {"ok": True, "app": "链上雷达", "version": "1.2.3"}
+    return {"ok": True, "app": "链上雷达", "version": "1.3.0"}
 
 
 @app.get("/api/settings")
@@ -105,8 +105,13 @@ async def get_settings() -> dict[str, Any]:
 
 @app.post("/api/settings")
 async def post_settings(body: SettingsBody) -> dict[str, Any]:
+    incoming = dict(body.settings or {})
+    for key in incoming:
+        low = str(key).lower()
+        if any(bit in low for bit in ("private_key", "privatekey", "mnemonic", "seed_phrase", "助记词")):
+            raise HTTPException(400, "不会收取或保存私钥、助记词。链上买入卖出请用钱包确认。")
     current = load_settings()
-    current.update(body.settings)
+    current.update(incoming)
     save_settings(current)
     return current
 
@@ -598,7 +603,7 @@ async def _scan_or_cache(cache_key: str, category: str, ttl: int, refresh: bool,
 async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     data = await _scan_or_cache(
-        "meme_v3",
+        "meme_v4",
         "meme",
         90,
         refresh,
@@ -623,7 +628,7 @@ async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
 async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "ambassadors_v4",
+        "ambassadors_v5",
         "ambassador",
         300,
         refresh,
@@ -638,12 +643,72 @@ async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
 async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "launches_v14",
+        "launches_v15",
         "launch",
         180,
         refresh,
         lambda: scan_launches(twitter_bearer=str(settings.get("twitter_bearer_token") or ""), lookback_days=30),
     )
+
+
+@app.get("/api/cycle")
+async def cycle(refresh: bool = Query(False)) -> dict[str, Any]:
+    cached = None if refresh else await db.cache_get("cycle_v1")
+    if isinstance(cached, dict) and cached.get("phase"):
+        return cached
+    from web3_radar.engine.cycle import assess_cycle, pick_cycle_trade
+
+    df = None
+    errors: list[str] = []
+    try:
+        client = BinanceClient()
+        df = await client.klines("BTCUSDT", interval="1d", limit=800)
+    except Exception as exc:
+        errors.append(f"BTC 日线: {exc}")
+        df = None
+    data = assess_cycle(df)
+    last = await db.latest_analysis_run()
+    pick = pick_cycle_trade(data, (last or {}).get("results") or [])
+    data["trade"] = pick
+    data["errors"] = errors
+    if not pick:
+        data["trade_note"] = "先跑一遍合约分析，再按预计收益率挑这一轮适合长持的合约。"
+    await db.cache_set("cycle_v1", data, 600)
+    return data
+
+
+class LaunchWatchBody(BaseModel):
+    handle: str
+    note: str = ""
+
+
+@app.get("/api/launch-watches")
+async def get_launch_watches() -> dict[str, Any]:
+    from web3_radar.collectors.launch_watch import scan_watch_accounts
+
+    settings = load_settings()
+    return await scan_watch_accounts(str(settings.get("twitter_bearer_token") or ""))
+
+
+@app.post("/api/launch-watches")
+async def post_launch_watch(body: LaunchWatchBody) -> dict[str, Any]:
+    from web3_radar.collectors.launch_watch import add_watch
+
+    try:
+        item = await add_watch(body.handle, body.note)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    await db.cache_delete("launches_v15")
+    return item
+
+
+@app.post("/api/launch-watches/remove")
+async def remove_launch_watch(body: LaunchWatchBody) -> dict[str, Any]:
+    from web3_radar.collectors.launch_watch import remove_watch
+
+    await remove_watch(body.handle)
+    await db.cache_delete("launches_v15")
+    return {"ok": True}
 
 
 @app.get("/api/news")
@@ -655,13 +720,14 @@ async def news(refresh: bool = Query(False)) -> dict[str, Any]:
 async def airdrops(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "airdrops_v3",
+        "airdrops_v4",
         "airdrop",
         3600,
         refresh,
         lambda: scan_airdrops(
             min_funding_usd=float(settings.get("airdrop_min_funding_usd") or 20_000_000),
             btc_min_funding_usd=float(settings.get("airdrop_btc_min_funding_usd") or 5_000_000),
+            twitter_bearer=str(settings.get("twitter_bearer_token") or ""),
         ),
     )
 
@@ -745,7 +811,7 @@ async def add_ambassador(body: AmbassadorAddBody) -> dict[str, Any]:
     await db.cache_set("manual_ambassadors", manual, 365 * 24 * 3600)
     await db.cache_delete("ambassadors_v2")
     await db.cache_delete("ambassadors_v3")
-    await db.cache_delete("ambassadors_v4")
+    await db.cache_delete("ambassadors_v5")
     await db.upsert_mark("ambassador", item["key"], "watching", "手动添加", item)
     return item
 

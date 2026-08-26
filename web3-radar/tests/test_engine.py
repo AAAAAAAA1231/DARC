@@ -6,7 +6,7 @@ import pytest
 
 from web3_radar.collectors.airdrop import score_airdrop, parse_raise_text, _keep_airdrop_focus, _decorate_airdrop, _funding_ok
 from web3_radar.collectors.ecosystem import classify_btc_eth, is_solana
-from web3_radar.collectors.meme import _passes_meme_filter
+from web3_radar.collectors.meme import _passes_meme_filter, meme_age_ok
 from web3_radar.collectors.social import extract_deadline, looks_like_solana_launch, score_ambassador
 from web3_radar.engine.indicators import classify_regime, compute_all_indicators, last_atr, rsi, td_sequential
 from web3_radar.engine.monte_carlo import decision_from_score, monte_carlo_reweight
@@ -381,6 +381,41 @@ def test_parse_raise_text():
     assert not _funding_ok(eth_low, 20_000_000, 5_000_000)
     assert looks_like_solana_launch("Whitelist is open for our Solana TGE")
     assert not looks_like_solana_launch("Whitelist is open for our TGE on Ethereum")
+
+
+def test_halving_cycle_bear_in_august_2026():
+    from datetime import datetime, timezone
+
+    from web3_radar.engine.cycle import assess_cycle, cycle_clock, pick_cycle_trade
+
+    now = datetime(2026, 8, 26, tzinfo=timezone.utc)
+    clock = cycle_clock(now)
+    assert clock["phase"] == "熊市"
+    assert clock["cash_bias"] == "持U"
+    assert clock["top_signal"] is False
+    out = assess_cycle(None, now)
+    assert "熊" in out["market"] or "偏空" in out["market"]
+    pick = pick_cycle_trade(
+        out,
+        [
+            {"symbol": "ETHUSDT", "decision": "跌", "entry": 100, "take_profit": 70, "stop_loss": 110, "win_rate": 0.6, "score": 2},
+            {"symbol": "BTCUSDT", "decision": "涨", "entry": 100, "take_profit": 180, "stop_loss": 90, "win_rate": 0.9, "score": 9},
+        ],
+    )
+    assert pick is not None
+    assert pick["symbol"] == "ETHUSDT"
+    assert pick["side"] == "做空"
+    assert pick["hold_days"] >= 1
+
+
+def test_meme_age_three_days():
+    from datetime import datetime, timedelta, timezone
+
+    now = datetime.now(timezone.utc)
+    young = {"created_at": (now - timedelta(days=1)).isoformat()}
+    old = {"created_at": (now - timedelta(days=4)).isoformat()}
+    assert meme_age_ok(young)
+    assert not meme_age_ok(old)
 
 
 def test_ambassador_priority_and_deadline():

@@ -1,13 +1,13 @@
 const views = {
   contracts: ["合约分析", "涨跌、挂单建仓、止损、止盈。仅供参考，不构成投资建议。"],
   news: ["单边快讯", "过去 24 小时的做多 / 做空 / 观望。仅供参考，不构成投资建议。"],
-  meme: ["妖币监控", "可跟 / 观察 / 避开，附 CA 与链。仅供参考，不构成投资建议。"],
+  meme: ["妖币监控", "刷新后按近 24 小时推特提及排序，只保留发币不超过 3 天的币。可跟仍要池子 ≥ $1M。仅供参考。"],
   copytrade: ["自动跟单", "跟随「可跟」信号。模拟盘默认开启，实盘需钱包确认。"],
-  ambassador: ["大使招募", "项目方发布的招募窗口。可标记申请与结果。"],
-  launch: ["打新监测", "只看 @solana 或 @toly 最近一个月关注、尚未发币的 Web3 项目。只要项目，不要人物。"],
-  airdrop: ["空投雷达", "比特币与 ETH 生态未发币项目。"],
-  wallet: ["钱包执行", "连接钱包后，将任务加入确认队列。不会索取助记词。"],
-  settings: ["设置", "接口令牌、钱包接口与过滤条件。"],
+  ambassador: ["大使招募", "近一周检索「大使 / ambassador」，只显示项目方发布的招募，个人求职不显示。"],
+  launch: ["打新监测", "X 检索 token launch / fair launch / 发射；以及 @solana、@toly 最近一个月新增关注的未发币项目。只要项目，不要人物。"],
+  airdrop: ["空投雷达", "近一周 KOL/推特提及的 Web3 空投。比特币生态排最前，其余按提及、融资、团队综合排。"],
+  wallet: ["钱包执行", "连接钱包后，将任务加入确认队列。不会索取助记词或私钥。"],
+  settings: ["设置", "接口令牌、钱包接口与过滤条件。不会收取私钥。"],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -47,7 +47,10 @@ let settingsCache = {};
 document.querySelectorAll("nav button").forEach((btn) => {
   btn.addEventListener("click", () => showView(btn.dataset.view));
 });
-$("refreshBtn").addEventListener("click", () => loadView(currentView, true));
+$("refreshBtn").addEventListener("click", () => {
+  loadCycle(true);
+  loadView(currentView, true);
+});
 if ($("analyzeAll")) $("analyzeAll").addEventListener("click", () => startAnalyze("infer"));
 if ($("refitWeights")) $("refitWeights").addEventListener("click", () => startAnalyze("fit"));
 $("saveSettings").addEventListener("click", saveSettings);
@@ -71,7 +74,7 @@ $("autoParticipate").addEventListener("change", persistWalletFlags);
 $("autoMaxSpend").addEventListener("change", persistWalletFlags);
 if ($("copySave")) $("copySave").addEventListener("click", saveCopytrade);
 if ($("ambAdd")) $("ambAdd").addEventListener("click", addAmbassador);
-if ($("saveLaunchToken")) $("saveLaunchToken").addEventListener("click", saveLaunchToken);
+if ($("watchAdd")) $("watchAdd").addEventListener("click", addLaunchWatch);
 if ($("newsFilter")) $("newsFilter").addEventListener("input", () => renderNews());
 if ($("newsAlertOnly")) $("newsAlertOnly").addEventListener("change", () => renderNews());
 if ($("newsBiasFilter")) $("newsBiasFilter").addEventListener("change", () => renderNews());
@@ -82,6 +85,7 @@ function showView(name) {
   document.querySelectorAll(".view").forEach((el) => el.classList.toggle("hidden", el.id !== "view-" + name));
   $("viewTitle").textContent = views[name][0];
   $("viewSub").textContent = views[name][1];
+  loadCycle(false);
   loadView(name, false);
 }
 
@@ -97,6 +101,44 @@ async function api(path, opts = {}) {
 }
 
 function setStatus(text) { $("statusLine").textContent = text; }
+
+function cycleTone(market, action) {
+  const m = String(market || "");
+  if (action === "逃顶" || m.includes("熊") || m.includes("偏空")) return "bear";
+  if (action === "抄底" || m.includes("牛") || m.includes("偏多") || m.includes("偏牛")) return "bull";
+  return "turn";
+}
+
+async function loadCycle(refresh) {
+  const el = $("cycleBanner");
+  if (!el) return;
+  try {
+    const data = await api("/api/cycle" + (refresh ? "?refresh=true" : ""));
+    const tone = cycleTone(data.market, data.action);
+    el.className = "cycle-banner " + tone;
+    const trade = data.trade || {};
+    const tradeHtml = trade.symbol
+      ? `<div><strong>本轮合约：</strong>${escapeHtml(trade.how || "")} · 预计持仓 ${escapeHtml(String(trade.hold_days || ""))} 天</div>
+         <div class="muted">${escapeHtml(trade.why || "")}</div>`
+      : `<div class="muted">${escapeHtml(data.trade_note || "先跑合约分析，再按预计收益率选出长持合约。")}</div>`;
+    el.innerHTML = `
+      <div class="market">${escapeHtml(data.market || "周期")}</div>
+      <div>
+        <strong>${escapeHtml(data.summary || "")}</strong>
+        <div class="signals">
+          <span class="tag ${data.bottom_signal ? "up" : "wait"}">${data.bottom_signal ? "抄底信号" : "暂无抄底"}</span>
+          <span class="tag ${data.top_signal ? "down" : "wait"}">${data.top_signal ? "逃顶信号" : "暂无逃顶"}</span>
+          <span class="tag ${String(data.cash_bias || "").includes("U") ? "range" : "up"}">建议${escapeHtml(data.cash_bias || "")}</span>
+          <span class="tag wait">${escapeHtml(data.phase || "")}</span>
+        </div>
+        ${tradeHtml}
+        <div class="muted">${escapeHtml(data.disclaimer || "仅供研究参考，不构成投资建议。")}</div>
+      </div>`;
+  } catch (err) {
+    el.className = "cycle-banner wait";
+    el.innerHTML = `<div class="market">周期</div><div class="muted">周期判断暂不可用：${escapeHtml(err.message)}</div>`;
+  }
+}
 
 function filterTable(tbodyId, q) {
   const query = (q || "").toLowerCase();
@@ -146,14 +188,14 @@ async function loadView(name, refresh) {
       if (!analyzeJob && uni.items.length) startAnalyze(last.fitted ? "infer" : "fit");
     } else if (name === "meme") {
       setStatus("正在更新…");
-      if ($("memeRows")) $("memeRows").innerHTML = emptyRow(7, "加载中…");
+      if ($("memeRows")) $("memeRows").innerHTML = emptyRow(8, "加载中…");
       const data = await api("/api/meme" + q);
       store.meme = {};
       $("memeRows").innerHTML = (data.items || []).map((m) => {
         store.meme[m.key] = m;
         return memeRow(m);
-      }).join("") || emptyRow(7, "暂无过线标的");
-      setStatus(`可跟 ${data.followable_count || 0} · 名人喊单 ${data.kol_count || 0}`);
+      }).join("") || emptyRow(8, "暂无过线标的");
+      setStatus(`可跟 ${data.followable_count || 0} · 24h 提及优先 · 发币 ≤ 3 天`);
     } else if (name === "ambassador") {
       setStatus("正在更新…");
       $("ambassadorCards").innerHTML = "<p class='muted'>加载中…</p>";
@@ -182,19 +224,21 @@ async function loadView(name, refresh) {
       if ($("launchAlerts")) {
         $("launchAlerts").innerHTML = alerts.slice(0, 6).map((a) => `
           <div class="alert-banner">
-            <strong>官方 · 未发币 · ${escapeHtml(a.launch_status || "")}</strong>
+            <strong>${escapeHtml(launchSourceLabel(a))} · ${escapeHtml(a.token_status || "未发币")} · ${escapeHtml(a.launch_status || "")}</strong>
             <div>${escapeHtml(a.name)} ${a.username ? "(@" + escapeHtml(a.username) + ")" : ""}</div>
             <div class="launch-when">${escapeHtml(a.launch_when_label || a.launch_when || "时间待确认")}</div>
           </div>`).join("");
       }
-      const launchItems = (data.items || []).filter((x) => x.verified_follow && (x.followed_by || []).length);
+      renderLaunchWatches(data.watches || []);
+      const launchItems = data.items || [];
       $("launchCards").innerHTML = launchItems.map((a) => {
         store.launch[a.key] = a;
         return launchCard(a);
-      }).join("") || "<p class='muted'>暂无未发币项目。</p>";
+      }).join("") || "<p class='muted'>暂无未发币项目。可在上方添加项目方推特盯盘。</p>";
       const bits = [];
-      if (data.sol_count) bits.push(`Solana ${data.sol_count}`);
-      if (data.bsc_count) bits.push(`BSC ${data.bsc_count}`);
+      if (data.follow_count) bits.push(`官方关注 ${data.follow_count}`);
+      if (data.search_count) bits.push(`检索 ${data.search_count}`);
+      if (data.watch_count) bits.push(`盯盘 ${data.watch_count}`);
       if (data.alert_count) bits.push(`提醒 ${data.alert_count}`);
       setStatus(bits.join(" · ") || "已更新");
       pingLaunchAlerts(alerts);
@@ -213,7 +257,7 @@ async function loadView(name, refresh) {
       if (!newsTimer) newsTimer = setInterval(() => { if (currentView === "news") loadView("news", false); }, 90 * 1000);
     } else if (name === "airdrop") {
       setStatus("正在更新…");
-      $("airdropRows").innerHTML = emptyRow(8, "加载中…");
+      $("airdropRows").innerHTML = emptyRow(9, "加载中…");
       const data = await api("/api/airdrops" + q);
       const want = $("airdropStatusFilter").value;
       const items = (data.items || []).filter((x) => !want || x.mark_status === want);
@@ -221,8 +265,8 @@ async function loadView(name, refresh) {
       $("airdropRows").innerHTML = items.map((a) => {
         store.airdrop[a.key] = a;
         return airdropRow(a);
-      }).join("") || emptyRow(8, "暂无候选");
-      setStatus(`空投 ${items.length}`);
+      }).join("") || emptyRow(9, "暂无候选");
+      setStatus(`空投 ${items.length} · BTC 优先`);
     } else if (name === "copytrade") {
       await loadCopytrade();
     } else if (name === "wallet") {
@@ -352,6 +396,7 @@ async function pollAnalyze() {
     } else if (data.status === "done") {
       setStatus("已更新");
       if ($("analyzeProgress")) $("analyzeProgress").classList.add("hidden");
+      loadCycle(true);
     }
   } catch (err) {
     setStatus("更新失败：" + err.message);
@@ -394,6 +439,7 @@ function memeRow(m) {
     <td>${escapeHtml(m.chain)}</td>
     <td><strong>${escapeHtml(m.symbol)}</strong>${kol}</td>
     <td class="ca" title="${escapeHtml(ca)}">${escapeHtml(shortCa)}</td>
+    <td>${m.mention_count ? escapeHtml(String(m.mention_count)) : "-"}</td>
     <td>${fmtUsd(m.price_usd)}</td>
     <td>${fmtUsd(m.liquidity_usd)}</td>
     <td class="row-actions">
@@ -420,18 +466,28 @@ function ambassadorCard(a) {
   </article>`;
 }
 
+function launchSourceLabel(a) {
+  const kind = a.source_kind || a.watch_kind || "";
+  if (kind === "watch" || a.watch_kind === "manual_watch") return "盯盘";
+  if (kind === "search" || a.watch_kind === "search") return "检索";
+  if (a.verified_follow) return "官方";
+  return a.source || "打新";
+}
+
 function launchCard(a) {
   const id = encodeURIComponent(a.key);
   const klass = a.alert ? "card alert-card" : "card";
   const when = a.launch_when_label || a.launch_when;
-  const badge = `<span class="tag live">官方</span> <span class="tag wait">未发币</span>`;
+  const src = launchSourceLabel(a);
+  const badge = `<span class="tag live">${escapeHtml(src)}</span> <span class="tag wait">${escapeHtml(a.token_status || "未发币")}</span>`;
   const who = (a.followed_by || []).map((n) => `<span class="tag live">@${escapeHtml(n)}</span>`).join(" ");
   return `<article class="${klass}">
     <h3>${badge} ${escapeHtml(a.name)}${a.username ? " <span class='muted'>@" + escapeHtml(a.username) + "</span>" : ""}</h3>
-    <p>${escapeHtml(a.chain || "")}</p>
+    <p>${escapeHtml(a.chain || "")} · ${escapeHtml(a.kind || "")}</p>
     ${who ? `<p>${who}</p>` : ""}
     ${a.launch_status ? `<p><span class="tag ${a.alert ? "range" : "wait"}">${escapeHtml(a.launch_status)}</span></p>` : ""}
     ${when ? `<p class="launch-when">${escapeHtml(when)}</p>` : ""}
+    ${a.sell_hint ? `<p class="muted">${escapeHtml(a.sell_hint)}</p>` : ""}
     <p>标记：${markSelect("launch", a.key, a.mark_status)}</p>
     <div class="card-actions">
       ${a.twitter ? `<a class="btn" href="${escapeHtml(a.twitter)}" target="_blank">X</a>` : ""}
@@ -527,6 +583,7 @@ function airdropRow(a) {
   return `<tr>
     <td><strong>${escapeHtml(a.name)}</strong><div class="muted">${escapeHtml((a.chains||[]).slice(0,3).join(", "))}</div></td>
     <td><span class="tag ${a.ecosystem === "bitcoin" ? "btc" : (a.ecosystem === "other" ? "mixed" : "eth")}">${escapeHtml(a.ecosystem_label || "")}</span></td>
+    <td>${a.mention_count ? escapeHtml(String(a.mention_count)) : "-"}${a.mention_note ? `<div class="muted">${escapeHtml(a.mention_note)}</div>` : ""}</td>
     <td>${fmtUsd(a.total_funding_usd)}</td>
     <td>${escapeHtml((a.famous_investors||[]).slice(0,3).join(", ") || "-")}</td>
     <td>${escapeHtml(a.token_expect)}</td>
@@ -627,25 +684,38 @@ async function persistWalletFlags() {
   }}});
 }
 
-async function fillLaunchTokenBox() {
-  try {
-    settingsCache = await api("/api/settings");
-  } catch (e) {
+function renderLaunchWatches(rows) {
+  const el = $("watchList");
+  if (!el) return;
+  if (!rows || !rows.length) {
+    el.innerHTML = "<p class='muted'>还没有盯盘账号。添加后会监控发币 / 发射时间。</p>";
     return;
   }
-  const token = String(settingsCache.twitter_bearer_token || "");
-  if ($("launch_twitter_bearer")) $("launch_twitter_bearer").value = token;
+  el.innerHTML = rows.map((w) => `
+    <span class="watch-chip">
+      @${escapeHtml(w.handle || "")}
+      ${w.note ? `<span class="muted">${escapeHtml(w.note)}</span>` : ""}
+      <button class="btn" onclick="removeLaunchWatch('${escapeHtml(w.handle || "")}')">移除</button>
+    </span>`).join("");
 }
 
-async function saveLaunchToken() {
-  const token = (($("launch_twitter_bearer") && $("launch_twitter_bearer").value) || "").trim();
-  if (!token) {
-    setStatus("请先粘贴令牌");
+async function addLaunchWatch() {
+  const handle = (($("watchHandle") && $("watchHandle").value) || "").trim();
+  if (!handle) {
+    setStatus("请填写项目方推特");
     return;
   }
-  await api("/api/settings", { method: "POST", body: { settings: { twitter_bearer_token: token } } });
-  if ($("s_twitter_bearer_token")) $("s_twitter_bearer_token").value = token;
-  setStatus("已保存");
+  const note = (($("watchNote") && $("watchNote").value) || "").trim();
+  await api("/api/launch-watches", { method: "POST", body: { handle, note } });
+  if ($("watchHandle")) $("watchHandle").value = "";
+  if ($("watchNote")) $("watchNote").value = "";
+  setStatus("已添加盯盘");
+  await loadView("launch", true);
+}
+
+async function removeLaunchWatch(handle) {
+  await api("/api/launch-watches/remove", { method: "POST", body: { handle } });
+  setStatus("已移除盯盘");
   await loadView("launch", true);
 }
 

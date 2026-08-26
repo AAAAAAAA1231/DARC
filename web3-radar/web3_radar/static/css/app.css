@@ -46,8 +46,35 @@ nav button.active {
   word-break: break-all;
 }
 main { overflow: auto; padding: 18px 22px 40px; }
-.topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 12px; }
 .topbar h2 { margin: 0 0 4px; }
+.cycle-banner {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+  background: var(--panel);
+}
+.cycle-banner .market {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  min-width: 120px;
+}
+.cycle-banner .signals { display: flex; gap: 8px; flex-wrap: wrap; margin: 6px 0; }
+.cycle-banner.bull { border-color: #1f6b57; background: #0e2a22; }
+.cycle-banner.bull .market { color: var(--accent); }
+.cycle-banner.bear { border-color: #ff6b7a; background: #2a1216; }
+.cycle-banner.bear .market { color: #ff6b7a; }
+.cycle-banner.turn { border-color: #c9a227; background: #2a220e; }
+.cycle-banner.turn .market { color: var(--accent-2); }
+.watch-row { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+.watch-row input { flex: 1; min-width: 180px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; }
+.watch-chip { display: inline-flex; gap: 8px; align-items: center; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; margin: 4px 6px 0 0; font-size: 12px; }
 .topbar p, .muted { color: var(--muted); }
 .top-actions { display: flex; gap: 8px; align-items: center; }
 .btn { border: 1px solid var(--line); background: var(--panel); }

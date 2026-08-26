@@ -237,6 +237,18 @@ def test_solana_follow_launch_timing():
     ) is None
 
 
+def test_launch_and_ambassador_search_queries():
+    from web3_radar.collectors.social import AMBASSADOR_QUERIES, LAUNCH_QUERIES
+
+    launch = " ".join(LAUNCH_QUERIES)
+    assert "token launch" in launch
+    assert "fair launch" in launch
+    assert "发射" in launch
+    amb = " ".join(AMBASSADOR_QUERIES)
+    assert "大使" in amb
+    assert "ambassador" in amb.lower()
+
+
 def test_public_following_parser_requires_real_list():
     from web3_radar.collectors.solana_watch import parse_public_following
 

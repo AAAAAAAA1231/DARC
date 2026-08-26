@@ -13,6 +13,12 @@ GMGN_ETH_TRENDING = "https://gmgn.ai/defi/quotation/v1/rank/eth/swaps/1h"
 GMGN_BSC_TRENDING = "https://gmgn.ai/defi/quotation/v1/rank/bsc/swaps/1h"
 GECKO_TERMINAL = "https://api.geckoterminal.com/api/v2"
 
+MEME_MENTION_QUERIES = [
+    '("CA:" OR "contract:") (solana OR eth OR base OR bsc)',
+    '"fair launch" (CA OR contract OR mint)',
+    "(meme OR ticker) CA (pump OR solana)",
+]
+MEME_MAX_AGE_DAYS = 3
 CHAIN_LABEL = {
     "solana": "Solana",
     "ethereum": "Ethereum",
@@ -25,6 +31,15 @@ CHAIN_LABEL = {
     "optimism": "Optimism",
     "tron": "Tron",
 }
+
+
+def meme_age_ok(item: dict[str, Any], max_days: int = MEME_MAX_AGE_DAYS) -> bool:
+    from web3_radar.engine.meme_score import _age_minutes
+
+    age = _age_minutes(item)
+    if age is None:
+        return False
+    return age <= max_days * 24 * 60
 
 
 def _num(v: Any, default: float = 0.0) -> float:
@@ -325,6 +340,41 @@ async def fetch_geckoterminal_new() -> list[dict[str, Any]]:
     return items
 
 
+async def fetch_mentioned_memes(twitter_bearer: str = "") -> list[dict[str, Any]]:
+    """Tokens mentioned on X in the last 24h whose pair is not older than 3 days."""
+    from web3_radar.collectors.kol_calls import _resolve_token, extract_cas
+    from web3_radar.collectors.social import collect_social
+    from web3_radar.engine.meme_score import _age_minutes
+
+    try:
+        tweets = await collect_social(MEME_MENTION_QUERIES, twitter_bearer, lookback_days=1)
+    except Exception:
+        tweets = []
+    counts: dict[str, int] = {}
+    sample: dict[str, tuple[str, str]] = {}
+    for tw in tweets:
+        for addr, chain in extract_cas(tw.get("text") or ""):
+            key = addr.lower()
+            counts[key] = counts.get(key, 0) + 1
+            sample[key] = (addr, chain)
+    items: list[dict[str, Any]] = []
+    for key, n in sorted(counts.items(), key=lambda x: -x[1])[:25]:
+        addr, chain = sample[key]
+        try:
+            row = await _resolve_token(addr, chain)
+        except Exception:
+            row = None
+        if not row:
+            continue
+        age = _age_minutes(row)
+        if age is not None and age > MEME_MAX_AGE_DAYS * 24 * 60:
+            continue
+        row["mention_count"] = n
+        row["source"] = "+".join(x for x in [str(row.get("source") or ""), "twitter24h"] if x)
+        items.append(row)
+    return items
+
+
 async def scan_meme_coins(
     min_liquidity_usd: float = 1_000_000,
     min_unique_buyers: int = 8,
@@ -338,6 +388,7 @@ async def scan_meme_coins(
     errors: list[str] = []
     collected: list[dict[str, Any]] = []
     fetchers = [
+        ("twitter_mentions", fetch_mentioned_memes(twitter_bearer)),
         ("dexscreener_boosted", fetch_dexscreener_boosted()),
         ("pumpfun", fetch_pumpfun()),
         ("gmgn_sol", fetch_gmgn(GMGN_SOL_TRENDING, "Solana")),
@@ -376,6 +427,8 @@ async def scan_meme_coins(
                 if kol_src.get(field) and not row.get(field):
                     row[field] = kol_src.get(field)
             row["token_address"] = row.get("token_address") or poorer.get("token_address") or kol_src.get("token_address")
+        if prev.get("mention_count") or item.get("mention_count"):
+            row["mention_count"] = max(int(prev.get("mention_count") or 0), int(item.get("mention_count") or 0))
         merged[key] = row
 
     ranked = select_watchlist(list(merged.values()), min_liquidity_usd)
@@ -394,8 +447,32 @@ async def scan_meme_coins(
                 extra["followable"] = False
             ranked.append(extra)
             seen.add(item["key"])
+    for item in merged.values():
+        if item.get("mention_count") and item["key"] not in seen:
+            extra = enrich_and_score(item, min_liquidity_usd)
+            extra["mention_count"] = item.get("mention_count")
+            extra["source_kind"] = extra.get("source_kind") or "twitter"
+            if extra.get("grade") == "避开":
+                extra["grade"] = "观察"
+                extra["followable"] = False
+            ranked.append(extra)
+            seen.add(item["key"])
+    from web3_radar.engine.meme_score import _age_minutes
+
+    cutoff = MEME_MAX_AGE_DAYS * 24 * 60
+
+    def _young(item: dict[str, Any]) -> bool:
+        age = _age_minutes(item)
+        if item.get("mention_count") or item.get("kol_call"):
+            return age is None or age <= cutoff
+        return age is not None and age <= cutoff
+
+    young = [x for x in ranked if _young(x)]
+    if young:
+        ranked = young
     ranked.sort(
         key=lambda x: (
+            int(x.get("mention_count") or 0),
             1 if x.get("kol_call") else 0,
             {"可跟": 3, "观察": 2, "避开": 1}.get(str(x.get("grade") or ""), 0),
             float(x.get("heat") or 0) - float(x.get("risk") or 0) * 0.4,
@@ -412,5 +489,6 @@ async def scan_meme_coins(
         "kol_count": kol_n,
         "items": ranked,
         "errors": errors,
-        "method": "短期买压 + 持币增长 + 池子≥$1M；另盯名人喊单并给出 CA 与所属链",
+        "mention_count": sum(int(x.get("mention_count") or 0) for x in ranked),
+        "method": "刷新后优先看过去 24 小时推特提及次数高、发币不超过 3 天的标的；可跟仍要求池子 ≥ $1M",
     }
