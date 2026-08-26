@@ -50,9 +50,9 @@ def create_app(cfg: AppConfig | None = None, output_dir: str | Path | None = Non
             folds = pd.read_csv(fp).fillna("").to_dict(orient="records")
         uni_n = {"selected": snap.get("universe_selected", 0), "eligible": snap.get("universe_eligible", 0)}
         return templates.TemplateResponse(
+            request,
             "index.html",
             {
-                "request": request,
                 "disclaimer": snap.get("disclaimer", DISCLAIMER),
                 "snap": snap,
                 "ideas": ideas,
