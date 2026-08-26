@@ -394,7 +394,7 @@ def test_halving_cycle_bear_in_august_2026():
     assert clock["cash_bias"] == "持U"
     assert clock["top_signal"] is False
     out = assess_cycle(None, now)
-    assert "熊" in out["market"] or "偏空" in out["market"]
+    assert out["market"] == "熊市"
     pick = pick_cycle_trade(
         out,
         [
@@ -406,6 +406,10 @@ def test_halving_cycle_bear_in_august_2026():
     assert pick["symbol"] == "ETHUSDT"
     assert pick["side"] == "做空"
     assert pick["hold_days"] >= 1
+    from web3_radar.engine.cycle import attach_cycle_trade
+    always = attach_cycle_trade(out, [])
+    assert always["symbol"] == "BTCUSDT"
+    assert always["side"] == "做空"
 
 
 def test_meme_age_three_days():

@@ -23,6 +23,11 @@ ACTION_SPECS = {
         "title": "自动打新",
         "description": "盯盘到发射时间后生成认购意图，需钱包确认。不会索取或使用私钥。",
     },
+    "sell": {
+        "action": "swap",
+        "title": "打新卖出",
+        "description": "按预计卖出时间生成卖出意图，需钱包确认。不会使用私钥。",
+    },
     "meme": {
         "action": "swap",
         "title": "妖币买入",

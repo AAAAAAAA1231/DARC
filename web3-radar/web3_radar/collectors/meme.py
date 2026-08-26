@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -14,11 +16,13 @@ GMGN_BSC_TRENDING = "https://gmgn.ai/defi/quotation/v1/rank/bsc/swaps/1h"
 GECKO_TERMINAL = "https://api.geckoterminal.com/api/v2"
 
 MEME_MENTION_QUERIES = [
-    '("CA:" OR "contract:") (solana OR eth OR base OR bsc)',
-    '"fair launch" (CA OR contract OR mint)',
-    "(meme OR ticker) CA (pump OR solana)",
+    '("CA:" OR "contract:" OR "$") (solana OR pump OR meme OR base)',
+    '"fair launch" (CA OR mint OR $)',
+    "(新币 OR 发射 OR meme) (CA OR 合约 OR $)",
 ]
 MEME_MAX_AGE_DAYS = 3
+TICKER_RE = re.compile(r"\$([A-Za-z]{2,12})\b")
+DEX_SEARCH = "https://api.dexscreener.com/latest/dex/search"
 CHAIN_LABEL = {
     "solana": "Solana",
     "ethereum": "Ethereum",
@@ -340,6 +344,24 @@ async def fetch_geckoterminal_new() -> list[dict[str, Any]]:
     return items
 
 
+async def _resolve_symbol(symbol: str) -> dict[str, Any] | None:
+    try:
+        data = await _get_json(DEX_SEARCH, params={"q": symbol})
+    except Exception:
+        return None
+    pairs = data.get("pairs") if isinstance(data, dict) else None
+    if not isinstance(pairs, list) or not pairs:
+        return None
+    want = symbol.lower()
+    matched = [
+        p for p in pairs
+        if str((p.get("baseToken") or {}).get("symbol") or "").lower() == want
+    ]
+    pool = matched or pairs
+    pool = sorted(pool, key=lambda p: _num((p.get("liquidity") or {}).get("usd")), reverse=True)
+    return _pair_to_item(pool[0], "twitter24h")
+
+
 async def fetch_mentioned_memes(twitter_bearer: str = "") -> list[dict[str, Any]]:
     """Tokens mentioned on X in the last 24h whose pair is not older than 3 days."""
     from web3_radar.collectors.kol_calls import _resolve_token, extract_cas
@@ -347,16 +369,23 @@ async def fetch_mentioned_memes(twitter_bearer: str = "") -> list[dict[str, Any]
     from web3_radar.engine.meme_score import _age_minutes
 
     try:
-        tweets = await collect_social(MEME_MENTION_QUERIES, twitter_bearer, lookback_days=1)
+        tweets = await asyncio.wait_for(
+            collect_social(MEME_MENTION_QUERIES, twitter_bearer, lookback_days=1),
+            timeout=9,
+        )
     except Exception:
         tweets = []
     counts: dict[str, int] = {}
     sample: dict[str, tuple[str, str]] = {}
+    tickers: dict[str, int] = {}
     for tw in tweets:
-        for addr, chain in extract_cas(tw.get("text") or ""):
-            key = addr.lower()
+        text = tw.get("text") or ""
+        for addr, chain in extract_cas(text):
+            key = "ca:" + addr.lower()
             counts[key] = counts.get(key, 0) + 1
             sample[key] = (addr, chain)
+        for m in TICKER_RE.findall(text):
+            tickers[m.upper()] = tickers.get(m.upper(), 0) + 1
     items: list[dict[str, Any]] = []
     for key, n in sorted(counts.items(), key=lambda x: -x[1])[:25]:
         addr, chain = sample[key]
@@ -372,6 +401,27 @@ async def fetch_mentioned_memes(twitter_bearer: str = "") -> list[dict[str, Any]
         row["mention_count"] = n
         row["source"] = "+".join(x for x in [str(row.get("source") or ""), "twitter24h"] if x)
         items.append(row)
+    seen_sym = {str(x.get("symbol") or "").upper() for x in items}
+    for sym, n in sorted(tickers.items(), key=lambda x: -x[1])[:15]:
+        if sym in seen_sym:
+            for row in items:
+                if str(row.get("symbol") or "").upper() == sym:
+                    row["mention_count"] = int(row.get("mention_count") or 0) + n
+            continue
+        try:
+            row = await _resolve_symbol(sym)
+        except Exception:
+            row = None
+        if not row:
+            continue
+        age = _age_minutes(row)
+        if age is not None and age > MEME_MAX_AGE_DAYS * 24 * 60:
+            continue
+        row["mention_count"] = n
+        row["source"] = "twitter24h"
+        items.append(row)
+        seen_sym.add(sym)
+    items.sort(key=lambda x: int(x.get("mention_count") or 0), reverse=True)
     return items
 
 
@@ -381,114 +431,70 @@ async def scan_meme_coins(
     min_holder_growth: int = 5,
     twitter_bearer: str = "",
 ) -> dict[str, Any]:
-    import asyncio
-
     from web3_radar.collectors.kol_calls import fetch_kol_calls
-
-    errors: list[str] = []
-    collected: list[dict[str, Any]] = []
-    fetchers = [
-        ("twitter_mentions", fetch_mentioned_memes(twitter_bearer)),
-        ("dexscreener_boosted", fetch_dexscreener_boosted()),
-        ("pumpfun", fetch_pumpfun()),
-        ("gmgn_sol", fetch_gmgn(GMGN_SOL_TRENDING, "Solana")),
-        ("gmgn_eth", fetch_gmgn(GMGN_ETH_TRENDING, "Ethereum")),
-        ("gmgn_bsc", fetch_gmgn(GMGN_BSC_TRENDING, "BSC")),
-        ("geckoterminal", fetch_geckoterminal()),
-        ("geckoterminal_new", fetch_geckoterminal_new()),
-        ("kol_calls", fetch_kol_calls(twitter_bearer)),
-    ]
-
-    results = await asyncio.gather(*[f[1] for f in fetchers], return_exceptions=True)
-    for (name, _), result in zip(fetchers, results):
-        if isinstance(result, Exception):
-            errors.append(f"{name}: {result}")
-            continue
-        collected.extend(result)
-
-    merged: dict[str, dict[str, Any]] = {}
-    for item in collected:
-        key = item["key"]
-        if key not in merged:
-            merged[key] = item
-            continue
-        prev = merged[key]
-        richer = item if item.get("liquidity_usd", 0) > prev.get("liquidity_usd", 0) else prev
-        poorer = prev if richer is item else item
-        sources = {str(prev.get("source") or ""), str(item.get("source") or "")} - {""}
-        row = dict(richer)
-        row["source"] = "+".join(sorted(sources)) if len(sources) > 1 else (row.get("source") or "")
-        row["unique_buyers_est"] = max(int(prev.get("unique_buyers_est") or 0), int(item.get("unique_buyers_est") or 0))
-        row["holders"] = max(int(prev.get("holders") or 0), int(item.get("holders") or 0))
-        if prev.get("kol_call") or item.get("kol_call"):
-            kol_src = item if item.get("kol_call") else prev
-            row["kol_call"] = True
-            for field in ("kol", "kol_handles", "kol_names", "kol_reason", "kol_reasons", "call_text", "call_url", "twitter"):
-                if kol_src.get(field) and not row.get(field):
-                    row[field] = kol_src.get(field)
-            row["token_address"] = row.get("token_address") or poorer.get("token_address") or kol_src.get("token_address")
-        if prev.get("mention_count") or item.get("mention_count"):
-            row["mention_count"] = max(int(prev.get("mention_count") or 0), int(item.get("mention_count") or 0))
-        merged[key] = row
-
-    ranked = select_watchlist(list(merged.values()), min_liquidity_usd)
-    seen = {x["key"] for x in ranked}
-    for item in merged.values():
-        if item.get("kol_call") and item["key"] not in seen:
-            extra = enrich_and_score(item, min_liquidity_usd)
-            extra["kol_call"] = True
-            for field in ("kol", "kol_handles", "kol_names", "kol_reason", "kol_reasons", "call_text", "call_url", "twitter", "token_address"):
-                if item.get(field):
-                    extra[field] = item.get(field)
-            extra["source"] = extra.get("source") or "名人喊单"
-            extra["source_kind"] = "kol"
-            if extra.get("grade") == "避开":
-                extra["grade"] = "观察"
-                extra["followable"] = False
-            ranked.append(extra)
-            seen.add(item["key"])
-    for item in merged.values():
-        if item.get("mention_count") and item["key"] not in seen:
-            extra = enrich_and_score(item, min_liquidity_usd)
-            extra["mention_count"] = item.get("mention_count")
-            extra["source_kind"] = extra.get("source_kind") or "twitter"
-            if extra.get("grade") == "避开":
-                extra["grade"] = "观察"
-                extra["followable"] = False
-            ranked.append(extra)
-            seen.add(item["key"])
     from web3_radar.engine.meme_score import _age_minutes
 
+    errors: list[str] = []
+    mentioned: list[dict[str, Any]] = []
+    try:
+        mentioned = await fetch_mentioned_memes(twitter_bearer)
+    except Exception as exc:
+        errors.append(f"twitter_mentions: {exc}")
+
     cutoff = MEME_MAX_AGE_DAYS * 24 * 60
+    ranked: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for item in mentioned:
+        extra = enrich_and_score(item, min_liquidity_usd)
+        extra["mention_count"] = item.get("mention_count")
+        extra["source_kind"] = "twitter"
+        if extra.get("grade") == "避开":
+            extra["grade"] = "观察"
+            extra["followable"] = False
+        ranked.append(extra)
+        seen.add(extra["key"])
 
-    def _young(item: dict[str, Any]) -> bool:
-        age = _age_minutes(item)
-        if item.get("mention_count") or item.get("kol_call"):
-            return age is None or age <= cutoff
-        return age is not None and age <= cutoff
+    if not ranked:
+        collected: list[dict[str, Any]] = []
+        fetchers = [
+            ("kol_calls", fetch_kol_calls(twitter_bearer)),
+            ("dexscreener_boosted", fetch_dexscreener_boosted()),
+            ("geckoterminal_new", fetch_geckoterminal_new()),
+        ]
+        results = await asyncio.gather(*[f[1] for f in fetchers], return_exceptions=True)
+        for (name, _), result in zip(fetchers, results):
+            if isinstance(result, Exception):
+                errors.append(f"{name}: {result}")
+                continue
+            collected.extend(result)
+        for item in collected:
+            age = _age_minutes(item)
+            if age is None or age > cutoff:
+                continue
+            extra = enrich_and_score(item, min_liquidity_usd)
+            if extra["key"] in seen:
+                continue
+            extra["source_kind"] = extra.get("source_kind") or "chain"
+            ranked.append(extra)
+            seen.add(extra["key"])
 
-    young = [x for x in ranked if _young(x)]
-    if young:
-        ranked = young
     ranked.sort(
         key=lambda x: (
             int(x.get("mention_count") or 0),
             1 if x.get("kol_call") else 0,
             {"可跟": 3, "观察": 2, "避开": 1}.get(str(x.get("grade") or ""), 0),
-            float(x.get("heat") or 0) - float(x.get("risk") or 0) * 0.4,
         ),
         reverse=True,
     )
     followable = [x for x in ranked if x.get("followable")]
-    kol_n = sum(1 for x in ranked if x.get("kol_call"))
     return {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "min_liquidity_usd": min_liquidity_usd,
         "count": len(ranked),
         "followable_count": len(followable),
-        "kol_count": kol_n,
+        "kol_count": sum(1 for x in ranked if x.get("kol_call")),
         "items": ranked,
         "errors": errors,
         "mention_count": sum(int(x.get("mention_count") or 0) for x in ranked),
-        "method": "刷新后优先看过去 24 小时推特提及次数高、发币不超过 3 天的标的；可跟仍要求池子 ≥ $1M",
+        "method": "刷新后只按过去 24 小时推特提及排序，发币超过 3 天的丢掉。可跟仍要求池子 ≥ $1M。",
     }

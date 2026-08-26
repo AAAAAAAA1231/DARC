@@ -10,7 +10,6 @@ from web3_radar.collectors.social import (
     collect_social,
     is_mega_brand,
     looks_like_cex_listing,
-    looks_like_project_launch,
     parse_time,
     twitter_url,
 )
@@ -27,7 +26,8 @@ from web3_radar.collectors.solana_watch import (
 def _search_item(tw: dict[str, Any]) -> dict[str, Any] | None:
     text = tw.get("text") or ""
     user = tw.get("username") or ""
-    if not looks_like_project_launch(text):
+    blob = text.lower()
+    if not any(x in blob for x in ("token launch", "fair launch", "发射")):
         return None
     if looks_like_cex_listing(text) or is_mega_brand(text, user):
         return None
@@ -41,7 +41,7 @@ def _search_item(tw: dict[str, Any]) -> dict[str, Any] | None:
         "name": tw.get("name") or handle,
         "username": handle,
         "kind": "检索 · token launch / fair launch / 发射",
-        "chain": "Solana",
+        "chain": "",
         "text": text,
         "url": tw.get("url") or twitter_url(handle),
         "twitter": twitter_url(handle),
@@ -55,6 +55,7 @@ def _search_item(tw: dict[str, Any]) -> dict[str, Any] | None:
         "alert": bool(timing.get("status")),
         "launch_status": timing.get("status") or "出现发射字眼",
         "launch_when": timing.get("when_cn") or "",
+        "launch_when_utc": timing.get("when_utc") or "",
         "launch_when_label": timing.get("label") or "",
         "created_at": tw.get("_created") or tw.get("created_at"),
         "score": 55,
@@ -122,7 +123,7 @@ async def scan_launches(twitter_bearer: str = "", lookback_days: int = FOLLOW_LO
     items: list[dict[str, Any]] = []
     for batch in (follow_items, watch_items, search_items):
         for row in batch:
-            key = str(row.get("username") or row.get("key") or "").lower()
+            key = str(row.get("key") or row.get("username") or "").lower()
             if not key or key in seen:
                 continue
             seen.add(key)

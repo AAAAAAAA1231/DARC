@@ -14,7 +14,6 @@ from web3_radar.collectors.social import (
     score_ambassador,
     twitter_url,
 )
-from web3_radar.collectors.web3_projects import fetch_ambassador_jobs
 from web3_radar.fallback import load_fallback, merge_items
 
 
@@ -22,18 +21,13 @@ async def scan_ambassadors(twitter_bearer: str = "", lookback_days: int = 7) -> 
     errors: list[str] = []
     items: list[dict[str, Any]] = []
 
-    social_task = asyncio.wait_for(collect_social(AMBASSADOR_QUERIES, twitter_bearer, lookback_days), timeout=12)
-    jobs_task = fetch_ambassador_jobs()
-    tweets, jobs = await asyncio.gather(social_task, jobs_task, return_exceptions=True)
-
-    if isinstance(tweets, Exception):
-        errors.append(f"twitter: {tweets}")
+    try:
+        tweets = await asyncio.wait_for(collect_social(AMBASSADOR_QUERIES, twitter_bearer, lookback_days), timeout=12)
+    except Exception as exc:
+        errors.append(f"twitter: {exc}")
         tweets = []
-    if isinstance(jobs, Exception):
-        errors.append(f"jobs: {jobs}")
-        jobs = []
 
-    for tw in tweets:
+    for tw in tweets or []:
         text = tw.get("text") or ""
         user = tw.get("username") or ""
         if not looks_like_project_ambassador(text, user):
@@ -62,10 +56,6 @@ async def scan_ambassadors(twitter_bearer: str = "", lookback_days: int = 7) -> 
             }
         )
 
-    live_n = sum(1 for x in items if x.get("source_kind") == "live")
-    if not live_n:
-        items.extend(jobs)
-
     manual = await db.cache_get("manual_ambassadors") or []
     if isinstance(manual, list):
         for row in manual:
@@ -76,6 +66,7 @@ async def scan_ambassadors(twitter_bearer: str = "", lookback_days: int = 7) -> 
 
     items.sort(key=lambda x: x.get("score") or 0, reverse=True)
     live_n = sum(1 for x in items if x.get("source_kind") == "live")
+    # Catalog fallback only so the module is not empty offline; the UI hides seed rows.
     if not live_n:
         items = merge_items(items, load_fallback().get("ambassadors") or [])
         live_n = sum(1 for x in items if x.get("source_kind") == "live")
@@ -87,8 +78,5 @@ async def scan_ambassadors(twitter_bearer: str = "", lookback_days: int = 7) -> 
         "errors": errors,
         "social_skipped": not bool((twitter_bearer or "").strip()),
         "live_count": live_n,
-        "note": (
-            "大使只展示近一周项目方发布的招募（检索 大使 / ambassador），个人求职帖不显示。"
-            + (" 未配置 Twitter Bearer 时 X 可能为空，已用项目方大使岗位补齐。" if not twitter_bearer else " 已检索 X。")
-        ),
+        "note": "只展示近一周推特检索「大使 / ambassador」里项目方发出的招募，个人求职不显示。",
     }

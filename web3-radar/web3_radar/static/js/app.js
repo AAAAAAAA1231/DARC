@@ -5,6 +5,7 @@ const views = {
   copytrade: ["自动跟单", "跟随「可跟」信号。模拟盘默认开启，实盘需钱包确认。"],
   ambassador: ["大使招募", "近一周检索「大使 / ambassador」，只显示项目方发布的招募，个人求职不显示。"],
   launch: ["打新监测", "X 检索 token launch / fair launch / 发射；以及 @solana、@toly 最近一个月新增关注的未发币项目。只要项目，不要人物。"],
+  autosnipe: ["自动打新", "手动添加项目方推特后实时盯盘。发射时间换成北京时间，到点加入钱包确认队列。不会收私钥。"],
   airdrop: ["空投雷达", "近一周 KOL/推特提及的 Web3 空投。比特币生态排最前，其余按提及、融资、团队综合排。"],
   wallet: ["钱包执行", "连接钱包后，将任务加入确认队列。不会索取助记词或私钥。"],
   settings: ["设置", "接口令牌、钱包接口与过滤条件。不会收取私钥。"],
@@ -104,8 +105,9 @@ function setStatus(text) { $("statusLine").textContent = text; }
 
 function cycleTone(market, action) {
   const m = String(market || "");
-  if (action === "逃顶" || m.includes("熊") || m.includes("偏空")) return "bear";
-  if (action === "抄底" || m.includes("牛") || m.includes("偏多") || m.includes("偏牛")) return "bull";
+  if (m.includes("转换") || action === "逃顶" || action === "抄底") return "turn";
+  if (m.includes("熊")) return "bear";
+  if (m.includes("牛")) return "bull";
   return "turn";
 }
 
@@ -118,9 +120,9 @@ async function loadCycle(refresh) {
     el.className = "cycle-banner " + tone;
     const trade = data.trade || {};
     const tradeHtml = trade.symbol
-      ? `<div><strong>本轮合约：</strong>${escapeHtml(trade.how || "")} · 预计持仓 ${escapeHtml(String(trade.hold_days || ""))} 天</div>
+      ? `<div class="how-box">怎么开：${escapeHtml(trade.how || "")}<div class="muted">预计持仓 ${escapeHtml(String(trade.hold_days || ""))} 天</div></div>
          <div class="muted">${escapeHtml(trade.why || "")}</div>`
-      : `<div class="muted">${escapeHtml(data.trade_note || "先跑合约分析，再按预计收益率选出长持合约。")}</div>`;
+      : `<div class="muted">${escapeHtml(data.trade_note || "正在准备本轮长持合约。")}</div>`;
     el.innerHTML = `
       <div class="market">${escapeHtml(data.market || "周期")}</div>
       <div>
@@ -128,8 +130,8 @@ async function loadCycle(refresh) {
         <div class="signals">
           <span class="tag ${data.bottom_signal ? "up" : "wait"}">${data.bottom_signal ? "抄底信号" : "暂无抄底"}</span>
           <span class="tag ${data.top_signal ? "down" : "wait"}">${data.top_signal ? "逃顶信号" : "暂无逃顶"}</span>
+          <span class="tag range">${escapeHtml(data.conversion_signal || "转换未触发")}</span>
           <span class="tag ${String(data.cash_bias || "").includes("U") ? "range" : "up"}">建议${escapeHtml(data.cash_bias || "")}</span>
-          <span class="tag wait">${escapeHtml(data.phase || "")}</span>
         </div>
         ${tradeHtml}
         <div class="muted">${escapeHtml(data.disclaimer || "仅供研究参考，不构成投资建议。")}</div>
@@ -202,6 +204,8 @@ async function loadView(name, refresh) {
       const data = await api("/api/ambassadors" + q);
       const want = $("ambStatusFilter").value;
       const items = (data.items || []).filter((x) => {
+        const kind = x.source_kind || "";
+        if (kind === "seed" || x.fallback) return false;
         const st = x.mark_status || "none";
         if (want === "rejected") return st === "rejected";
         if (st === "rejected") return false;
@@ -212,7 +216,7 @@ async function loadView(name, refresh) {
       $("ambassadorCards").innerHTML = items.map((a) => {
         store.ambassador[a.key] = a;
         return ambassadorCard(a);
-      }).join("") || "<p class='muted'>" + (want === "rejected" ? "没有标记为未通过的大使。" : "暂无新的项目方招募。") + "</p>";
+      }).join("") || "<p class='muted'>" + (want === "rejected" ? "没有标记为未通过的大使。" : "近一周没有检索到项目方在推特发布的大使招募。") + "</p>";
       setStatus(`招募 ${items.length} 条`);
     } else if (name === "launch") {
       setStatus("正在更新…");
@@ -229,19 +233,40 @@ async function loadView(name, refresh) {
             <div class="launch-when">${escapeHtml(a.launch_when_label || a.launch_when || "时间待确认")}</div>
           </div>`).join("");
       }
-      renderLaunchWatches(data.watches || []);
-      const launchItems = data.items || [];
+      const launchItems = (data.items || []).filter((x) => x.source_kind !== "watch");
       $("launchCards").innerHTML = launchItems.map((a) => {
         store.launch[a.key] = a;
         return launchCard(a);
-      }).join("") || "<p class='muted'>暂无未发币项目。可在上方添加项目方推特盯盘。</p>";
+      }).join("") || "<p class='muted'>近一周没有检索到 token launch / fair launch / 发射，也没有 @solana / @toly 的未发币新关注。</p>";
       const bits = [];
-      if (data.follow_count) bits.push(`官方关注 ${data.follow_count}`);
       if (data.search_count) bits.push(`检索 ${data.search_count}`);
-      if (data.watch_count) bits.push(`盯盘 ${data.watch_count}`);
+      if (data.follow_count) bits.push(`官方关注 ${data.follow_count}`);
       if (data.alert_count) bits.push(`提醒 ${data.alert_count}`);
       setStatus(bits.join(" · ") || "已更新");
       pingLaunchAlerts(alerts);
+    } else if (name === "autosnipe") {
+      setStatus("正在盯盘…");
+      if ($("snipeCards")) $("snipeCards").innerHTML = "<p class='muted'>加载中…</p>";
+      const data = await api("/api/launches" + q);
+      store.launch = store.launch || {};
+      renderLaunchWatches(data.watches || []);
+      const watches = (data.items || []).filter((x) => x.source_kind === "watch" || x.watch_kind === "manual_watch");
+      watches.forEach((a) => { store.launch[a.key] = a; });
+      if ($("snipeAlerts")) {
+        $("snipeAlerts").innerHTML = watches.filter((a) => a.alert).map((a) => `
+          <div class="alert-banner">
+            <strong>到点打新 · ${escapeHtml(a.launch_status || "")}</strong>
+            <div>@${escapeHtml(a.username || a.name || "")}</div>
+            <div class="launch-when">${escapeHtml(a.launch_when_label || a.launch_when || "时间待确认")}</div>
+            <div class="muted">${escapeHtml(a.sell_hint || "卖出需钱包确认，不会使用私钥。")}</div>
+          </div>`).join("");
+      }
+      if ($("snipeCards")) {
+        $("snipeCards").innerHTML = watches.map((a) => launchCard(a)).join("")
+          || "<p class='muted'>先在上方添加项目方推特。出现发射时间会换成北京时间，并加入钱包确认队列。</p>";
+      }
+      setStatus(`盯盘 ${ (data.watches || []).length } 个账号`);
+      if (!window._snipeTimer) window._snipeTimer = setInterval(() => { if (currentView === "autosnipe") loadView("autosnipe", true); }, 45 * 1000);
     } else if (name === "news") {
       setStatus("正在更新…");
       if ($("newsVerdict")) $("newsVerdict").innerHTML = "<p class='muted'>加载中…</p>";
@@ -710,13 +735,13 @@ async function addLaunchWatch() {
   if ($("watchHandle")) $("watchHandle").value = "";
   if ($("watchNote")) $("watchNote").value = "";
   setStatus("已添加盯盘");
-  await loadView("launch", true);
+  await loadView("autosnipe", true);
 }
 
 async function removeLaunchWatch(handle) {
   await api("/api/launch-watches/remove", { method: "POST", body: { handle } });
   setStatus("已移除盯盘");
-  await loadView("launch", true);
+  await loadView("autosnipe", true);
 }
 
 async function loadSettingsForm() {

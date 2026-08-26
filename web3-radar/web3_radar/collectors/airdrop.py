@@ -210,7 +210,8 @@ async def scan_airdrops(
     focused = await _attach_kol_mentions(focused, twitter_bearer, errors)
     focused.sort(
         key=lambda x: (
-            0 if x.get("ecosystem") == "bitcoin" else 1 if x.get("ecosystem") in {"ethereum", "btc-eth"} else 2,
+            0 if x.get("ecosystem") == "bitcoin" else 1,
+            0 if int(x.get("mention_count") or 0) else 1,
             -int(x.get("mention_count") or 0),
             -(x.get("score") or 0),
             -(x.get("total_funding_usd") or 0),
@@ -304,13 +305,17 @@ async def _attach_kol_mentions(
             }
         )
     extra = list(extra_map.values())
-    extra.sort(
+    combined = items + extra[:18]
+    combined.sort(
         key=lambda x: (
             0 if x.get("ecosystem") == "bitcoin" else 1,
+            0 if int(x.get("mention_count") or 0) else 1,
             -int(x.get("mention_count") or 0),
+            -(x.get("score") or 0),
+            -(x.get("total_funding_usd") or 0),
         )
     )
-    return items + extra[:18]
+    return combined
 
 
 async def _scan_llama(

@@ -22,6 +22,7 @@
       <button data-view="copytrade">自动跟单</button>
       <button data-view="ambassador">大使招募</button>
       <button data-view="launch">打新监测</button>
+      <button data-view="autosnipe">自动打新</button>
       <button data-view="airdrop">空投雷达</button>
       <button data-view="wallet">钱包执行</button>
       <button data-view="settings">设置</button>
@@ -40,10 +41,10 @@
       </div>
     </header>
     <div id="cycleBanner" class="cycle-banner wait">
-      <div class="market">周期判断</div>
+      <div class="market">牛 / 熊</div>
       <div>
         <strong>正在读取四年减半时钟…</strong>
-        <div class="muted">抄底 / 逃顶与持 U 还是持币会显示在这里。仅供参考。</div>
+        <div class="muted">抄底 / 逃顶、持 U 还是持币、这一轮长持合约会显示在这里。</div>
       </div>
     </div>
 
@@ -179,8 +180,23 @@
         <span class="pill">不要人物</span>
       </div>
       <div class="panel" id="launchWatchBox">
+        <h3>检索结果 · token launch / fair launch / 发射</h3>
+        <p class="muted" id="launchMsg">同时跟踪 @solana、@toly 近一个月新增关注的未发币项目。已发币的不显示。</p>
+      </div>
+      <div id="launchAlerts"></div>
+      <div class="cards" id="launchCards"></div>
+    </section>
+
+    <section id="view-autosnipe" class="view hidden">
+      <div class="toolbar">
+        <span class="pill">手动添加项目方推特</span>
+        <span class="pill">发射时间 → 北京时间</span>
+        <span class="pill">到点加入钱包队列</span>
+        <span class="pill">不会收私钥</span>
+      </div>
+      <div class="panel">
         <h3>自动打新盯盘</h3>
-        <p class="muted">手动添加项目方推特。读到发币 / 发射时间后换成北京时间，并提示加入钱包确认队列。本程序不会索取或保存私钥。</p>
+        <p class="muted">添加项目方推特后后台持续监控。出现发币/发射时间会换成北京时间，到点把买入和预计卖出都放进钱包确认队列。本程序不会索取或保存私钥。</p>
         <div class="watch-row">
           <input id="watchHandle" placeholder="@项目方推特，例如 helixsvm" />
           <input id="watchNote" placeholder="备注（可选）" />
@@ -188,9 +204,8 @@
         </div>
         <div id="watchList"></div>
       </div>
-      <div id="launchAlerts"></div>
-      <p class="muted hidden" id="launchMsg"></p>
-      <div class="cards" id="launchCards"></div>
+      <div id="snipeAlerts"></div>
+      <div class="cards" id="snipeCards"></div>
     </section>
 
     <section id="view-airdrop" class="view hidden">

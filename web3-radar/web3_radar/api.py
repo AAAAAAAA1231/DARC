@@ -4,6 +4,8 @@ import asyncio
 import traceback
 from typing import Any
 
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -35,7 +37,41 @@ from web3_radar.engine.signals import (
 )
 from web3_radar.wallet import enqueue_participate, wallet_status
 
-app = FastAPI(title="链上雷达", version="1.3.0")
+
+@asynccontextmanager
+async def _lifespan(_app: FastAPI):
+    import sys
+
+    stop = asyncio.Event()
+
+    async def _watch_loop() -> None:
+        await asyncio.sleep(20)
+        from web3_radar.collectors.launch_watch import apply_due_entries, scan_watch_accounts
+
+        while not stop.is_set():
+            try:
+                settings = load_settings()
+                data = await scan_watch_accounts(str(settings.get("twitter_bearer_token") or ""))
+                await apply_due_entries(data.get("items") or [])
+            except Exception:
+                pass
+            try:
+                await asyncio.wait_for(stop.wait(), timeout=45)
+            except asyncio.TimeoutError:
+                continue
+
+    task = None
+    if "pytest" not in sys.modules:
+        task = asyncio.create_task(_watch_loop())
+    try:
+        yield
+    finally:
+        stop.set()
+        if task:
+            task.cancel()
+
+
+app = FastAPI(title="链上雷达", version="1.3.1", lifespan=_lifespan)
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 _jobs: dict[str, dict[str, Any]] = {}
@@ -95,7 +131,7 @@ async def wallet_page() -> FileResponse:
 
 @app.get("/api/health")
 async def health() -> dict[str, Any]:
-    return {"ok": True, "app": "链上雷达", "version": "1.3.0"}
+    return {"ok": True, "app": "链上雷达", "version": "1.3.1"}
 
 
 @app.get("/api/settings")
@@ -603,7 +639,7 @@ async def _scan_or_cache(cache_key: str, category: str, ttl: int, refresh: bool,
 async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     data = await _scan_or_cache(
-        "meme_v4",
+        "meme_v5",
         "meme",
         90,
         refresh,
@@ -628,7 +664,7 @@ async def meme(refresh: bool = Query(False)) -> dict[str, Any]:
 async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "ambassadors_v5",
+        "ambassadors_v6",
         "ambassador",
         300,
         refresh,
@@ -643,7 +679,7 @@ async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
 async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "launches_v15",
+        "launches_v16",
         "launch",
         180,
         refresh,
@@ -656,7 +692,7 @@ async def cycle(refresh: bool = Query(False)) -> dict[str, Any]:
     cached = None if refresh else await db.cache_get("cycle_v1")
     if isinstance(cached, dict) and cached.get("phase"):
         return cached
-    from web3_radar.engine.cycle import assess_cycle, pick_cycle_trade
+    from web3_radar.engine.cycle import assess_cycle, attach_cycle_trade
 
     df = None
     errors: list[str] = []
@@ -668,11 +704,8 @@ async def cycle(refresh: bool = Query(False)) -> dict[str, Any]:
         df = None
     data = assess_cycle(df)
     last = await db.latest_analysis_run()
-    pick = pick_cycle_trade(data, (last or {}).get("results") or [])
-    data["trade"] = pick
+    data["trade"] = attach_cycle_trade(data, (last or {}).get("results") or [])
     data["errors"] = errors
-    if not pick:
-        data["trade_note"] = "先跑一遍合约分析，再按预计收益率挑这一轮适合长持的合约。"
     await db.cache_set("cycle_v1", data, 600)
     return data
 
@@ -698,7 +731,7 @@ async def post_launch_watch(body: LaunchWatchBody) -> dict[str, Any]:
         item = await add_watch(body.handle, body.note)
     except ValueError as exc:
         raise HTTPException(400, str(exc)) from exc
-    await db.cache_delete("launches_v15")
+    await db.cache_delete("launches_v16")
     return item
 
 
@@ -707,7 +740,7 @@ async def remove_launch_watch(body: LaunchWatchBody) -> dict[str, Any]:
     from web3_radar.collectors.launch_watch import remove_watch
 
     await remove_watch(body.handle)
-    await db.cache_delete("launches_v15")
+    await db.cache_delete("launches_v16")
     return {"ok": True}
 
 
@@ -720,7 +753,7 @@ async def news(refresh: bool = Query(False)) -> dict[str, Any]:
 async def airdrops(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
     return await _scan_or_cache(
-        "airdrops_v4",
+        "airdrops_v5",
         "airdrop",
         3600,
         refresh,
@@ -811,7 +844,7 @@ async def add_ambassador(body: AmbassadorAddBody) -> dict[str, Any]:
     await db.cache_set("manual_ambassadors", manual, 365 * 24 * 3600)
     await db.cache_delete("ambassadors_v2")
     await db.cache_delete("ambassadors_v3")
-    await db.cache_delete("ambassadors_v5")
+    await db.cache_delete("ambassadors_v6")
     await db.upsert_mark("ambassador", item["key"], "watching", "手动添加", item)
     return item
 

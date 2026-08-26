@@ -241,12 +241,25 @@ def test_launch_and_ambassador_search_queries():
     from web3_radar.collectors.social import AMBASSADOR_QUERIES, LAUNCH_QUERIES
 
     launch = " ".join(LAUNCH_QUERIES)
-    assert "token launch" in launch
+    assert '"token launch" OR "fair launch" OR 发射' in launch
     assert "fair launch" in launch
     assert "发射" in launch
     amb = " ".join(AMBASSADOR_QUERIES)
     assert "大使" in amb
     assert "ambassador" in amb.lower()
+
+
+def test_watch_due_now():
+    from datetime import datetime, timedelta, timezone
+    from web3_radar.collectors.launch_watch import _is_due
+
+    now = datetime(2026, 8, 26, 4, 0, tzinfo=timezone.utc)
+    assert _is_due({"alert": True, "launch_relation": "now"}, now)
+    assert not _is_due({"alert": False, "launch_relation": "now"}, now)
+    soon = (now + timedelta(seconds=30)).isoformat()
+    assert _is_due({"alert": True, "launch_when_utc": soon}, now)
+    later = (now + timedelta(hours=5)).isoformat()
+    assert not _is_due({"alert": True, "launch_when_utc": later, "launch_relation": "upcoming"}, now)
 
 
 def test_public_following_parser_requires_real_list():

@@ -1,16 +1,18 @@
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from web3_radar import db
 from web3_radar.collectors.social import parse_time, twitter_recent_search, twitter_url
-from web3_radar.collectors.solana_watch import extract_launch_when, looks_like_launch_alert
+from web3_radar.collectors.solana_watch import extract_launch_when, fmt_cn, looks_like_launch_alert
 from web3_radar.http_util import client as http_client
 
 WATCH_CACHE = "launch_watches_v1"
+QUEUED_CACHE = "launch_watch_queued_v1"
 HANDLE_RE = re.compile(r"^[A-Za-z0-9_]{2,15}$")
+LINK_RE = re.compile(r"https?://[^\s)>\"]+")
 
 
 def _norm_handle(raw: str) -> str:
@@ -139,6 +141,14 @@ async def scan_watch_accounts(twitter_bearer: str = "") -> dict[str, Any]:
                 continue
             created = parse_time(tw.get("created_at"))
             timing = extract_launch_when(text, created)
+            links = LINK_RE.findall(text)[:5]
+            when = None
+            try:
+                if timing.get("when_utc"):
+                    when = datetime.fromisoformat(str(timing["when_utc"]).replace("Z", "+00:00"))
+            except ValueError:
+                when = None
+            sell_at = (when + timedelta(minutes=25)) if when else None
             row = {
                 "key": f"watch:{handle}:{(tw.get('id') or timing.get('when_utc') or text[:24])}",
                 "name": handle,
@@ -146,7 +156,8 @@ async def scan_watch_accounts(twitter_bearer: str = "") -> dict[str, Any]:
                 "kind": "盯盘推特",
                 "chain": "Solana",
                 "text": text,
-                "url": tw.get("url") or twitter_url(handle),
+                "url": (links[0] if links else None) or tw.get("url") or twitter_url(handle),
+                "links": links,
                 "twitter": twitter_url(handle),
                 "watch_kind": "manual_watch",
                 "source": "手动盯盘",
@@ -157,9 +168,17 @@ async def scan_watch_accounts(twitter_bearer: str = "") -> dict[str, Any]:
                 "alert": True,
                 "launch_status": timing.get("status") or "出现发射字眼",
                 "launch_when": timing.get("when_cn") or "",
+                "launch_when_utc": timing.get("when_utc") or "",
                 "launch_when_label": timing.get("label") or "",
+                "launch_relation": timing.get("relation") or "",
                 "created_at": tw.get("created_at"),
-                "sell_hint": "发币后是否卖出请你自己在钱包里确认。本程序不会使用私钥下单。",
+                "sell_when_cn": fmt_cn(sell_at) if sell_at else "",
+                "sell_hint": (
+                    f"建议在 {fmt_cn(sell_at)} 前后卖出（打新后约 25 分钟，或冲高回落时）。"
+                    if sell_at
+                    else "发币后根据冲高回落卖出。"
+                )
+                + " 卖出需钱包确认，不会使用私钥。",
             }
             if best is None or str(timing.get("when_utc") or "") > str((best.get("created_at") or "")):
                 best = row
@@ -193,5 +212,51 @@ async def scan_watch_accounts(twitter_bearer: str = "") -> dict[str, Any]:
         "items": items,
         "alerts": [x for x in items if x.get("alert")],
         "errors": errors,
-        "note": "只盯你手动添加的项目方推特。出现发射时间会换成北京时间。链上买入/卖出一律要钱包确认，不会收私钥。",
+        "note": "只盯你手动添加的项目方推特。出现发射时间会换成北京时间。到点会加入钱包确认队列，买入卖出都不会用私钥。",
     }
+
+
+def _is_due(item: dict[str, Any], now: datetime | None = None) -> bool:
+    if not item.get("alert"):
+        return False
+    rel = str(item.get("launch_relation") or "")
+    if rel in {"now", "posted"}:
+        return True
+    raw = item.get("launch_when_utc")
+    if not raw:
+        return True
+    now = now or datetime.now(timezone.utc)
+    try:
+        when = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return when <= now + timedelta(seconds=90)
+
+
+async def apply_due_entries(items: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Queue wallet-confirm buy (and a delayed sell note) when a watched launch is due."""
+    from web3_radar.wallet import enqueue_participate
+
+    queued = await db.cache_get(QUEUED_CACHE) or []
+    if not isinstance(queued, list):
+        queued = []
+    seen = {str(x) for x in queued}
+    made: list[dict[str, Any]] = []
+    for item in items:
+        key = str(item.get("key") or "")
+        if not key or key in seen or not _is_due(item):
+            continue
+        try:
+            buy = await enqueue_participate("watch", item, auto=False)
+            sell_item = dict(item)
+            sell_item["key"] = f"{key}:sell"
+            sell_item["name"] = f"{item.get('name') or item.get('username')} 卖出"
+            await enqueue_participate("sell", sell_item, auto=False)
+            seen.add(key)
+            made.append(buy)
+        except Exception:
+            continue
+    await db.cache_set(QUEUED_CACHE, list(seen), 14 * 24 * 3600)
+    return made

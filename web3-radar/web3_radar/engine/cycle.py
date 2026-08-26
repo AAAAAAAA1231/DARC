@@ -109,25 +109,34 @@ def assess_cycle(df: pd.DataFrame | None = None, now: datetime | None = None) ->
         bottom, top = False, True
     if top:
         action, cash = "逃顶", "持U"
+        display, conversion = "牛熊转换", "逃顶：时钟/涨幅显示由牛转熊"
     elif bottom:
         action, cash = "抄底", "分批持币"
+        display, conversion = "牛熊转换", "抄底：时钟/跌幅显示由熊转牛"
+    elif "转换" in market:
+        action, cash = "减仓观察", "减币持U" if "空" in market or "熊" in market else "分批持币"
+        display, conversion = "牛熊转换", f"均线与四年时钟不一致（{market}）"
     elif "熊" in market:
         action, cash = "观望", "持U"
+        display, conversion = "熊市", "四年减半时钟处于熊段，尚未给出转换信号"
     else:
         action, cash = "顺势持有", clock["cash_bias"]
-    side = "空" if ("熊" in market or market.endswith("偏空") or top) and not bottom else "多"
+        display, conversion = "牛市", "四年减半时钟处于牛段，尚未给出转换信号"
+    side = "空" if ("熊" in display or "转熊" in conversion or top) and not bottom else "多"
     return {
         **clock,
         **ma,
-        "market": market,
+        "market": display,
+        "phase_market": market,
         "action": action,
         "cash_bias": cash,
         "preferred_side": side,
         "bottom_signal": bottom,
         "top_signal": top,
+        "conversion_signal": conversion,
         "updated_at": _now(now).astimezone(CN).strftime("%Y-%m-%d %H:%M") + " 北京时间",
         "disclaimer": "四年减半周期叠加均线，仅供研究参考，不构成投资建议。",
-        "summary": f"当前{market} · {clock['phase']} · {action} · 建议{cash}",
+        "summary": f"当前{display} · {clock['phase']} · {action} · 建议{cash}",
     }
 
 
@@ -181,3 +190,36 @@ def pick_cycle_trade(cycle: dict[str, Any], rows: list[dict[str, Any]] | None) -
         "how": f"{side_cn} {best.get('symbol')}，挂单 {best.get('entry')}，止损 {best.get('stop_loss')}，止盈 {best.get('take_profit')}",
         "why": f"本轮周期偏{cycle.get('market')}，在已分析合约里按预计收益率最高选出。预计持仓约 {hold} 天。",
     }
+
+
+def fallback_btc_trade(cycle: dict[str, Any]) -> dict[str, Any]:
+    """If contract analysis has not run, still give a cycle vehicle on BTCUSDT."""
+    px = cycle.get("price")
+    side = cycle.get("preferred_side") or "多"
+    hold = int(cycle.get("hold_days") or 45)
+    long_ = side != "空"
+    entry = sl = tp = None
+    if px:
+        entry = round(float(px), 2)
+        sl = round(entry * (0.92 if long_ else 1.08), 2)
+        tp = round(entry * (1.28 if long_ else 0.78), 2)
+    side_cn = "做多" if long_ else "做空"
+    return {
+        "symbol": "BTCUSDT",
+        "name": "Bitcoin",
+        "decision": "涨" if long_ else "跌",
+        "side": side_cn,
+        "entry": entry,
+        "stop_loss": sl,
+        "take_profit": tp,
+        "win_rate": None,
+        "expected_yield": None,
+        "hold_days": hold,
+        "how": f"{side_cn} BTCUSDT"
+        + (f"，挂单 {entry}，止损 {sl}，止盈 {tp}" if entry else "（先看现价再挂单）"),
+        "why": f"合约分析尚未给出更高收益标的，先按四年周期用 BTC 作为这一轮长持合约。预计持仓约 {hold} 天。",
+    }
+
+
+def attach_cycle_trade(cycle: dict[str, Any], rows: list[dict[str, Any]] | None) -> dict[str, Any]:
+    return pick_cycle_trade(cycle, rows) or fallback_btc_trade(cycle)

@@ -15,18 +15,13 @@ NITTER_INSTANCES = [
 
 # New-project ambassador hunts — not CEX campus programs.
 AMBASSADOR_QUERIES = [
-    "大使 (招募 OR 报名 OR 计划 OR 申请) -求职 -想当 -应聘",
-    "ambassador (program OR hiring OR recruiting OR apply) -\"i want\" -\"hire me\"",
-    '"ambassador program" (apply OR hiring OR we)',
-    "\"we're looking for ambassadors\"",
-    "招募社区大使 (报名 OR 申请)",
+    "大使 OR ambassador",
+    "招募大使 OR \"ambassador program\"",
+    "大使 (报名 OR 申请 OR 招募) -求职 -应聘",
 ]
 
 LAUNCH_QUERIES = [
-    '"token launch" OR "fair launch" OR 发射 -binance -okx -listed',
-    '"token launch" (TGE OR whitelist OR crypto)',
-    '"fair launch" (token OR TGE OR solana)',
-    "发射 (TGE OR 代币 OR 主网 OR 白名单) -上线现货",
+    '"token launch" OR "fair launch" OR 发射',
 ]
 
 MEGA_BRANDS = (

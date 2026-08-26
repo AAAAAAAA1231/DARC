@@ -32,8 +32,8 @@ def test_health_and_index():
     assert "近一个月" in page.text
     assert "只要项目" in page.text
     assert "不要人物" in page.text
+    assert "自动打新" in page.text
     assert "token launch" in page.text
-    assert "自动打新盯盘" in page.text
     assert "发币 ≤ 3 天" in page.text
     assert "24h 提及" in page.text
     assert "近一周 KOL" in page.text
