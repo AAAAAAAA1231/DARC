@@ -16,6 +16,7 @@ import pandas as pd
 
 from .config import load_config
 from .paper.simulator import DISCLAIMER
+from .panel_html import write_panel_html
 from .paths import data_dir, log_path, output_dir
 from .pipeline import run_pipeline
 
@@ -93,50 +94,19 @@ def run_job(mode: str, regenerate: bool, on_done=None) -> None:
         regenerate=regenerate,
         mode=mode,
     )
+    write_panel_html(output_dir(), ideas=result.ideas.to_dict(orient="records") if not result.ideas.empty else [], snap=result.extra.get("snapshot"))
     if on_done:
         on_done(result)
 
 
-def start_server_thread(port: int, host: str = "127.0.0.1") -> dict:
-    """Start uvicorn in-process. Returns a mutable status dict."""
-    import uvicorn
-
-    from .web.app import create_app
-
-    state: dict = {"ok": False, "error": None}
-    cfg = load_config()
-    app = create_app(cfg, output_dir=output_dir(), data_path=data_dir() / "synthetic_bars.csv")
-
-    def _run() -> None:
-        try:
-            logging.info("starting local server on %s:%s", host, port)
-            config = uvicorn.Config(
-                app,
-                host=host,
-                port=port,
-                log_level="info",
-                access_log=False,
-                lifespan="on",
-            )
-            server = uvicorn.Server(config)
-            state["ok"] = True
-            server.run()
-        except Exception as exc:
-            logging.exception("local server died")
-            state["ok"] = False
-            state["error"] = str(exc)
-
-    t = threading.Thread(target=_run, name="ashare-web", daemon=True)
-    t.start()
-    state["thread"] = t
-    if not wait_for_listen(host, port, 15):
-        err = state.get("error") or "本机端口没有监听。请查看程序窗口和日志，不要只刷新浏览器。"
-        raise RuntimeError(err)
-    return state
-
-
-def open_browser(port: int, host: str = "127.0.0.1") -> None:
-    webbrowser.open(f"http://{host}:{port}/")
+def open_local_panel() -> Path:
+    path = write_panel_html(output_dir())
+    target = str(path.resolve())
+    if os.name == "nt":
+        os.startfile(target)
+    else:
+        webbrowser.open(path.resolve().as_uri())
+    return path
 
 
 def main() -> int:
@@ -167,15 +137,6 @@ def _run_gui() -> int:
     import tkinter as tk
     from tkinter import ttk, messagebox
 
-    host = "127.0.0.1"
-    port = pick_port()
-    try:
-        start_server_thread(port, host)
-        server_note = f"本机服务已就绪  http://{host}:{port}/"
-    except Exception as exc:
-        logging.exception("server start failed")
-        server_note = f"本机网页服务未启动（{exc}）。请直接使用本窗口，不要去刷新浏览器。"
-
     root = tk.Tk()
     root.title("A股量化辅助系统")
     root.geometry("1180x720")
@@ -198,7 +159,7 @@ def _run_gui() -> int:
     header = ttk.Frame(root)
     header.pack(fill="x", padx=16, pady=(14, 6))
     ttk.Label(header, text="A股量化辅助系统", style="Title.TLabel").pack(side="left")
-    ttk.Label(header, text="单机窗口就是软件本身 · 不要关掉本窗口去刷浏览器", style="Muted.TLabel").pack(side="left", padx=12)
+    ttk.Label(header, text="单机运行 · 结果在本窗口，也可打开本地网页", style="Muted.TLabel").pack(side="left", padx=12)
 
     warn = tk.Text(root, height=3, wrap="word", bg="#241a12", fg="#f0d5a6", relief="flat", font=("Microsoft YaHei UI", 9))
     warn.insert(
@@ -208,7 +169,7 @@ def _run_gui() -> int:
     warn.configure(state="disabled")
     warn.pack(fill="x", padx=16, pady=(0, 8))
 
-    status = tk.StringVar(value=server_note + "  正在准备今日信号…")
+    status = tk.StringVar(value="单机模式。正在准备今日信号…")
     ttk.Label(root, textvariable=status, style="Muted.TLabel").pack(fill="x", padx=16)
 
     btns = ttk.Frame(root)
@@ -249,10 +210,9 @@ def _run_gui() -> int:
                 vals.append(v)
             tree.insert("", "end", values=vals)
         buys = sum(1 for r in rows if str(r.get("action")) == "buy")
-        extra = "本机服务在线。" if port_is_open(host, port) else "本机网页服务未启动，请用本窗口看结果，刷新浏览器无效。"
-        status.set(f"{extra}  候选 {len(rows)} 条，买入 {buys} 条。日志 {log_path()}")
+        status.set(f"候选 {len(rows)} 条，买入 {buys} 条。数据目录 {output_dir()}")
 
-    def spawn(mode: str, regenerate: bool, label: str) -> None:
+    def spawn(mode: str, regenerate: bool, label: str, open_html: bool = False) -> None:
         if busy["flag"]:
             messagebox.showinfo("请稍候", "已有任务在运行。")
             return
@@ -263,6 +223,8 @@ def _run_gui() -> int:
             try:
                 run_job(mode, regenerate)
                 root.after(0, fill_table)
+                if open_html:
+                    root.after(400, open_panel)
             except Exception as exc:
                 logging.exception("job failed")
                 root.after(0, lambda: messagebox.showerror("任务失败", f"{exc}\n日志: {log_path()}"))
@@ -272,17 +234,14 @@ def _run_gui() -> int:
         threading.Thread(target=worker, daemon=True).start()
 
     def open_panel() -> None:
-        if not port_is_open(host, port):
-            messagebox.showerror(
-                "浏览器连不上是正常的",
-                "127.0.0.1 拒绝连接 = 本机网页服务没在跑。\n\n"
-                "请保持这个深色程序窗口开着，结果看本窗口表格，不要只刷新浏览器。\n"
-                f"日志：{log_path()}",
-            )
-            return
-        open_browser(port, host)
+        try:
+            path = open_local_panel()
+            status.set(f"已打开本地页面：{path}")
+        except Exception as exc:
+            logging.exception("open panel failed")
+            messagebox.showerror("无法打开页面", f"{exc}\n日志: {log_path()}")
 
-    tk.Button(btns, text="打开浏览器面板", bg=accent, fg="white", relief="flat", padx=12, pady=6, command=open_panel).pack(side="left", padx=(0, 8))
+    tk.Button(btns, text="打开结果网页", bg=accent, fg="white", relief="flat", padx=12, pady=6, command=open_panel).pack(side="left", padx=(0, 8))
     tk.Button(btns, text="刷新今日信号", bg="#223044", fg=text, relief="flat", padx=12, pady=6, command=lambda: spawn("quick", False, "正在计算今日信号（快速模式）…")).pack(side="left", padx=4)
     tk.Button(btns, text="完整验证 Walk-Forward", bg="#223044", fg=text, relief="flat", padx=12, pady=6, command=lambda: spawn("full", False, "正在 Walk-Forward + 蒙特卡洛（约数分钟）…")).pack(side="left", padx=4)
     tk.Button(btns, text="打开数据目录", bg="#223044", fg=text, relief="flat", padx=12, pady=6, command=lambda: os.startfile(str(output_dir())) if os.name == "nt" else webbrowser.open(output_dir().as_uri())).pack(side="left", padx=4)
@@ -291,7 +250,7 @@ def _run_gui() -> int:
         if (output_dir() / "ideas.csv").exists():
             fill_table()
             return
-        spawn("quick", False, "首次启动：正在本机生成演示行情并计算信号，请稍候（不要关窗口）…")
+        spawn("quick", False, "首次启动：正在本机生成演示行情并计算信号，请稍候…", open_html=True)
 
     root.after(200, bootstrap)
     root.mainloop()

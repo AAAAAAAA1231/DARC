@@ -1,11 +1,9 @@
 A股量化辅助系统 — 单机版（Windows 64位）
 
-1. 下载 AShareQuant.exe，放到单独文件夹
-2. 双击运行。真正的软件是弹出的深色窗口，不是浏览器
-3. 不要关掉那个窗口。关掉后浏览器访问 127.0.0.1 会显示「拒绝连接」，刷新也没用
+下载 AShareQuant.exe 放到单独文件夹，双击即可。无需安装、无需联网。
 
-无需安装 Python、无需联网。第一次约 1 分钟在本机算演示信号。
+真正的软件是弹出的深色窗口。点「打开结果网页」会打开本地 HTML 文件，地址是 file:///... 不是 127.0.0.1。
+不要再去刷新 127.0.0.1，那个地址已经不用了。
+
 数据：exe 同目录 AShareQuant_data\
-日志：AShareQuant_data\ashare_quant.log
-
-这是研究/风控工具，不是实盘下单软件。
+网页：AShareQuant_data\output\panel.html

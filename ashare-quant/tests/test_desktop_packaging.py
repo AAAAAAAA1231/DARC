@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from ashare_quant.desktop import load_idea_rows, port_is_open, wait_for_listen
+from ashare_quant.panel_html import write_panel_html
 from ashare_quant.paths import resolve_config_path
 from ashare_quant.pipeline import run_pipeline
 
@@ -46,3 +47,30 @@ def test_port_is_open_detects_listener():
     finally:
         srv.close()
     assert not port_is_open("127.0.0.1", port)
+
+
+def test_write_panel_html_is_standalone_file(tmp_path):
+    ideas = [
+        {
+            "symbol": "002005",
+            "name": "测试",
+            "board_cn": "深证主板",
+            "score": 0.4,
+            "action": "buy",
+            "shares": 100,
+            "stop_loss": 9.1,
+            "take_profit": 11.2,
+            "ci_p10": -0.02,
+            "ci_p50": 0.01,
+            "ci_p90": 0.05,
+            "flags": "risk_budget",
+        }
+    ]
+    path = write_panel_html(tmp_path, ideas=ideas, snap={"asof": "2025-06-30", "n_buy": 1, "disclaimer": "测试"})
+    text = path.read_text(encoding="utf-8")
+    assert path.name == "panel.html"
+    assert "002005" in text
+    assert "file://" not in text
+    assert "localhost" not in text
+    assert "止损" in text
+    assert "buy" in text
