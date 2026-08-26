@@ -1,0 +1,14 @@
+A股量化辅助系统 — 单机版（Windows 64位）
+
+下载最新 AShareQuant.exe 放到单独文件夹，双击即可。无需安装 Python。
+必须联网：程序会拉取此时的 A 股公开行情，信号日是最近交易日（盘中为最新价）。
+代码和名称按行情源一一对应（例如 000001 是平安银行），不会再用假名字。
+
+请删掉旧版 exe，并删掉旁边的 AShareQuant_data 文件夹（旧缓存会显示过期信号日和错误名称）。
+
+真正的软件是弹出的深色窗口。点「打开结果网页」会打开本地 HTML 文件，地址是 file:///... 不是 127.0.0.1。
+不要再去刷新 127.0.0.1，那个地址已经不用了。
+
+数据：exe 同目录 AShareQuant_data\
+网页：AShareQuant_data\output\panel.html
+日志：AShareQuant_data\ashare_quant.log

@@ -19,3 +19,19 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+
+# Python / A-share quant
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+.pytest_cache/
+ashare-quant/dist/
+ashare-quant/build/
+ashare-quant/output/*
+!ashare-quant/output/.gitkeep
+ashare-quant/data/*.csv
+ashare-quant/data/*.parquet
+ashare-quant/data/*.pkl
+.coverage
+htmlcov/

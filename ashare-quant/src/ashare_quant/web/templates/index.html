@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>A股量化辅助 · 概率信号与风控</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header class="top">
+    <div>
+      <p class="eyebrow">SSE · SZSE · 创业板 · 科创板</p>
+      <h1>量化交易辅助系统</h1>
+      <p class="sub">T日收盘信号 · T+1执行 · 动态加权集成 · Walk-Forward / 蒙特卡洛校准</p>
+    </div>
+    <div class="badge">非实盘 · 非点预测</div>
+  </header>
+
+  <section class="disclaimer">{{ disclaimer }}</section>
+
+  {% set wf = snap.walkforward or {} %}
+  {% set mc = snap.monte_carlo or {} %}
+  {% set adj = snap.adjusted_risk or {} %}
+  <section class="kpis">
+    <article>
+      <span>信号日</span>
+      <strong>{{ snap.asof or "尚未运行" }}</strong>
+    </article>
+    <article>
+      <span>行情时刻</span>
+      <strong>{{ snap.quote_time or "-" }}</strong>
+    </article>
+    <article>
+      <span>分层股票池</span>
+      <strong>{{ uni_n.selected }} <small>/ {{ uni_n.eligible }} 入围</small></strong>
+    </article>
+    <article>
+      <span>买入候选</span>
+      <strong>{{ snap.n_buy or 0 }}</strong>
+    </article>
+    <article>
+      <span>OOS 回撤</span>
+      <strong>{{ "%.1f%%"|format(((wf.max_drawdown or 0) * 100)) }}</strong>
+    </article>
+    <article>
+      <span>OOS Sharpe</span>
+      <strong>{{ "%.2f"|format(wf.sharpe or 0) }}</strong>
+    </article>
+    <article>
+      <span>MC 回撤预警概率</span>
+      <strong>{{ "%.0f%%"|format(((mc.p_dd_worse_than_alert or 0) * 100)) }}</strong>
+    </article>
+  </section>
+
+  <section class="grid">
+    <div class="card">
+      <h2>Walk-Forward 样本外净值</h2>
+      {% if has_oos_chart %}
+      <img src="/artifacts/oos_equity.png" alt="Walk-forward OOS equity" />
+      {% else %}
+      <p class="muted">尚未生成图表。点击下方「运行流水线」。</p>
+      {% endif %}
+    </div>
+    <div class="card">
+      <h2>蒙特卡洛分布（收益 / 回撤）</h2>
+      {% if has_mc_chart %}
+      <img src="/artifacts/monte_carlo.png" alt="Monte Carlo distribution" />
+      {% else %}
+      <p class="muted">尚未生成模拟分布。</p>
+      {% endif %}
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>方法动态权重（滚动样本外）</h2>
+    <div class="weights">
+      {% for k, v in (snap.weights or {}).items() %}
+      <div class="w">
+        <label>{{ k }}</label>
+        <div class="bar"><i style="width: {{ (v * 100)|round(1) }}%"></i></div>
+        <em>{{ "%.1f%%"|format(v * 100) }}</em>
+      </div>
+      {% endfor %}
+      {% if not snap.weights %}
+      <p class="muted">运行后显示趋势 / 动量 / 均值回归 / 波动率 / 相对强弱的自适应权重。</p>
+      {% endif %}
+    </div>
+    {% if snap.mc_notes %}
+    <ul class="notes">
+      {% for n in snap.mc_notes %}
+      <li>{{ n }}</li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+  </section>
+
+  <section class="card">
+    <h2>T日收盘候选 · ATR 止盈止损 · 收益置信区间</h2>
+    <p class="muted">买入最早于 execute_date 成交，T+1 约束下最早可卖日为 earliest_exit_date。区间来自残差自助法，不是目标价。</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>代码</th><th>名称</th><th>板块</th><th>分值</th><th>动作</th>
+            <th>股数</th><th>止损</th><th>止盈</th>
+            <th>P10</th><th>P50</th><th>P90</th><th>限制/备注</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in ideas %}
+          <tr class="{{ r.action }}">
+            <td>{{ r.symbol }}</td>
+            <td>{{ r.name }}</td>
+            <td>{{ r.board_cn }}</td>
+            <td>{{ "%.3f"|format(r.score or 0) }}</td>
+            <td><span class="tag {{ r.action }}">{{ r.action }}</span></td>
+            <td>{{ r.shares }}</td>
+            <td>{{ r.stop_loss }}</td>
+            <td>{{ r.take_profit }}</td>
+            <td>{{ "%.1f%%"|format((r.ci_p10 or 0) * 100) }}</td>
+            <td>{{ "%.1f%%"|format((r.ci_p50 or 0) * 100) }}</td>
+            <td>{{ "%.1f%%"|format((r.ci_p90 or 0) * 100) }}</td>
+            <td class="flags">{{ r.flags }}</td>
+          </tr>
+          {% endfor %}
+          {% if not ideas %}
+          <tr><td colspan="12" class="muted">暂无候选。请先运行流水线。</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Walk-Forward 折次</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>折</th><th>训练</th><th>测试</th><th>fast/slow</th>
+            <th>OOS Sharpe</th><th>OOS 回撤</th><th>OOS 收益</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in folds %}
+          <tr>
+            <td>{{ f.fold }}</td>
+            <td>{{ f.train_start }} → {{ f.train_end }}</td>
+            <td>{{ f.test_start }} → {{ f.test_end }}</td>
+            <td>{{ f.chosen_fast }}/{{ f.chosen_slow }}</td>
+            <td>{{ "%.2f"|format(f.oos_sharpe or 0) }}</td>
+            <td>{{ "%.1f%%"|format((f.oos_max_drawdown or 0) * 100) }}</td>
+            <td>{{ "%.1f%%"|format((f.oos_total_return or 0) * 100) }}</td>
+          </tr>
+          {% endfor %}
+          {% if not folds %}
+          <tr><td colspan="7" class="muted">尚无折次结果。</td></tr>
+          {% endif %}
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    <button id="runBtn" type="button">运行流水线（拉取此时行情）</button>
+    <p>仓位管理优先：总仓 {{ "%.0f%%"|format(((adj.max_gross_exposure or 0.8) * 100)) }} 上限 · 单票风险预算优先于收益排序。</p>
+    <p class="tiny">默认使用东方财富公开行情（需联网）。盘中为最新价近似，不是券商实盘；合成数据仅用于测试。</p>
+  </footer>
+  <script src="/static/app.js"></script>
+</body>
+</html>
