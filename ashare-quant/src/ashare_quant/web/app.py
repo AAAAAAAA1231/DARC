@@ -40,7 +40,9 @@ def create_app(cfg: AppConfig | None = None, output_dir: str | Path | None = Non
         if ideas_path.exists():
             import pandas as pd
 
-            df = pd.read_csv(ideas_path)
+            df = pd.read_csv(ideas_path, dtype={"symbol": str})
+            if "symbol" in df.columns:
+                df["symbol"] = df["symbol"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(6)
             ideas = df.head(40).fillna("").to_dict(orient="records")
         folds = []
         fp = out / "walkforward_folds.csv"
@@ -79,7 +81,10 @@ def create_app(cfg: AppConfig | None = None, output_dir: str | Path | None = Non
             return JSONResponse({"ideas": []})
         import pandas as pd
 
-        return JSONResponse({"ideas": pd.read_csv(p).fillna("").to_dict(orient="records")})
+        df = pd.read_csv(p, dtype={"symbol": str})
+        if "symbol" in df.columns:
+            df["symbol"] = df["symbol"].astype(str).str.replace(r"\.0$", "", regex=True).str.zfill(6)
+        return JSONResponse({"ideas": df.fillna("").to_dict(orient="records")})
 
     @app.get("/health")
     def health():

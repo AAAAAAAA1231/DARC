@@ -20,3 +20,9 @@ def test_dashboard_renders_signal_sheet():
     assert "置信区间" in body
     if (out / "snapshot.json").exists():
         assert "非实盘" in body
+    ideas = client.get("/api/ideas").json()["ideas"]
+    if ideas:
+        assert all(len(str(r["symbol"])) == 6 for r in ideas)
+        assert any(r.get("stop_loss") not in (None, "") for r in ideas)
+        assert any(r.get("ci_p10") not in (None, "") for r in ideas)
+        assert any(r.get("execute_date") for r in ideas)
