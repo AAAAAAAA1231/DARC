@@ -4,15 +4,24 @@ from __future__ import annotations
 
 from pathlib import Path
 
-import matplotlib
-
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 import pandas as pd
 
 
+def _pyplot():
+    try:
+        import matplotlib
+
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        return plt
+    except Exception:
+        return None
+
+
 def _plot_equity(series: pd.Series, path: Path, title: str) -> None:
-    if series is None or series.empty:
+    plt = _pyplot()
+    if plt is None or series is None or series.empty:
         return
     fig, ax = plt.subplots(figsize=(9.5, 4.2))
     ax.plot(series.index, series.values, color="#1f6feb", lw=1.6)
@@ -26,8 +35,9 @@ def _plot_equity(series: pd.Series, path: Path, title: str) -> None:
 
 
 def _plot_mc(dist: pd.DataFrame, path: Path) -> None:
+    plt = _pyplot()
     use = dist[dist.get("source", "return_bootstrap") == "return_bootstrap"] if "source" in dist.columns else dist
-    if use.empty or "max_drawdown" not in use:
+    if plt is None or use.empty or "max_drawdown" not in use:
         return
     fig, axes = plt.subplots(1, 2, figsize=(9.5, 3.8))
     axes[0].hist(use["total_return"].dropna(), bins=18, color="#3fb950", alpha=0.85)

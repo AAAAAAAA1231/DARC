@@ -1,14 +1,14 @@
 # -*- mode: python ; coding: utf-8 -*-
-"""PyInstaller spec for AShareQuant.exe (Windows) / one-file desktop app."""
+"""Slim one-file Windows EXE: keep under upload limits, still double-clickable."""
 
 from __future__ import annotations
 
 from pathlib import Path
 
-from PyInstaller.utils.hooks import collect_all, collect_submodules
+from PyInstaller.utils.hooks import collect_submodules
 
 SPECDIR = Path(SPECPATH).resolve()
-ROOT = SPECDIR  # spec lives in ashare-quant/
+ROOT = SPECDIR
 
 datas = [
     (str(ROOT / "config" / "default.yaml"), "config"),
@@ -16,35 +16,48 @@ datas = [
     (str(ROOT / "src" / "ashare_quant" / "web" / "templates"), "ashare_quant/web/templates"),
     (str(ROOT / "src" / "ashare_quant" / "web" / "static"), "ashare_quant/web/static"),
 ]
-binaries = []
+
 hiddenimports = collect_submodules("ashare_quant") + collect_submodules("uvicorn")
 hiddenimports += [
     "tkinter",
-    "matplotlib.backends.backend_agg",
     "uvicorn.logging",
     "uvicorn.loops.auto",
     "uvicorn.protocols.http.auto",
     "uvicorn.protocols.http.h11_impl",
     "uvicorn.lifespan.on",
     "uvicorn.lifespan.off",
+    "pandas",
+    "numpy",
+    "yaml",
+    "pydantic",
+    "jinja2",
+    "fastapi",
+    "starlette",
+    "dateutil",
 ]
 
-for pkg in ("ashare_quant", "uvicorn", "fastapi", "starlette", "matplotlib", "scipy", "pandas", "pydantic", "yaml", "jinja2"):
-    d, b, h = collect_all(pkg)
-    datas += d
-    binaries += b
-    hiddenimports += h
+# matplotlib/scipy are optional for charts; excluding them is what makes the EXE attachable.
+excludes = [
+    "matplotlib",
+    "scipy",
+    "PIL",
+    "Pillow",
+    "pytest",
+    "IPython",
+    "notebook",
+    "jupyter",
+]
 
 a = Analysis(
     [str(ROOT / "packaging" / "entry.py")],
     pathex=[str(ROOT / "src")],
-    binaries=binaries,
+    binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    excludes=excludes,
     noarchive=False,
 )
 pyz = PYZ(a.pure)
