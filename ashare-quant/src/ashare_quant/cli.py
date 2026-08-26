@@ -136,44 +136,50 @@ def cmd_serve(args) -> int:
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="ashare-quant", description="A股量化信号与风控辅助（非实盘下单）")
-    p.add_argument("--config", default=None)
-    p.add_argument("--data", default=None)
-    p.add_argument("--output", default=None)
+    shared = argparse.ArgumentParser(add_help=False)
+    shared.add_argument("--config", default=None)
+    shared.add_argument("--data", default=None)
+    shared.add_argument("--output", default=None)
+
+    p = argparse.ArgumentParser(
+        prog="ashare-quant",
+        description="A股量化信号与风控辅助（非实盘下单）",
+        parents=[shared],
+    )
     sub = p.add_subparsers(dest="cmd", required=True)
 
-    d = sub.add_parser("demo", help="生成数据并跑完整流水线")
+    d = sub.add_parser("demo", help="生成数据并跑完整流水线", parents=[shared])
     d.add_argument("--regenerate", action="store_true")
     d.add_argument("--skip-mc", action="store_true")
     d.set_defaults(func=cmd_demo, regenerate=False)
 
-    u = sub.add_parser("universe")
+    u = sub.add_parser("universe", parents=[shared])
     u.add_argument("--asof", default=None)
     u.add_argument("--regenerate", action="store_true")
     u.set_defaults(func=cmd_universe)
 
-    s = sub.add_parser("signals")
+    s = sub.add_parser("signals", parents=[shared])
     s.add_argument("--asof", default=None)
     s.add_argument("--regenerate", action="store_true")
     s.set_defaults(func=cmd_signals)
 
-    b = sub.add_parser("backtest")
+    b = sub.add_parser("backtest", parents=[shared])
     b.add_argument("--regenerate", action="store_true")
     b.set_defaults(func=cmd_backtest)
 
-    w = sub.add_parser("walkforward")
+    w = sub.add_parser("walkforward", parents=[shared])
     w.add_argument("--regenerate", action="store_true")
     w.set_defaults(func=cmd_walkforward)
 
-    m = sub.add_parser("montecarlo")
+    m = sub.add_parser("montecarlo", parents=[shared])
     m.set_defaults(func=cmd_montecarlo)
 
-    pa = sub.add_parser("paper")
+    pa = sub.add_parser("paper", parents=[shared])
     pa.add_argument("--days", type=int, default=40)
     pa.add_argument("--regenerate", action="store_true")
     pa.set_defaults(func=cmd_paper)
 
-    sv = sub.add_parser("serve")
+    sv = sub.add_parser("serve", parents=[shared])
     sv.add_argument("--host", default="0.0.0.0")
     sv.add_argument("--port", type=int, default=8765)
     sv.set_defaults(func=cmd_serve)
@@ -183,6 +189,6 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
-    if args.output is None:
+    if getattr(args, "output", None) is None:
         args.output = str(Path(__file__).resolve().parents[2] / "output")
     return int(args.func(args) or 0)
