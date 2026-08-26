@@ -1,0 +1,5 @@
+苹果电脑：下完后双击「链上雷达」就能用。
+
+要是打不开：按住 Control 再点「链上雷达」，选打开。
+
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-mac.zip

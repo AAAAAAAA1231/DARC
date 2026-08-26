@@ -1,0 +1,141 @@
+name: Build ChainRadar
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "web3-radar/**"
+      - ".github/workflows/build-web3-radar.yml"
+      - "!web3-radar/dist/**"
+
+concurrency:
+  group: chainradar-exe
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: web3-radar
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x64
+      - name: Install app dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      - name: Test
+        run: python -m pytest tests -q
+      - name: Build custom PyInstaller bootloader
+        working-directory: .
+        run: |
+          git clone --depth 1 --branch v6.14.2 https://github.com/pyinstaller/pyinstaller.git "$env:RUNNER_TEMP\pyinstaller"
+          Set-Location "$env:RUNNER_TEMP\pyinstaller\bootloader"
+          python ./waf distclean all --target-arch=64bit
+          Set-Location "$env:RUNNER_TEMP\pyinstaller"
+          pip install .
+      - name: Build EXE
+        run: pyinstaller --noconfirm ChainRadar.spec
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: ChainRadar-windows
+          path: web3-radar/dist/ChainRadar.exe
+
+  macos-app:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            zip: ChainRadar-mac.zip
+          - os: macos-15-intel
+            zip: ChainRadar-mac-intel.zip
+    runs-on: ${{ matrix.os }}
+    defaults:
+      run:
+        working-directory: web3-radar
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install app dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller==6.14.2
+      - name: Test
+        run: python -m pytest tests -q
+      - name: Make app icon
+        run: python packaging/make_icns.py
+      - name: Build app
+        run: pyinstaller --noconfirm ChainRadar.spec
+      - name: Sign and zip app
+        run: |
+          set -euo pipefail
+          test -d dist/ChainRadar.app
+          codesign --force --deep --sign - dist/ChainRadar.app
+          rm -rf dist/macout
+          mkdir dist/macout
+          cp -R dist/ChainRadar.app "dist/macout/链上雷达.app"
+          ditto -c -k --keepParent "dist/macout/链上雷达.app" "dist/${{ matrix.zip }}"
+          ls -lh "dist/${{ matrix.zip }}"
+      - name: Upload Mac app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.zip }}
+          path: web3-radar/dist/${{ matrix.zip }}
+
+  publish:
+    needs: [windows-exe, macos-app]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release-files
+          merge-multiple: true
+      - name: Show release files
+        run: ls -lh release-files
+      - name: Drop leftover assets
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        continue-on-error: true
+        run: |
+          gh release delete-asset chainradar ChainRadar.zip --yes --repo ${{ github.repository }}
+          gh release delete-asset chainradar ChainRadar.dmg --yes --repo ${{ github.repository }}
+          gh release delete-asset chainradar ChainRadar-intel.dmg --yes --repo ${{ github.repository }}
+      - name: Publish downloadable release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: chainradar
+          name: 链上雷达 ChainRadar
+          target_commitish: ${{ github.sha }}
+          files: |
+            release-files/ChainRadar.exe
+            release-files/ChainRadar-mac.zip
+            release-files/ChainRadar-mac-intel.zip
+          fail_on_unmatched_files: true
+          make_latest: true
+          body: |
+            点对应链接就会下载，不要点仓库文件旁的小箭头。
+
+            Windows：下完双击 ChainRadar.exe
+            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
+
+            苹果电脑：下完双击「链上雷达」
+            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-mac.zip
+
+            比较旧的 Intel 苹果电脑用这个：
+            https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-mac-intel.zip
+
+            要是打不开：按住 Control 再点「链上雷达」，选打开。

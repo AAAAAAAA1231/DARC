@@ -19,3 +19,17 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+
+# Web3 Radar
+web3-radar/.venv
+web3-radar/data/*.db
+web3-radar/data/*.json
+web3-radar/dist/*
+!web3-radar/dist/ChainRadar.exe
+web3-radar/build
+web3-radar/*.spec.bak
+__pycache__/
+*.pyc
+.pytest_cache
+.venv
+*.egg-info

@@ -1,0 +1,15 @@
+链上雷达 ChainRadar
+====================
+
+Windows：双击 ChainRadar.exe。
+苹果电脑：双击「链上雷达」。
+浏览器打开 http://127.0.0.1:8787
+
+Windows 若误报：在「保护历史记录」里标为允许。
+苹果电脑要是打不开：按住 Control 再点「链上雷达」，选打开。
+
+Windows
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
+
+苹果电脑
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-mac.zip

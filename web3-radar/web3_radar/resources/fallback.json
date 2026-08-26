@@ -1,0 +1,169 @@
+{
+  "ambassadors": [
+    {
+      "key": "seed-x-search-amb",
+      "project": "X 检索：新项目社区大使",
+      "username": "",
+      "title": "搜 7 天内新项目大使，不要只看交易所",
+      "text": "在 X 搜索：ambassador program apply、we're looking for ambassadors、招募社区大使、regional ambassador。只要带报名表、测试网/TGE/白名单的新项目，忽略 OKX/币安校园计划。",
+      "url": "https://x.com/search?q=web3%20ambassador%20program%20apply&src=typed_query&f=live",
+      "deadline": "滚动 7 天窗口",
+      "priority": "高",
+      "priority_detail": "高 · 检索方法",
+      "score": 70,
+      "source": "观察池"
+    },
+    {
+      "key": "seed-galxe-zealy",
+      "project": "Galxe / Zealy 任务里的大使",
+      "username": "",
+      "title": "新项目常把大使申请做成任务页",
+      "text": "很多未发币项目会在 Galxe、Zealy 发 Ambassador / Mod / Content Creator 任务。按项目名交叉验证官网和 X 账号，避免假表。",
+      "url": "https://galxe.com/",
+      "deadline": "以任务页截止为准",
+      "priority": "中",
+      "priority_detail": "中 · 任务平台",
+      "score": 62,
+      "source": "观察池"
+    }
+  ],
+  "launches": [
+    {
+      "key": "seed-solana-follow-watch",
+      "name": "盯 @solana 最近关注",
+      "kind": "打新流程（方法）",
+      "chain": "Solana",
+      "text": "只盯 @solana 或 @toly 最近一个月关注、尚未发币的 Web3 项目。个人账号不显示。出现 launch、发射、TGE 时会标北京时间。",
+      "url": "https://x.com/solana",
+      "twitter": "https://x.com/solana",
+      "source": "观察池",
+      "price_usd": null
+    },
+    {
+      "key": "seed-sol-x-search-launch",
+      "name": "盯 @toly 最近关注",
+      "kind": "打新流程（方法）",
+      "chain": "Solana",
+      "text": "Toly 关注列表里筛未发币项目，不要把人设账号或已上线 DEX/钱包混进来。",
+      "url": "https://x.com/toly",
+      "twitter": "https://x.com/toly",
+      "source": "观察池",
+      "price_usd": null
+    },
+    {
+      "key": "seed-pump-launchlab",
+      "name": "近一个月关注窗口",
+      "kind": "打新流程（方法）",
+      "chain": "Solana",
+      "text": "关注列表越靠前越新。只取最近一个月这一段，再去掉个人账号和已经发币的项目。",
+      "url": "https://x.com/solana",
+      "twitter": "https://x.com/solana",
+      "source": "观察池",
+      "price_usd": null
+    }
+  ],
+  "airdrops": [
+    {
+      "key": "seed-megaeth",
+      "name": "MegaETH",
+      "total_funding_usd": 450000000,
+      "latest_round": "Strategic",
+      "latest_date": "",
+      "sector": "ETH L2 / 高性能链",
+      "chains": ["Ethereum"],
+      "famous_investors": ["Vitalik Buterin", "Dragonfly", "Robot Ventures"],
+      "famous_count": 3,
+      "investor_count": 8,
+      "token_status": "未发币（待核验）",
+      "token_expect": "未发币，空投预期较高 · ETH 生态 · 内置观察池，请核验官网",
+      "score": 88,
+      "source": "https://megaeth.com/"
+    },
+    {
+      "key": "seed-babylon",
+      "name": "Babylon",
+      "total_funding_usd": 96000000,
+      "latest_round": "Series B",
+      "latest_date": "",
+      "sector": "BTC 质押 / Bitcoin staking",
+      "chains": ["Bitcoin"],
+      "famous_investors": ["Paradigm", "Polychain", "HashKey"],
+      "famous_count": 3,
+      "investor_count": 12,
+      "token_status": "未发币（待核验）",
+      "token_expect": "未发币，空投预期较高 · 比特币生态 · 内置观察池，请核验官网",
+      "score": 90,
+      "source": "https://babylonlabs.io/"
+    },
+    {
+      "key": "seed-citrea",
+      "name": "Citrea",
+      "total_funding_usd": 27000000,
+      "latest_round": "Series A",
+      "latest_date": "",
+      "sector": "Bitcoin ZK rollup",
+      "chains": ["Bitcoin"],
+      "famous_investors": ["Founders Fund", "Polychain"],
+      "famous_count": 2,
+      "investor_count": 8,
+      "token_status": "未发币（待核验）",
+      "token_expect": "未发币，空投预期较高 · 比特币生态 · 内置观察池，请核验官网",
+      "score": 82,
+      "source": "https://citrea.xyz/"
+    },
+    {
+      "key": "seed-botanix",
+      "name": "Botanix",
+      "total_funding_usd": 21500000,
+      "latest_round": "Series A",
+      "latest_date": "",
+      "sector": "Bitcoin EVM L2",
+      "chains": ["Bitcoin"],
+      "famous_investors": ["Polychain"],
+      "famous_count": 1,
+      "investor_count": 6,
+      "token_status": "未发币（待核验）",
+      "token_expect": "未发币，空投预期较高 · 比特币生态 · 内置观察池，请核验官网",
+      "score": 78,
+      "source": "https://botanixlabs.xyz/"
+    }
+  ],
+  "news": [
+    {
+      "key": "seed-news-fomc",
+      "title": "盯 FOMC / CPI / 非农：宏观公布最容易把震荡切成单边",
+      "text": "美联储利率决议、CPI、PCE、非农前后，BTC 波动常突然放大。公布前看倒计时，公布后看合约页的行情有没有从震荡切到单边，不要提前追突破。",
+      "url": "https://www.forexfactory.com/calendar",
+      "source": "观察池",
+      "source_kind": "seed",
+      "kind": "日历",
+      "category": "宏观利率",
+      "bias": "方向未定",
+      "impact": "高",
+      "score": 88,
+      "why": "FOMC / CPI / NFP",
+      "playbook": "公布前后波动容易突然打开，先看是否从震荡切到单边，不要提前追突破。",
+      "alert": true,
+      "when_label": "按日历滚动",
+      "when_status": "监测方法"
+    },
+    {
+      "key": "seed-news-shock",
+      "title": "盯 ETF 批准/资金流、黑客、稳定币脱锚、暂停提现",
+      "text": "这类突发消息历史上容易走出单边。模块只保留这类催化剂，普通行情评论不会出现。",
+      "url": "https://www.coindesk.com/",
+      "source": "观察池",
+      "source_kind": "seed",
+      "kind": "新闻",
+      "category": "ETF/机构",
+      "bias": "方向未定",
+      "impact": "高",
+      "score": 80,
+      "why": "ETF / 黑客 / 脱锚",
+      "playbook": "先看消息方向和K线是否确认单边，不是看到标题就追。",
+      "alert": false,
+      "when_label": "出现即提醒",
+      "when_status": "监测方法"
+    }
+  ]
+}

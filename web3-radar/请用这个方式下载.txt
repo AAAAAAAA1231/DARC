@@ -1,0 +1,12 @@
+﻿链上雷达 —— 不要点网页上的小箭头（那个对大文件经常没反应）
+
+把下面整行复制到浏览器地址栏，按回车就会开始下载。
+
+Windows，下完双击 ChainRadar.exe：
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar.exe
+
+苹果电脑，下完双击「链上雷达」：
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-mac.zip
+
+比较旧的 Intel 苹果电脑：
+https://github.com/AAAAAAAA1231/DARC/releases/latest/download/ChainRadar-mac-intel.zip

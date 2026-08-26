@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>连接钱包 · 链上雷达</title>
+  <link rel="stylesheet" href="/static/css/app.css" />
+  <style>
+    body { display: block; padding: 40px; }
+    .wrap { max-width: 640px; margin: 0 auto; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="panel">
+      <h3>连接 OKX / 注入式 Web3 钱包</h3>
+      <p class="muted">请在已安装 OKX Wallet 或 MetaMask 扩展的浏览器中打开本页。本程序只读取地址，不会请求助记词或私钥。</p>
+      <p>状态：<span id="st">等待连接</span></p>
+      <p>地址：<code id="addr">-</code></p>
+      <button class="btn primary" id="connect">连接钱包</button>
+      <a class="btn" href="/">返回终端</a>
+      <h3 style="margin-top:24px">待确认任务</h3>
+      <div id="tasks" class="muted">加载中…</div>
+    </div>
+  </div>
+  <script>
+    const $ = (id) => document.getElementById(id);
+    function provider() {
+      if (window.okxwallet) return window.okxwallet;
+      if (window.ethereum) return window.ethereum;
+      return null;
+    }
+    async function connect() {
+      const p = provider();
+      if (!p) { $("st").textContent = "未检测到 OKX / MetaMask，请安装扩展后刷新"; return; }
+      const acc = await p.request({ method: "eth_requestAccounts" });
+      const addr = acc[0];
+      const chainId = await p.request({ method: "eth_chainId" });
+      await fetch("/api/wallet/connect", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ address: addr, chain: chainId }),
+      });
+      $("addr").textContent = addr;
+      $("st").textContent = "已连接 " + chainId;
+      loadTasks();
+    }
+    async function loadTasks() {
+      const w = await (await fetch("/api/wallet")).json();
+      const pending = (w.tasks || []).filter((t) => t.status === "pending");
+      if (!pending.length) { $("tasks").textContent = "没有待确认任务"; return; }
+      $("tasks").innerHTML = pending.map((t) => `<div class="card" style="margin-bottom:8px">
+        <strong>${t.title}</strong>
+        <p>${(t.payload && t.payload.description) || ""}</p>
+        <p>上限 $${(t.payload && t.payload.max_spend_usd) || 0}</p>
+        <button class="btn primary" onclick="confirmTask(${t.id})">在钱包中确认</button>
+      </div>`).join("");
+    }
+    async function confirmTask(id) {
+      const p = provider();
+      if (!p) return alert("请先连接钱包");
+      $("st").textContent = "等待钱包确认…";
+      try {
+        const acc = await p.request({ method: "eth_requestAccounts" });
+        // Personal sign as an explicit human confirmation. Actual swaps should
+        // be constructed against a DEX router after the user reviews the intent.
+        const msg = "ChainRadar task #" + id + " confirm at " + new Date().toISOString();
+        const sig = await p.request({ method: "personal_sign", params: [msg, acc[0]] });
+        await fetch("/api/wallet/tasks/" + id, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: "confirmed", tx_hash: sig.slice(0, 66) }),
+        });
+        $("st").textContent = "任务已确认";
+        loadTasks();
+      } catch (e) {
+        $("st").textContent = "取消或失败：" + e.message;
+      }
+    }
+    $("connect").onclick = connect;
+    loadTasks();
+  </script>
+</body>
+</html>
