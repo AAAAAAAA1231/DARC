@@ -7,19 +7,16 @@ import json
 from pathlib import Path
 
 from .config import load_config
-from .data.provider import MarketData, default_data_dir
+from .data.provider import MarketData
 from .paths import output_dir as default_output_dir
 from .pipeline import run_pipeline
 
 
 def _market(args, cfg):
-    path = Path(args.data) if getattr(args, "data", None) else default_data_dir() / "synthetic_bars.csv"
-    if path.exists() and not getattr(args, "regenerate", False):
-        return MarketData.from_csv(path)
-    m = MarketData.synthetic(cfg)
-    path.parent.mkdir(parents=True, exist_ok=True)
-    m.save(path)
-    return m
+    from .pipeline import ensure_market
+
+    path = Path(args.data) if getattr(args, "data", None) else None
+    return ensure_market(cfg, path, regenerate=getattr(args, "regenerate", False))
 
 
 def cmd_demo(args) -> int:

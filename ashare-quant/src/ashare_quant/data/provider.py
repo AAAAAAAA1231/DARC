@@ -1,7 +1,8 @@
-"""Data provider: CSV/parquet first, optional synthetic fallback."""
+"""Data provider: live East Money quotes by default; CSV and synthetic for tests."""
 
 from __future__ import annotations
 
+from datetime import datetime
 from pathlib import Path
 
 import pandas as pd
@@ -13,9 +14,10 @@ from .synthetic import generate_synthetic_market
 
 
 class MarketData:
-    def __init__(self, bars: pd.DataFrame, meta: pd.DataFrame):
+    def __init__(self, bars: pd.DataFrame, meta: pd.DataFrame, live_info: dict | None = None):
         self.bars = ensure_bars(bars)
         self.meta = meta.copy()
+        self.live_info = live_info or {}
 
     def symbols(self) -> list[str]:
         return sorted(self.bars["symbol"].unique().tolist())
@@ -47,7 +49,26 @@ class MarketData:
     @classmethod
     def synthetic(cls, cfg: AppConfig | None = None, **kwargs) -> "MarketData":
         bars, meta = generate_synthetic_market(cfg, **kwargs)
-        return cls(bars, meta)
+        info = {"source": "synthetic", "source_cn": "合成演示行情", "note": "非实时行情"}
+        return cls(bars, meta, live_info=info)
+
+    @classmethod
+    def live(
+        cls,
+        cfg: AppConfig | None = None,
+        *,
+        now: datetime | None = None,
+        http_get=None,
+    ) -> "MarketData":
+        from .eastmoney import fetch_live_market, http_get_json
+
+        kwargs = {}
+        if http_get is not None:
+            kwargs["http_get"] = http_get
+        else:
+            kwargs["http_get"] = http_get_json
+        bars, meta, info = fetch_live_market(cfg, now=now, **kwargs)
+        return cls(bars, meta, live_info=info)
 
 
 def default_data_dir() -> Path:

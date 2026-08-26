@@ -87,14 +87,19 @@ def load_idea_rows(path: Path | None = None) -> list[dict]:
 
 def run_job(mode: str, regenerate: bool, on_done=None) -> None:
     cfg = load_config()
+    live = (cfg.data.source or "live").lower() == "live"
     result = run_pipeline(
         cfg,
         output_dir=output_dir(),
-        data_path=data_dir() / "synthetic_bars.csv",
-        regenerate=regenerate,
+        data_path=data_dir() / ("live_bars.csv" if live else "synthetic_bars.csv"),
+        regenerate=True if live else regenerate,
         mode=mode,
     )
-    write_panel_html(output_dir(), ideas=result.ideas.to_dict(orient="records") if not result.ideas.empty else [], snap=result.extra.get("snapshot"))
+    write_panel_html(
+        output_dir(),
+        ideas=result.ideas.to_dict(orient="records") if not result.ideas.empty else [],
+        snap=result.extra.get("snapshot"),
+    )
     if on_done:
         on_done(result)
 
@@ -164,12 +169,15 @@ def _run_gui() -> int:
     warn = tk.Text(root, height=3, wrap="word", bg="#241a12", fg="#f0d5a6", relief="flat", font=("Microsoft YaHei UI", 9))
     warn.insert(
         "1.0",
-        DISCLAIMER + "  数据目录：" + str(output_dir().parent) + f"  日志：{log_path()}",
+        DISCLAIMER
+        + "  默认拉取此时的A股公开行情（需联网）。数据目录："
+        + str(output_dir().parent)
+        + f"  日志：{log_path()}",
     )
     warn.configure(state="disabled")
     warn.pack(fill="x", padx=16, pady=(0, 8))
 
-    status = tk.StringVar(value="单机模式。正在准备今日信号…")
+    status = tk.StringVar(value="单机模式。正在拉取此时此刻的A股行情…")
     ttk.Label(root, textvariable=status, style="Muted.TLabel").pack(fill="x", padx=16)
 
     btns = ttk.Frame(root)
@@ -210,7 +218,21 @@ def _run_gui() -> int:
                 vals.append(v)
             tree.insert("", "end", values=vals)
         buys = sum(1 for r in rows if str(r.get("action")) == "buy")
-        status.set(f"候选 {len(rows)} 条，买入 {buys} 条。数据目录 {output_dir()}")
+        snap_path = output_dir() / "snapshot.json"
+        extra = ""
+        if snap_path.exists():
+            import json
+
+            try:
+                snap = json.loads(snap_path.read_text(encoding="utf-8"))
+                extra = (
+                    f"  信号日 {snap.get('asof') or ''}  "
+                    f"{snap.get('quote_note') or snap.get('quote_time') or ''}  "
+                    f"{snap.get('data_source_cn') or ''}"
+                )
+            except (OSError, json.JSONDecodeError):
+                extra = ""
+        status.set(f"候选 {len(rows)} 条，买入 {buys} 条。{extra}  数据目录 {output_dir()}")
 
     def spawn(mode: str, regenerate: bool, label: str, open_html: bool = False) -> None:
         if busy["flag"]:
@@ -227,7 +249,10 @@ def _run_gui() -> int:
                     root.after(400, open_panel)
             except Exception as exc:
                 logging.exception("job failed")
-                root.after(0, lambda: messagebox.showerror("任务失败", f"{exc}\n日志: {log_path()}"))
+                msg = str(exc)
+                if "演示" not in msg and "行情" in msg:
+                    msg = msg + "\n\n不会用去年的演示数据充数。请联网后点「刷新今日信号」。"
+                root.after(0, lambda m=msg: messagebox.showerror("任务失败", f"{m}\n日志: {log_path()}"))
             finally:
                 busy["flag"] = False
 
@@ -242,15 +267,30 @@ def _run_gui() -> int:
             messagebox.showerror("无法打开页面", f"{exc}\n日志: {log_path()}")
 
     tk.Button(btns, text="打开结果网页", bg=accent, fg="white", relief="flat", padx=12, pady=6, command=open_panel).pack(side="left", padx=(0, 8))
-    tk.Button(btns, text="刷新今日信号", bg="#223044", fg=text, relief="flat", padx=12, pady=6, command=lambda: spawn("quick", False, "正在计算今日信号（快速模式）…")).pack(side="left", padx=4)
-    tk.Button(btns, text="完整验证 Walk-Forward", bg="#223044", fg=text, relief="flat", padx=12, pady=6, command=lambda: spawn("full", False, "正在 Walk-Forward + 蒙特卡洛（约数分钟）…")).pack(side="left", padx=4)
+    tk.Button(
+        btns,
+        text="刷新今日信号",
+        bg="#223044",
+        fg=text,
+        relief="flat",
+        padx=12,
+        pady=6,
+        command=lambda: spawn("quick", True, "正在拉取此时此刻的A股行情并计算信号（需联网）…"),
+    ).pack(side="left", padx=4)
+    tk.Button(
+        btns,
+        text="完整验证 Walk-Forward",
+        bg="#223044",
+        fg=text,
+        relief="flat",
+        padx=12,
+        pady=6,
+        command=lambda: spawn("full", True, "正在用最新行情做 Walk-Forward + 蒙特卡洛（需联网，约数分钟）…"),
+    ).pack(side="left", padx=4)
     tk.Button(btns, text="打开数据目录", bg="#223044", fg=text, relief="flat", padx=12, pady=6, command=lambda: os.startfile(str(output_dir())) if os.name == "nt" else webbrowser.open(output_dir().as_uri())).pack(side="left", padx=4)
 
     def bootstrap() -> None:
-        if (output_dir() / "ideas.csv").exists():
-            fill_table()
-            return
-        spawn("quick", False, "首次启动：正在本机生成演示行情并计算信号，请稍候…", open_html=True)
+        spawn("quick", True, "正在拉取此时此刻的A股行情（需联网，大约半分钟）…", open_html=True)
 
     root.after(200, bootstrap)
     root.mainloop()

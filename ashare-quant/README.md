@@ -19,9 +19,11 @@
 
 ## 单机版直接下载（Windows）
 
-无需安装 Python、无需联网：
+双击即用，**需要联网**才能拉此时的 A 股行情（不再使用去年的演示数据）：
 
 **https://github.com/AAAAAAAA1231/DARC/raw/cursor/ashare-quant-system-e784/ashare-quant/release/AShareQuant.exe**
+
+请下载**最新** `AShareQuant.exe`，删掉旧版，并删掉旧的 `AShareQuant_data` 文件夹（里面可能还缓存着 2025 年的演示行情）。
 
 下载后双击 `AShareQuant.exe`。数据写在同目录 `AShareQuant_data\`。说明见 `ashare-quant/release/使用说明.txt`。
 
@@ -29,15 +31,15 @@
 
 不装 Python 也可以：
 
-1. 从 GitHub Actions 下载产物 **AShareQuant-windows** 里的 `AShareQuant.exe`（本仓库 workflow「Build AShareQuant Windows EXE」）。
-2. 双击 `AShareQuant.exe`。
-3. 首次会生成演示行情并计算今日信号（约 1 分钟），随后自动打开浏览器面板。
+1. 下载上面的 `AShareQuant.exe`（或从 GitHub Actions 产物 **AShareQuant-windows** 获取）。
+2. 双击 `AShareQuant.exe`（电脑需要能访问行情源）。
+3. 启动后会拉取**此时此刻**的 A 股公开行情并计算信号（大约半分钟），随后打开本地结果页。
 4. 数据写在 exe 同目录的 `AShareQuant_data\`，可整夹拷贝带走。
 
 窗口按钮：
 
-- **打开浏览器面板**：T 日候选、ATR 止盈止损、置信区间、Walk-Forward
-- **刷新今日信号**：快速模式（不做完整样本外）
+- **打开结果网页**：T 日候选、ATR 止盈止损、置信区间；信号日是最近交易日（盘中为最新价）
+- **刷新今日信号**：重新拉取实时行情（快速模式，不做完整样本外）
 - **完整验证 Walk-Forward**：滚动样本外 + 蒙特卡洛（数分钟）
 
 本机已有 Python 时，也可在 `ashare-quant` 目录执行：
@@ -55,7 +57,9 @@ cd ashare-quant
 python3 -m pip install -e ".[dev]"
 ```
 
-默认使用**合成 A 股日线**（含涨跌停、停牌、ST、次新、流动性分层），用于规则验证与演示。把真实日线存成 CSV 后，通过 `--data path.csv` 接入，列名见下文。
+默认使用**东方财富公开实时行情**（需联网）。信号日为上海时区最近交易日；盘中会把最新价叠到当日 K 线，不会用去年的合成数据充数。拉行情失败会直接报错。
+
+测试与研究仍可用合成日线：在配置里设 `data.source: synthetic`，或把真实日线存成 CSV 后通过 `--data path.csv` 接入，列名见下文。
 
 ## 命令
 

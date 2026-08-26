@@ -47,8 +47,10 @@ def generate_synthetic_market(
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     cfg = cfg or AppConfig()
     rng = np.random.default_rng(seed if seed is not None else cfg.seed)
+    from ..calendar import now_shanghai
+
     start = start or date(2023, 1, 4)
-    end = end or date(2025, 6, 30)
+    end = end or now_shanghai().date()
     sessions = trading_days(start, end)
     if len(sessions) < 80:
         raise ValueError("need a longer calendar window for synthetic market")

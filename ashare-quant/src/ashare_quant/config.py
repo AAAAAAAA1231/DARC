@@ -142,9 +142,20 @@ class WebConfig(BaseModel):
     port: int = 8765
 
 
+class DataConfig(BaseModel):
+    source: str = "live"  # live | synthetic
+    live_scan: int = 160
+    live_max_symbols: int = 80
+    live_kline_begin: str = "20190101"
+    timeout_sec: float = 20.0
+    kline_workers: int = 6
+    retries: int = 4
+
+
 class AppConfig(BaseModel):
     seed: int = 42
     base_currency: str = "CNY"
+    data: DataConfig = Field(default_factory=DataConfig)
     universe: UniverseConfig = Field(default_factory=UniverseConfig)
     market: MarketConfig = Field(default_factory=MarketConfig)
     costs: CostConfig = Field(default_factory=CostConfig)

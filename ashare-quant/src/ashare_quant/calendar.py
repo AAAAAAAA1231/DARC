@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 # Major SSE/SZSE closed days 2022-2026. Weekend-only closures are handled separately.
 # Source: exchange public holiday notices; keep conservative (closed if either exchange is closed).
@@ -83,3 +83,56 @@ def trading_days(start: date, end: date) -> list[date]:
             out.append(cur)
         cur += timedelta(days=1)
     return out
+
+
+# China has no DST; avoid zoneinfo/tzdata so the frozen Windows EXE still works.
+SHANGHAI = timezone(timedelta(hours=8))
+
+
+def now_shanghai(now: datetime | None = None) -> datetime:
+    if now is None:
+        return datetime.now(SHANGHAI)
+    if now.tzinfo is None:
+        return now.replace(tzinfo=SHANGHAI)
+    return now.astimezone(SHANGHAI)
+
+
+def session_clock(now: datetime | None = None) -> dict:
+    """Where the A-share session is right now (Shanghai)."""
+    ts = now_shanghai(now)
+    d = ts.date()
+    minutes = ts.hour * 60 + ts.minute
+    open_min, close_min = 9 * 60 + 15, 15 * 60
+    if not is_trading_day(d):
+        sess = prev_trading_day(d)
+        return {
+            "now": ts,
+            "state": "closed",
+            "session_date": sess,
+            "intraday": False,
+            "note": f"今日休市，行情为最近交易日 {sess.isoformat()} 收盘",
+        }
+    if minutes < open_min:
+        sess = prev_trading_day(d)
+        return {
+            "now": ts,
+            "state": "preopen",
+            "session_date": sess,
+            "intraday": False,
+            "note": f"未开盘，行情为上一交易日 {sess.isoformat()} 收盘",
+        }
+    if minutes < close_min:
+        return {
+            "now": ts,
+            "state": "open",
+            "session_date": d,
+            "intraday": True,
+            "note": f"盘中最新价（{ts.strftime('%Y-%m-%d %H:%M')} 上海时间），不是收盘价",
+        }
+    return {
+        "now": ts,
+        "state": "closed",
+        "session_date": d,
+        "intraday": False,
+        "note": f"已收盘，行情为 {d.isoformat()} 收盘",
+    }

@@ -4,6 +4,15 @@
 seed: 42
 base_currency: CNY
 
+data:
+  source: live                 # live=此时A股公开行情（东方财富）；synthetic=仅供测试的合成数据
+  live_scan: 160               # 先按流通市值扫描的候选数
+  live_max_symbols: 80         # 下载日线并参与计算的只数
+  live_kline_begin: "20190101"
+  timeout_sec: 20
+  kline_workers: 6
+  retries: 4
+
 universe:
   boards: [sse_main, szse_main, chinext, star]
   min_listing_days: 60

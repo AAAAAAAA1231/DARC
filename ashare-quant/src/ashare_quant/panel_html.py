@@ -112,10 +112,13 @@ th,td{{padding:8px;border-bottom:1px solid #243044;text-align:left;white-space:n
 </head>
 <body>
 <h1>A股量化辅助系统</h1>
-<p class="sub">单机结果页（本地 HTML 文件） · T+1 · 非实盘</p>
+<p class="sub">单机结果页（本地 HTML 文件） · 实时行情 · T+1 · 非实盘</p>
 <section class="disclaimer">{html.escape(str(snap.get("disclaimer") or DISCLAIMER))}</section>
+<p class="muted">{html.escape(str(snap.get("quote_note") or ""))}</p>
 <section class="kpis">
 <article><span>信号日</span><strong>{html.escape(str(snap.get("asof") or "尚未运行"))}</strong></article>
+<article><span>行情时刻</span><strong>{html.escape(str(snap.get("quote_time") or "-"))}</strong></article>
+<article><span>数据来源</span><strong>{html.escape(str(snap.get("data_source_cn") or snap.get("data_source") or "-"))}</strong></article>
 <article><span>分层股票池</span><strong>{html.escape(str(snap.get("universe_selected") or 0))}</strong></article>
 <article><span>买入候选</span><strong>{html.escape(str(snap.get("n_buy") or 0))}</strong></article>
 <article><span>OOS 回撤</span><strong>{_pct(wf.get("max_drawdown"))}</strong></article>

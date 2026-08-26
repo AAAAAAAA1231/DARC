@@ -27,6 +27,10 @@
       <strong>{{ snap.asof or "尚未运行" }}</strong>
     </article>
     <article>
+      <span>行情时刻</span>
+      <strong>{{ snap.quote_time or "-" }}</strong>
+    </article>
+    <article>
       <span>分层股票池</span>
       <strong>{{ uni_n.selected }} <small>/ {{ uni_n.eligible }} 入围</small></strong>
     </article>
@@ -158,9 +162,9 @@
   </section>
 
   <footer>
-    <button id="runBtn" type="button">运行流水线（合成行情演示）</button>
+    <button id="runBtn" type="button">运行流水线（拉取此时行情）</button>
     <p>仓位管理优先：总仓 {{ "%.0f%%"|format(((adj.max_gross_exposure or 0.8) * 100)) }} 上限 · 单票风险预算优先于收益排序。</p>
-    <p class="tiny">合成数据仅用于验证规则与流程。接入真实 CSV/行情后，仍须更长模拟盘。</p>
+    <p class="tiny">默认使用东方财富公开行情（需联网）。盘中为最新价近似，不是券商实盘；合成数据仅用于测试。</p>
   </footer>
   <script src="/static/app.js"></script>
 </body>
