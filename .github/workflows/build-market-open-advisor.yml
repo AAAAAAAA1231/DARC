@@ -1,0 +1,33 @@
+name: Build Market Open Advisor EXE
+
+on:
+  push:
+    paths:
+      - "market-open-advisor/**"
+      - ".github/workflows/build-market-open-advisor.yml"
+  pull_request:
+    paths:
+      - "market-open-advisor/**"
+      - ".github/workflows/build-market-open-advisor.yml"
+
+jobs:
+  windows-go-exe:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: market-open-advisor/winapp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Test
+        run: go test ./...
+      - name: Build Windows EXE
+        run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../release/OpenAdvisor.exe
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenAdvisor.exe
+          path: market-open-advisor/release/OpenAdvisor.exe
+          if-no-files-found: error
