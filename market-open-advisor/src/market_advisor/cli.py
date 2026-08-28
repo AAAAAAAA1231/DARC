@@ -8,6 +8,7 @@ import sys
 
 from .engine import run_report
 from .model import DEFAULT_VERIFY_SIMS
+from .universe import DEFAULT_PER_MARKET
 
 
 def format_text(report) -> str:
@@ -31,6 +32,15 @@ def format_text(report) -> str:
         )
         for reason in item.reasons:
             lines.append(f"  - {reason}")
+        if item.stocks:
+            lines.append(f"  个股建议 {len(item.stocks)} 只：")
+            for stock in item.stocks:
+                schg = "" if stock.change_pct is None else f"{stock.change_pct:+.2f}%"
+                sspot = "" if stock.spot is None else f"{stock.spot:.2f}"
+                lines.append(
+                    f"    {stock.symbol} {stock.index_name}  {stock.action} 仓位{stock.size_pct}%  "
+                    f"现价 {sspot} {schg}  E[r]={stock.expected_return:.3%}  P(up)={stock.p_up:.1%}  {stock.regime}"
+                )
         lines.append("")
     if report.errors:
         lines.append("部分场所失败：")
@@ -43,6 +53,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--once", action="store_true", help="计算一次后打印并退出，不打开窗口")
     parser.add_argument("--json", action="store_true", help="与 --once 合用，输出 JSON")
     parser.add_argument("--html", metavar="PATH", help="把本次建议写成本地 HTML")
+    parser.add_argument("--per-market", type=int, default=DEFAULT_PER_MARKET, help="每个交易场所拉取的个股数量")
     parser.add_argument(
         "--verify-sims",
         type=int,
@@ -56,7 +67,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     if args.once or args.html or args.json:
-        report = run_report(n_verify=args.verify_sims, seed=args.seed)
+        report = run_report(n_verify=args.verify_sims, seed=args.seed, per_market=args.per_market)
         if args.html:
             from pathlib import Path
 
@@ -75,5 +86,5 @@ def main(argv: list[str] | None = None) -> int:
     except ModuleNotFoundError as exc:
         sys.stderr.write(f"无法打开窗口（{exc}）。请用 python -m market_advisor --once 查看建议。\n")
         return 1
-    run_gui(n_verify=args.verify_sims, seed=args.seed)
+    run_gui(n_verify=args.verify_sims, seed=args.seed, per_market=args.per_market)
     return 0

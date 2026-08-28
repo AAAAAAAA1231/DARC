@@ -11,6 +11,7 @@ from .advice import ACTION_FLAT, ACTION_LONG, ACTION_SHORT, Advice
 from .cli import format_text
 from .engine import Report, run_report
 from .model import DEFAULT_VERIFY_SIMS
+from .universe import DEFAULT_PER_MARKET
 
 BG = "#10141c"
 CARD = "#1b2230"
@@ -23,9 +24,15 @@ SHORT = "#ff6b6b"
 
 
 class AdvisorApp:
-    def __init__(self, n_verify: int = DEFAULT_VERIFY_SIMS, seed: int | None = 20260828) -> None:
+    def __init__(
+        self,
+        n_verify: int = DEFAULT_VERIFY_SIMS,
+        seed: int | None = 20260828,
+        per_market: int = DEFAULT_PER_MARKET,
+    ) -> None:
         self.n_verify = n_verify
         self.seed = seed
+        self.per_market = per_market
         self.root = tk.Tk()
         self.root.title("开盘建议 · 按交易场所")
         self.root.geometry("1100x780")
@@ -40,7 +47,7 @@ class AdvisorApp:
         header.pack(fill="x", padx=20, pady=(16, 8))
         tk.Label(
             header,
-            text="打开时刻操作建议",
+            text="打开时刻个股操作建议",
             font=("Microsoft YaHei UI", 20, "bold"),
             fg=FG,
             bg=BG,
@@ -95,6 +102,7 @@ class AdvisorApp:
                 report = run_report(
                     n_verify=self.n_verify,
                     seed=self.seed,
+                    per_market=self.per_market,
                     progress=lambda msg: self.root.after(0, lambda m=msg: self.status.set(m)),
                 )
                 self.root.after(0, lambda: self._render(report))
@@ -106,7 +114,7 @@ class AdvisorApp:
     def _render(self, report: Report) -> None:
         self.status.set(
             f"打开时刻 {report.opened_at}  ·  建议取值 = 100亿次独立模拟解析极限  ·  "
-            f"核验 {report.items[0].n_verify_sims:,} 次"
+            f"个股 {sum(len(item.stocks) for item in report.items)} 只"
         )
         self.disclaimer.configure(text=report.disclaimer)
         for item in report.items:
@@ -177,11 +185,56 @@ class AdvisorApp:
             justify="left",
             anchor="w",
             wraplength=1000,
-        ).pack(fill="x", padx=14, pady=(0, 12))
+        ).pack(fill="x", padx=14, pady=(0, 8))
+        if item.stocks:
+            self._stock_table(box, item.stocks)
+
+    def _stock_table(self, parent: tk.Frame, stocks: list[Advice]) -> None:
+        head = tk.Frame(parent, bg=CARD)
+        head.pack(fill="x", padx=14, pady=(4, 2))
+        cols = ("代码", "名称", "现价", "涨跌", "建议", "仓位", "E[r]", "P(up)", "状态")
+        widths = (70, 90, 80, 70, 50, 50, 80, 70, 50)
+        for text, width in zip(cols, widths):
+            tk.Label(head, text=text, width=width // 8, anchor="w", fg=MUTED, bg=CARD, font=("Microsoft YaHei UI", 8)).pack(
+                side="left"
+            )
+        for stock in stocks:
+            row = tk.Frame(parent, bg=CARD)
+            row.pack(fill="x", padx=14)
+            color = {ACTION_LONG: LONG, ACTION_SHORT: SHORT, ACTION_FLAT: FLAT}[stock.action]
+            chg = "—" if stock.change_pct is None else f"{stock.change_pct:+.2f}%"
+            spot = "—" if stock.spot is None else f"{stock.spot:.2f}"
+            values = (
+                stock.symbol,
+                stock.index_name[:8],
+                spot,
+                chg,
+                stock.action,
+                f"{stock.size_pct}%",
+                f"{stock.expected_return:.2%}",
+                f"{stock.p_up:.0%}",
+                stock.regime,
+            )
+            for i, (text, width) in enumerate(zip(values, widths)):
+                fg = color if i == 4 else FG
+                tk.Label(
+                    row,
+                    text=text,
+                    width=width // 8,
+                    anchor="w",
+                    fg=fg,
+                    bg=CARD,
+                    font=("Consolas" if i != 1 else "Microsoft YaHei UI", 9),
+                ).pack(side="left")
+        tk.Frame(parent, bg=CARD, height=10).pack(fill="x")
 
 
-def run_gui(n_verify: int = DEFAULT_VERIFY_SIMS, seed: int | None = 20260828) -> None:
-    app = AdvisorApp(n_verify=n_verify, seed=seed)
+def run_gui(
+    n_verify: int = DEFAULT_VERIFY_SIMS,
+    seed: int | None = 20260828,
+    per_market: int = DEFAULT_PER_MARKET,
+) -> None:
+    app = AdvisorApp(n_verify=n_verify, seed=seed, per_market=per_market)
     app.root.mainloop()
 
 

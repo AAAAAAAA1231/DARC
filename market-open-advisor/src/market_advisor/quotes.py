@@ -82,6 +82,7 @@ class BarSeries:
     change_pct: float | None
     fetched_at: str
     source: str
+    symbol: str = ""
 
 
 def _as_bars(dates: list[str], closes: list[float]) -> tuple[list[str], np.ndarray]:
@@ -187,32 +188,62 @@ def parse_tencent_kline(payload: dict, symbol: str, fallback_name: str) -> tuple
     return name, arr_dates, arr, spot, _change_from_closes(arr, spot)
 
 
-def fetch_yahoo(market: Market, http_get: HttpGet = http_get_json) -> BarSeries:
-    if not market.yahoo:
-        raise QuoteError("该场所没有 Yahoo 代码")
-    payload = http_get(YAHOO_CHART.format(symbol=quote(market.yahoo, safe="")), {"interval": "1d", "range": "2y"})
+def fetch_sina_symbol(
+    sina: str,
+    fallback_name: str,
+    market: Market,
+    http_get: HttpGet = http_get_json,
+    symbol: str = "",
+) -> BarSeries:
+    payload = http_get(SINA_KLINE, {"symbol": sina, "scale": "240", "ma": "no", "datalen": "240"})
+    name, dates, closes, spot, chg = parse_sina_klines(payload, fallback_name)
+    return _series(market, name, dates, closes, spot, chg, "sina", symbol=symbol)
+
+
+def fetch_tencent_symbol(
+    tencent: str,
+    fallback_name: str,
+    market: Market,
+    http_get: HttpGet = http_get_json,
+    symbol: str = "",
+) -> BarSeries:
+    payload = http_get(TENCENT_KLINE, {"param": f"{tencent},day,,,240,qfq"})
+    if not isinstance(payload, dict):
+        raise QuoteError("腾讯返回无法解析")
+    name, dates, closes, spot, chg = parse_tencent_kline(payload, tencent, fallback_name)
+    return _series(market, name, dates, closes, spot, chg, "tencent", symbol=symbol)
+
+
+def fetch_yahoo_symbol(
+    yahoo: str,
+    fallback_name: str,
+    market: Market,
+    http_get: HttpGet = http_get_json,
+    symbol: str = "",
+) -> BarSeries:
+    payload = http_get(YAHOO_CHART.format(symbol=quote(yahoo, safe="")), {"interval": "1d", "range": "2y"})
     if not isinstance(payload, dict):
         raise QuoteError("Yahoo 返回无法解析")
     name, dates, closes, spot, chg = parse_yahoo_chart(payload)
-    return _series(market, name or market.name, dates, closes, spot, chg, "yahoo")
+    return _series(market, name or fallback_name, dates, closes, spot, chg, "yahoo", symbol=symbol)
+
+
+def fetch_yahoo(market: Market, http_get: HttpGet = http_get_json) -> BarSeries:
+    if not market.yahoo:
+        raise QuoteError("该场所没有 Yahoo 代码")
+    return fetch_yahoo_symbol(market.yahoo, market.name, market, http_get=http_get)
 
 
 def fetch_sina(market: Market, http_get: HttpGet = http_get_json) -> BarSeries:
     if not market.sina:
         raise QuoteError("该场所没有新浪代码")
-    payload = http_get(SINA_KLINE, {"symbol": market.sina, "scale": "240", "ma": "no", "datalen": "520"})
-    name, dates, closes, spot, chg = parse_sina_klines(payload, market.name)
-    return _series(market, name, dates, closes, spot, chg, "sina")
+    return fetch_sina_symbol(market.sina, market.name, market, http_get=http_get)
 
 
 def fetch_tencent(market: Market, http_get: HttpGet = http_get_json) -> BarSeries:
     if not market.tencent:
         raise QuoteError("该场所没有腾讯代码")
-    payload = http_get(TENCENT_KLINE, {"param": f"{market.tencent},day,,,520,qfq"})
-    if not isinstance(payload, dict):
-        raise QuoteError("腾讯返回无法解析")
-    name, dates, closes, spot, chg = parse_tencent_kline(payload, market.tencent, market.name)
-    return _series(market, name, dates, closes, spot, chg, "tencent")
+    return fetch_tencent_symbol(market.tencent, market.name, market, http_get=http_get)
 
 
 def fetch_eastmoney(market: Market, http_get: HttpGet = http_get_json) -> BarSeries:
@@ -264,6 +295,7 @@ def _series(
     spot: float | None,
     chg: float | None,
     source: str,
+    symbol: str = "",
 ) -> BarSeries:
     return BarSeries(
         market=market,
@@ -274,6 +306,7 @@ def _series(
         change_pct=chg,
         fetched_at="",
         source=source,
+        symbol=symbol,
     )
 
 
@@ -285,6 +318,31 @@ def fetch_market(market: Market, http_get: HttpGet = http_get_json) -> BarSeries
         except QuoteError as exc:
             errors.append(f"{fetcher.__name__}: {exc}")
     raise QuoteError("；".join(errors))
+
+
+def fetch_by_ids(
+    market: Market,
+    name: str,
+    symbol: str,
+    sina: str | None,
+    tencent: str | None,
+    yahoo: str | None,
+    http_get: HttpGet = http_get_json,
+) -> BarSeries:
+    errors: list[str] = []
+    attempts = (
+        ("sina", sina, fetch_sina_symbol),
+        ("tencent", tencent, fetch_tencent_symbol),
+        ("yahoo", yahoo, fetch_yahoo_symbol),
+    )
+    for label, key, fn in attempts:
+        if not key:
+            continue
+        try:
+            return fn(key, name, market, http_get=http_get, symbol=symbol)
+        except QuoteError as exc:
+            errors.append(f"{label}: {exc}")
+    raise QuoteError("；".join(errors) or "无可用代码")
 
 
 def load_all(http_get: HttpGet = http_get_json, now: datetime | None = None) -> list[BarSeries]:
