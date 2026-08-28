@@ -20,7 +20,11 @@
 
 ## Windows 可执行文件
 
-在 Windows 上：
+仓库里已放打好的文件：`market-open-advisor/release/OpenAdvisor.exe`（双击打开）。旁路说明见同目录 `使用说明.txt`。
+
+也可以从 GitHub Actions 产物下载（这次成功构建：https://github.com/AAAAAAAA1231/DARC/actions/runs/33132340623 ，产物名 `OpenAdvisor-windows`）。
+
+在 Windows 上自行再打一份：
 
 ```powershell
 cd market-open-advisor
