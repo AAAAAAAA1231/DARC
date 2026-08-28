@@ -28,7 +28,7 @@
 请用 Actions 产物 `OpenAdvisor-portable-windows`（zip）：
 
 1. 解压整个文件夹
-2. 双击 `开盘建议.bat`
+2. 双击 `OpenAdvisor.bat`
 3. 浏览器会打开，按交易场所列出每只股票的建议
 
 本地再打一份便携包：
