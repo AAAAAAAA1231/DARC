@@ -7,12 +7,31 @@ client scrape.
 
 from __future__ import annotations
 
+from datetime import timedelta, timezone, tzinfo
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+
 from dataclasses import dataclass
-from zoneinfo import ZoneInfo
+
+try:
+    import tzdata as _tzdata  # noqa: F401  — needed on Windows / PyInstaller
+except ImportError:
+    _tzdata = None
 
 
-SHANGHAI = ZoneInfo("Asia/Shanghai")
-NEW_YORK = ZoneInfo("America/New_York")
+def load_zone(key: str, utc_offset_hours: int) -> tzinfo:
+    """IANA zone if tzdata is present; otherwise a fixed UTC offset.
+
+    Frozen Windows builds often ship without the tz database. A-share/HK
+    sessions are UTC+8 year-round, so the offset fallback stays correct.
+    """
+    try:
+        return ZoneInfo(key)
+    except (ZoneInfoNotFoundError, KeyError, OSError):
+        return timezone(timedelta(hours=utc_offset_hours))
+
+
+SHANGHAI = load_zone("Asia/Shanghai", 8)
+NEW_YORK = load_zone("America/New_York", -4)
 
 
 @dataclass(frozen=True)
@@ -24,7 +43,7 @@ class Market:
     yahoo: str | None
     sina: str | None
     tencent: str | None
-    timezone: ZoneInfo
+    timezone: tzinfo
     open_hour: int
     open_minute: int
     close_hour: int

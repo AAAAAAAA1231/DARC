@@ -24,7 +24,8 @@ jobs:
       - name: Install and build
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e . pyinstaller numpy
+          python -m pip install -e . pyinstaller numpy tzdata
+          python -c "from zoneinfo import ZoneInfo; print(ZoneInfo('Asia/Shanghai')); from PyInstaller.utils.hooks import collect_data_files; files=collect_data_files('tzdata'); assert files, 'tzdata missing from bundle'"
           python -m PyInstaller --noconfirm --clean packaging/OpenAdvisor.spec
       - name: Upload EXE
         uses: actions/upload-artifact@v4

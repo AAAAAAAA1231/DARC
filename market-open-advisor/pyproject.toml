@@ -7,7 +7,7 @@ name = "market-open-advisor"
 version = "1.0.0"
 description = "Open-time stock-market advice by trading venue, using a 10-billion simulation limit"
 requires-python = ">=3.11"
-dependencies = ["numpy>=1.26"]
+dependencies = ["numpy>=1.26", "tzdata>=2024.1"]
 
 [project.scripts]
 open-advisor = "market_advisor.cli:main"
