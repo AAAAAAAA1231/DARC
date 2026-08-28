@@ -11,28 +11,6 @@ on:
       - ".github/workflows/build-market-open-advisor.yml"
 
 jobs:
-  windows-exe:
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: market-open-advisor
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Install and build
-        run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e . pyinstaller numpy tzdata
-          python -c "from zoneinfo import ZoneInfo; print(ZoneInfo('Asia/Shanghai')); from PyInstaller.utils.hooks import collect_data_files; files=collect_data_files('tzdata'); assert files, 'tzdata missing from bundle'"
-          python -m PyInstaller --noconfirm --clean packaging/OpenAdvisor.spec
-      - name: Upload EXE
-        uses: actions/upload-artifact@v4
-        with:
-          name: OpenAdvisor-windows
-          path: market-open-advisor/dist/OpenAdvisor.exe
-
   windows-go-exe:
     runs-on: ubuntu-latest
     defaults:
@@ -43,26 +21,13 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.22"
+      - name: Test
+        run: go test ./...
       - name: Build Windows EXE
         run: CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o ../release/OpenAdvisor.exe
       - name: Upload EXE
         uses: actions/upload-artifact@v4
         with:
-          name: OpenAdvisor-exe
+          name: OpenAdvisor.exe
           path: market-open-advisor/release/OpenAdvisor.exe
-    runs-on: windows-latest
-    defaults:
-      run:
-        working-directory: market-open-advisor
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-      - name: Build portable folder
-        run: powershell -ExecutionPolicy Bypass -File packaging/build_portable_windows.ps1
-      - name: Upload portable zip
-        uses: actions/upload-artifact@v4
-        with:
-          name: OpenAdvisor-portable-windows
-          path: market-open-advisor/dist/OpenAdvisor-portable.zip
+          if-no-files-found: error

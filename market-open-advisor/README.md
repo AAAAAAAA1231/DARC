@@ -21,11 +21,15 @@
 
 同花顺展示的是交易所公开成交。本工具读取 Yahoo / 腾讯 / 新浪 / 东方财富的公开行情（同一套交易所打印），**不是**同花顺 iFinD / 同花顺客户端的授权接口，也没有去破解或扫描同花顺。打开时按可用性自动切换源。
 
-## Windows 怎么用
+## Windows 下载（只要 .exe，不要 zip）
 
-双击 `market-open-advisor/release/OpenAdvisor.exe`。控制台显示进度，随后浏览器打开，按交易场所列出每只股票的建议。
+直接下载这个文件，双击运行：
 
-这是 Go 编译的原生 EXE（约 5MB），不是 PyInstaller 单文件包。
+https://raw.githubusercontent.com/AAAAAAAA1231/DARC/cursor/market-open-advisor-7a8a/market-open-advisor/release/OpenAdvisor.exe
+
+仓库里的路径是 `market-open-advisor/release/OpenAdvisor.exe`（约 5MB，Go 原生程序）。黑窗口显示拉行情进度，随后浏览器按交易场所列出每只股票的建议。
+
+不要下 GitHub 仓库的 Source zip，也不要下 Actions 产物（GitHub 会把产物再打成 zip）。
 
 Linux 可运行：
 
