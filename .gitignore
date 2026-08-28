@@ -19,3 +19,10 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+
+# Market open advisor packaging
+market-open-advisor/build/
+market-open-advisor/dist/
+market-open-advisor/*.spec
+__pycache__/
+*.egg-info/
