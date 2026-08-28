@@ -32,3 +32,21 @@ jobs:
         with:
           name: OpenAdvisor-windows
           path: market-open-advisor/dist/OpenAdvisor.exe
+
+  windows-portable:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: market-open-advisor
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build portable folder
+        run: powershell -ExecutionPolicy Bypass -File packaging/build_portable_windows.ps1
+      - name: Upload portable zip
+        uses: actions/upload-artifact@v4
+        with:
+          name: OpenAdvisor-portable-windows
+          path: market-open-advisor/dist/OpenAdvisor-portable.zip

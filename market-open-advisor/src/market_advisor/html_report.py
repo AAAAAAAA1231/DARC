@@ -89,7 +89,8 @@ def render_html(report: Report) -> str:
 </head>
 <body>
 <h1>打开时刻个股操作建议</h1>
-<p class="sub">打开时刻 {escape(report.opened_at)} · 按交易场所划分 · 建议取值 = 100亿次独立模拟解析极限</p>
+<p class="sub">打开时刻 {escape(report.opened_at)} · 按交易场所划分 · 建议取值 = 100亿次独立模拟解析极限
+  · <a href="/refresh" style="color:#3dd68c">按当前时刻重算</a></p>
 {''.join(cards)}
 {errors}
 <p class="foot">{escape(report.disclaimer)}</p>
@@ -102,3 +103,45 @@ def write_html(report: Report, path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(render_html(report), encoding="utf-8")
     return path
+
+
+def render_loading(message: str, failed: bool = False) -> str:
+    color = "#ff6b6b" if failed else "#e6c35c"
+    poll = "" if failed else """
+<script>
+async function tick() {
+  try {
+    const r = await fetch('/status');
+    const s = await r.json();
+    const el = document.getElementById('msg');
+    if (el) el.textContent = s.error || s.message || '计算中';
+    if (s.done) location.reload();
+  } catch (e) {}
+}
+setInterval(tick, 1500);
+</script>
+"""
+    return f"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"/>
+<title>开盘建议</title>
+<style>
+  body {{ background:#10141c; color:#e8eef7; font-family:"Segoe UI","Microsoft YaHei",sans-serif;
+         margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center; }}
+  .box {{ text-align:center; max-width:640px; padding:24px; }}
+  h1 {{ margin:0 0 12px; }}
+  p {{ color:{color}; font-size:16px; }}
+</style>
+</head>
+<body>
+<div class="box">
+  <h1>打开时刻个股操作建议</h1>
+  <p id="msg">{escape(message)}</p>
+  <p style="color:#93a0b5;font-size:13px">按交易场所逐只计算，大约需要几十秒，请不要关闭窗口。</p>
+</div>
+{poll}
+</body>
+</html>
+"""
+

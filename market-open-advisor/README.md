@@ -21,23 +21,22 @@
 
 同花顺展示的是交易所公开成交。本工具读取 Yahoo / 腾讯 / 新浪 / 东方财富的公开行情（同一套交易所打印），**不是**同花顺 iFinD / 同花顺客户端的授权接口，也没有去破解或扫描同花顺。打开时按可用性自动切换源。
 
-## Windows 可执行文件
+## Windows 怎么用
 
-仓库里已放打好的文件：`market-open-advisor/release/OpenAdvisor.exe`（双击打开）。旁路说明见同目录 `使用说明.txt`。
+不要用 PyInstaller 那份 `OpenAdvisor.exe`：Windows Defender 会误报病毒。
 
-也可以从 GitHub Actions 产物下载（这次成功构建：https://github.com/AAAAAAAA1231/DARC/actions/runs/33132340623 ，产物名 `OpenAdvisor-windows`）。
+请用 Actions 产物 `OpenAdvisor-portable-windows`（zip）：
 
-在 Windows 上自行再打一份：
+1. 解压整个文件夹
+2. 双击 `开盘建议.bat`
+3. 浏览器会打开，按交易场所列出每只股票的建议
+
+本地再打一份便携包：
 
 ```powershell
 cd market-open-advisor
-python -m pip install -e . pyinstaller numpy
-powershell -File packaging/build_windows.ps1
+powershell -File packaging/build_portable_windows.ps1
 ```
-
-生成 `dist/OpenAdvisor.exe`。打开即算，无需安装 Python。
-
-本仓库的 GitHub Actions 工作流 `Build Market Open Advisor EXE` 会在 Windows runner 上打出同一份 EXE，可从 Actions 产物下载。
 
 Linux 可运行：
 

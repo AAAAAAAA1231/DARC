@@ -52,7 +52,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="打开时刻按交易场所给出股票操作建议")
     parser.add_argument("--once", action="store_true", help="计算一次后打印并退出，不打开窗口")
     parser.add_argument("--json", action="store_true", help="与 --once 合用，输出 JSON")
-    parser.add_argument("--html", metavar="PATH", help="把本次建议写成本地 HTML")
+    parser.add_argument("--web", action="store_true", help="在浏览器中打开建议（Windows 推荐）")
     parser.add_argument("--per-market", type=int, default=DEFAULT_PER_MARKET, help="每个交易场所拉取的个股数量")
     parser.add_argument(
         "--verify-sims",
@@ -77,14 +77,20 @@ def main(argv: list[str] | None = None) -> int:
             sys.stderr.write(f"已写入 {path}\n")
         if args.json:
             sys.stdout.write(json.dumps(report.to_dict(), ensure_ascii=False, indent=2) + "\n")
-        elif args.once or args.html:
-            if args.once:
-                sys.stdout.write(format_text(report))
+        elif args.once:
+            sys.stdout.write(format_text(report))
+        return 0
+    if args.web or sys.platform.startswith("win"):
+        from .webapp import run_web
+
+        run_web(n_verify=args.verify_sims, seed=args.seed, per_market=args.per_market)
         return 0
     try:
         from .gui import run_gui
-    except ModuleNotFoundError as exc:
-        sys.stderr.write(f"无法打开窗口（{exc}）。请用 python -m market_advisor --once 查看建议。\n")
-        return 1
+    except ModuleNotFoundError:
+        from .webapp import run_web
+
+        run_web(n_verify=args.verify_sims, seed=args.seed, per_market=args.per_market)
+        return 0
     run_gui(n_verify=args.verify_sims, seed=args.seed, per_market=args.per_market)
     return 0
