@@ -1,9 +1,7 @@
-开盘建议 便携包（不要用旧的 OpenAdvisor.exe，会被 Windows 误报病毒）
+开盘建议 OpenAdvisor.exe
 
-1. 解压 OpenAdvisor-portable.zip 整个文件夹
-2. 双击 OpenAdvisor.bat
-3. 浏览器会打开，按交易场所列出每只股票的建议
-4. 第一次拉行情可能要等几十秒，不要关窗口
+双击打开。黑色窗口会显示正在拉行情，大约几十秒后自动打开浏览器，按交易场所列出每只股票的建议。
 
-这是官方 Python + 我们的脚本，不是 PyInstaller 单文件 EXE。
+这是原生 Windows 程序，不是 Python 打包。若 SmartScreen 提示未知发布者，选“仍要运行”。
+
 量化研究输出，不是投资建议。

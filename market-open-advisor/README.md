@@ -23,20 +23,9 @@
 
 ## Windows 怎么用
 
-不要用 PyInstaller 那份 `OpenAdvisor.exe`：Windows Defender 会误报病毒。
+双击 `market-open-advisor/release/OpenAdvisor.exe`。控制台显示进度，随后浏览器打开，按交易场所列出每只股票的建议。
 
-请用 Actions 产物 `OpenAdvisor-portable-windows`（zip）：
-
-1. 解压整个文件夹
-2. 双击 `OpenAdvisor.bat`
-3. 浏览器会打开，按交易场所列出每只股票的建议
-
-本地再打一份便携包：
-
-```powershell
-cd market-open-advisor
-powershell -File packaging/build_portable_windows.ps1
-```
+这是 Go 编译的原生 EXE（约 5MB），不是 PyInstaller 单文件包。
 
 Linux 可运行：
 
