@@ -58,3 +58,49 @@ def test_run_report_with_injected_http():
     assert "打开时刻" in text
     assert "100亿次极限" in text
     assert "投资建议" in report.disclaimer
+
+
+def test_html_report_contains_venues():
+    from pathlib import Path
+
+    from market_advisor.html_report import write_html
+
+    series = fake_series()
+    k_closes = [float(x) for x in series.closes]
+    start = 1_700_000_000
+
+    def http_get(url: str, params: dict):
+        if "gtimg.cn" in url and "bj899050" in str(params.get("param", "")):
+            return {
+                "data": {
+                    "bj899050": {
+                        "day": [[d, c, c, c, c, 1] for d, c in zip(series.dates, k_closes)],
+                        "qt": {"bj899050": ["1", "北证50", "899050", k_closes[-1], k_closes[-2]]},
+                    }
+                }
+            }
+        if "gtimg.cn" in url:
+            return {"data": {}}
+        if "sina.com.cn" in url:
+            return []
+        if "yahoo.com" in url:
+            return {
+                "chart": {
+                    "result": [
+                        {
+                            "meta": {"shortName": "测试指数", "regularMarketPrice": k_closes[-1]},
+                            "timestamp": [start + i * 86400 for i in range(len(k_closes))],
+                            "indicators": {"quote": [{"close": k_closes}]},
+                        }
+                    ]
+                }
+            }
+        return {}
+
+    report = run_report(http_get=http_get, now=datetime(2026, 8, 28, 9, 31), n_verify=20_000, seed=2)
+    out = Path("/tmp/open-advisor-test.html")
+    write_html(report, out)
+    html = out.read_text(encoding="utf-8")
+    assert "打开时刻操作建议" in html
+    assert "上交所主板" in html
+    assert "100亿极限" in html

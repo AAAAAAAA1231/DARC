@@ -38,6 +38,7 @@ Linux 可运行：
 cd market-open-advisor
 python3 -m pip install -e .
 python3 -m market_advisor --once
+python3 -m market_advisor --once --html /tmp/open-advisor.html
 python3 -m market_advisor
 ```
 

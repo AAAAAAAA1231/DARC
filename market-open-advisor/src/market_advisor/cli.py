@@ -42,6 +42,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="打开时刻按交易场所给出股票操作建议")
     parser.add_argument("--once", action="store_true", help="计算一次后打印并退出，不打开窗口")
     parser.add_argument("--json", action="store_true", help="与 --once 合用，输出 JSON")
+    parser.add_argument("--html", metavar="PATH", help="把本次建议写成本地 HTML")
     parser.add_argument(
         "--verify-sims",
         type=int,
@@ -54,14 +55,25 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    if args.once:
+    if args.once or args.html or args.json:
         report = run_report(n_verify=args.verify_sims, seed=args.seed)
+        if args.html:
+            from pathlib import Path
+
+            from .html_report import write_html
+
+            path = write_html(report, Path(args.html))
+            sys.stderr.write(f"已写入 {path}\n")
         if args.json:
             sys.stdout.write(json.dumps(report.to_dict(), ensure_ascii=False, indent=2) + "\n")
-        else:
-            sys.stdout.write(format_text(report))
+        elif args.once or args.html:
+            if args.once:
+                sys.stdout.write(format_text(report))
         return 0
-    from .gui import run_gui
-
+    try:
+        from .gui import run_gui
+    except ModuleNotFoundError as exc:
+        sys.stderr.write(f"无法打开窗口（{exc}）。请用 python -m market_advisor --once 查看建议。\n")
+        return 1
     run_gui(n_verify=args.verify_sims, seed=args.seed)
     return 0
