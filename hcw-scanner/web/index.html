@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HCW 热搜雷达</title>
+  <style>
+    :root {
+      --bg: #0b0d12;
+      --panel: #141824;
+      --panel2: #1b2030;
+      --line: #2a3147;
+      --gold: #e8b84a;
+      --gold2: #f3d48a;
+      --ok: #3dd68c;
+      --warn: #f0b429;
+      --bad: #ff6b8a;
+      --mute: #8b93a7;
+      --text: #eef1f7;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    body { min-height: 100vh; }
+    .wrap { max-width: 1180px; margin: 0 auto; padding: 28px 20px 80px; }
+    header { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 18px; }
+    h1 { font-size: 28px; margin: 0 0 6px; letter-spacing: .04em; }
+    h1 span { color: var(--gold); }
+    .sub { color: var(--mute); font-size: 13px; line-height: 1.6; }
+    .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+    button {
+      background: var(--panel2); color: var(--text); border: 1px solid var(--line);
+      padding: 8px 14px; border-radius: 10px; cursor: pointer; font-size: 13px;
+    }
+    button.primary { background: linear-gradient(180deg, #f2c86a, #c9922a); color: #1a1406; border: 0; font-weight: 700; }
+    button:hover { filter: brightness(1.08); }
+    .banner {
+      background: #2a1d12; border: 1px solid #5a3b16; color: #f3d48a;
+      padding: 12px 14px; border-radius: 12px; font-size: 13px; line-height: 1.6; margin-bottom: 16px;
+    }
+    .status {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      background: var(--panel); border: 1px solid var(--line); border-radius: 12px; margin-bottom: 16px;
+      color: var(--mute); font-size: 13px;
+    }
+    .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--gold); box-shadow: 0 0 8px var(--gold); }
+    .dot.ok { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+    .dot.run { animation: pulse 1s infinite; }
+    @keyframes pulse { 50% { opacity: .35; } }
+    .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin-bottom: 18px; }
+    .stat { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+    .stat b { display: block; font-size: 22px; color: var(--gold2); }
+    .stat span { color: var(--mute); font-size: 12px; }
+    .tabs { display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
+    .tab { padding: 7px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--mute); cursor: pointer; font-size: 13px; }
+    .tab.on { background: #2a2416; color: var(--gold); border-color: #6a5420; }
+    .grid { display: grid; gap: 12px; }
+    .card {
+      background: var(--panel); border: 1px solid var(--line); border-radius: 16px; padding: 16px;
+    }
+    .card.top { border-color: #6a5420; box-shadow: 0 0 0 1px #3a3018 inset; }
+    .row { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; }
+    .name { font-size: 18px; font-weight: 700; }
+    .sym { color: var(--mute); font-size: 13px; margin-left: 6px; }
+    .score { font-size: 28px; font-weight: 800; color: var(--gold); line-height: 1; }
+    .score small { display: block; font-size: 11px; color: var(--mute); font-weight: 500; }
+    .meta { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+    .chip { font-size: 11px; padding: 3px 8px; border-radius: 999px; background: var(--panel2); color: var(--mute); border: 1px solid var(--line); }
+    .chip.pass { color: var(--ok); border-color: #245c43; }
+    .chip.fail, .chip.veto { color: var(--bad); border-color: #5c2436; }
+    .chip.late, .chip.weak, .chip.unknown { color: var(--warn); border-color: #5c4a18; }
+    .chip.a { color: var(--gold); border-color: #6a5420; }
+    ul.reasons { margin: 8px 0 0; padding-left: 18px; color: #c9d0e0; font-size: 13px; line-height: 1.55; }
+    .ca { font-family: ui-monospace, Consolas, monospace; font-size: 12px; color: var(--mute); word-break: break-all; margin-top: 8px; }
+    .links { margin-top: 10px; display: flex; gap: 8px; }
+    a { color: var(--gold2); text-decoration: none; font-size: 13px; }
+    a:hover { text-decoration: underline; }
+    .empty { color: var(--mute); padding: 28px; text-align: center; }
+    .hotlist { display: flex; flex-wrap: wrap; gap: 8px; }
+    .hot { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 12px; }
+    .hot b { color: var(--gold); margin-right: 6px; }
+    .model { color: var(--mute); font-size: 12px; line-height: 1.7; margin-top: 24px; }
+    .err { color: var(--bad); font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>HCW <span>热搜雷达</span></h1>
+        <div class="sub">每天打开一次：链外热搜 → 同名新盘 → 合约结构 → 市值窗口。只做排除和观察，不点名「该买」。</div>
+      </div>
+      <div class="actions">
+        <button class="primary" onclick="startScan()">重新扫描</button>
+        <button onclick="shutdown()">退出程序</button>
+      </div>
+    </header>
+
+    <div class="banner">
+      免责声明：本工具根据公开热榜和 DEX 数据做注意力筛选，<b>不是投资建议</b>。土狗当日死亡率极高，市值不是池子里的真金，公开新闻出现时百倍往往已经走完。输光不影响生活再谈参与。
+    </div>
+
+    <div class="status"><div class="dot run" id="dot"></div><div id="status">正在启动扫描…</div></div>
+    <div class="stats" id="stats"></div>
+    <div class="tabs" id="tabs"></div>
+    <div class="grid" id="main"></div>
+    <div class="model" id="model"></div>
+  </div>
+<script>
+let DATA = null;
+let TAB = "watch";
+
+const TABS = [
+  ["watch", "观察池"],
+  ["late", "已过窗口"],
+  ["onchain", "链上异动"],
+  ["rejected", "结构否决"],
+  ["hot", "今日热搜"],
+];
+
+function money(n) {
+  n = Number(n || 0);
+  if (n >= 1e8) return (n/1e8).toFixed(2) + "亿";
+  if (n >= 1e4) return (n/1e4).toFixed(1) + "万";
+  if (n >= 1) return n.toFixed(0);
+  return n.toFixed(2);
+}
+function usd(n) {
+  n = Number(n || 0);
+  if (n >= 1e6) return "$" + (n/1e6).toFixed(2) + "M";
+  if (n >= 1e3) return "$" + (n/1e3).toFixed(1) + "K";
+  return "$" + n.toFixed(0);
+}
+
+function startScan() {
+  document.getElementById("dot").className = "dot run";
+  document.getElementById("status").textContent = "开始扫描…";
+  const es = new EventSource("/api/scan-stream");
+  es.addEventListener("status", ev => {
+    const j = JSON.parse(ev.data);
+    document.getElementById("status").textContent = j.msg || "扫描中";
+  });
+  es.addEventListener("done", ev => {
+    DATA = JSON.parse(ev.data);
+    es.close();
+    if (!(DATA.watch || []).length && (DATA.onchain || []).length) TAB = "onchain";
+    else TAB = "watch";
+    render();
+  });
+  es.addEventListener("error", ev => {
+    es.close();
+    document.getElementById("dot").className = "dot";
+    if (ev.data) {
+      try { document.getElementById("status").textContent = "扫描失败：" + JSON.parse(ev.data).msg; } catch(e) {}
+    } else {
+      fetch("/api/last").then(r => r.ok ? r.json() : Promise.reject()).then(j => {
+        DATA = j;
+        document.getElementById("status").textContent = "实时扫描中断，已加载上次结果";
+        render();
+      }).catch(() => {
+        document.getElementById("status").textContent = "扫描失败，请检查网络后重试";
+      });
+    }
+  });
+}
+
+function render() {
+  const d = DATA;
+  document.getElementById("dot").className = "dot ok";
+  const t = new Date(d.generatedAt);
+  const emptyWatch = !(d.watch || []).length;
+  document.getElementById("status").textContent = emptyWatch
+    ? `扫描完成 · ${t.toLocaleString()} · 今日观察池为空（热搜未对上同名新盘），已展示链上异动`
+    : `扫描完成 · ${t.toLocaleString()} · 模型 ${d.model || "HCW"}`;
+  const s = d.stats || {};
+  document.getElementById("stats").innerHTML = [
+    ["观察池", s.watchCount||0],
+    ["已过窗口", s.lateCount||0],
+    ["链上异动", s.onchainCount||0],
+    ["热搜条数", s.hotCount||0],
+    ["检索词", s.queryCount||0],
+    ["结构否决", s.rejected||0],
+  ].map(([k,v]) => `<div class="stat"><b>${v}</b><span>${k}</span></div>`).join("");
+
+  document.getElementById("tabs").innerHTML = TABS.map(([id,label]) =>
+    `<div class="tab ${TAB===id?"on":""}" onclick="TAB='${id}';render()">${label}</div>`
+  ).join("");
+
+  const main = document.getElementById("main");
+  if (TAB === "hot") {
+    main.innerHTML = `<div class="card"><div class="hotlist">${
+      (d.hot||[]).map(h => `<div class="hot"><b>${h.source}</b>${escapeHtml(h.title)}</div>`).join("")
+    }</div><p class="sub">检索词：${(d.queries||[]).map(escapeHtml).join(" · ") || "无"}</p>
+    ${(d.errors&&d.errors.length)?`<p class="err">部分数据源失败：${d.errors.map(escapeHtml).join("；")}</p>`:""}</div>`;
+    fillModel(d);
+    return;
+  }
+  const list = d[TAB] || [];
+  if (!list.length) {
+    main.innerHTML = `<div class="empty">这一栏今天是空的。对观察池来说，空比硬凑更诚实。</div>`;
+    fillModel(d);
+    return;
+  }
+  main.innerHTML = list.map(cardHTML).join("");
+  fillModel(d);
+}
+
+function gateChip(label, v) {
+  return `<span class="chip ${v||""}">${label} ${v||"—"}</span>`;
+}
+
+function cardHTML(c) {
+  const top = c.score >= 7 ? " top" : "";
+  const arch = c.archetype === "A" ? "A·外热盘" : "B·链上盘";
+  return `<div class="card${top}">
+    <div class="row">
+      <div>
+        <div class="name">${escapeHtml(c.name||"—")}<span class="sym">${escapeHtml(c.symbol||"")} · ${escapeHtml(c.chain||"")}</span></div>
+        <div class="meta">
+          <span class="chip a">${arch}</span>
+          ${gateChip("闸1外热", c.gate1)}
+          ${gateChip("闸2结构", c.gate2)}
+          ${gateChip("闸3窗口", c.gate3)}
+          <span class="chip">${escapeHtml(c.windowLabel||"")}</span>
+          <span class="chip">市值 ${usd(c.marketCap)}</span>
+          <span class="chip">流动性 ${usd(c.liquidity)}</span>
+          <span class="chip">24h量 ${usd(c.volume24)}</span>
+        </div>
+      </div>
+      <div class="score">${(c.score||0).toFixed(1)}<small>ATTN</small></div>
+    </div>
+    <ul class="reasons">${(c.reasons||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join("")}
+    ${(c.vetoReasons||[]).map(x=>`<li style="color:#ff6b8a">否决：${escapeHtml(x)}</li>`).join("")}</ul>
+    <div class="ca">${escapeHtml(c.address||"")}</div>
+    <div class="links">
+      ${c.pairUrl?`<a href="${c.pairUrl}" target="_blank" rel="noopener">打开 DexScreener</a>`:""}
+      <a href="#" onclick="copyCA('${c.address||""}');return false;">复制合约</a>
+    </div>
+  </div>`;
+}
+
+function fillModel(d) {
+  document.getElementById("model").innerHTML = `
+    <b>怎么用这三栏</b><br>
+    观察池：闸1有热搜、结构未一票否决、市值还在发现/确认区——唯一值得第二天再看的名单。<br>
+    已过窗口：梗可能很强，但公开渠道已经定价，剩下的是博弈。<br>
+    链上异动：没有链外热搜，更像 COPPERINU 那种上所/KOL 催化，不当作百倍发现。<br>
+    检索词来自今日热榜短名 + 金融谐音。数据源：微博/抖音/百度/雪球、GeckoTerminal、DexScreener、GoPlus。`;
+}
+
+function copyCA(s) {
+  if (!s) return;
+  navigator.clipboard.writeText(s).then(() => {
+    document.getElementById("status").textContent = "已复制合约 " + s.slice(0,10) + "…";
+  });
+}
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function shutdown() {
+  fetch("/api/shutdown").finally(() => {
+    document.getElementById("status").textContent = "程序正在退出，可以关闭这个页面。";
+  });
+}
+startScan();
+</script>
+</body>
+</html>
