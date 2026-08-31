@@ -19,3 +19,11 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+
+# Golden dog finder
+golden-dog-finder/frontend/node_modules
+golden-dog-finder/frontend/dist
+**/__pycache__/
+*.pyc
+.venv
+.pytest_cache
