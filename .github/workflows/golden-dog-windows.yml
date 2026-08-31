@@ -1,0 +1,26 @@
+name: golden-dog-windows
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "golden-dog-finder/**"
+      - ".github/workflows/golden-dog-windows.yml"
+
+jobs:
+  windows-exe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+      - name: Build Windows exe
+        run: bash golden-dog-finder/desktop/build.sh
+      - uses: actions/upload-artifact@v4
+        with:
+          name: GoldenDogRadar-windows
+          path: golden-dog-finder/desktop/dist/GoldenDogRadar.exe

@@ -51,6 +51,23 @@ cd frontend && npm install && npm run dev
 
 浏览器打开 `http://127.0.0.1:5173`（开发）或 `http://127.0.0.1:8787`（生产构建）。
 
+## Windows 桌面版（双击打开）
+
+本机已安装 Microsoft Edge 或 Chrome 即可，无需 Python / Node。
+
+1. 下载 `GoldenDogRadar.exe`
+2. 双击运行，会弹出独立窗口（不是浏览器标签）
+3. 关闭窗口即退出
+
+自己打包：
+
+```bash
+bash golden-dog-finder/desktop/build.sh
+# 产物：golden-dog-finder/desktop/dist/GoldenDogRadar.exe
+```
+
+GitHub Actions 工作流 `golden-dog-windows` 也会打出同名 exe，在 Actions 的 Artifacts 里下载。
+
 ## 测试
 
 ```bash

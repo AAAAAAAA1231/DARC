@@ -27,3 +27,5 @@ golden-dog-finder/frontend/dist
 *.pyc
 .venv
 .pytest_cache
+golden-dog-finder/desktop/dist/
+golden-dog-finder/desktop/ui/assets/
