@@ -15,6 +15,9 @@ darc-docs/.docusaurus
 # Idea files
 .idea/
 
+# Scanner runtime cache
+**/hcw-last-scan.json
+
 # Darc docs Compiled output
 darc-docs/build
 darc-docs/static/api
