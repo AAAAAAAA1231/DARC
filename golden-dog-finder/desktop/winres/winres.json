@@ -1,0 +1,61 @@
+{
+  "RT_GROUP_ICON": {
+    "APP": {
+      "0000": ["icon.png"]
+    }
+  },
+  "RT_MANIFEST": {
+    "#1": {
+      "0409": {
+        "identity": {
+          "name": "GoldenDogRadar",
+          "version": "1.0.0"
+        },
+        "description": "Golden Dog Radar",
+        "minimum-os": "win7",
+        "execution-level": "asInvoker",
+        "ui-access": false,
+        "dpi-awareness": "per monitor v2"
+      }
+    }
+  },
+  "RT_VERSION": {
+    "#1": {
+      "0000": {
+        "fixed": {
+          "file_version": "1.0.0.0",
+          "product_version": "1.0.0.0",
+          "file_flags_mask": "3f",
+          "file_flags": "00",
+          "file_os": "040004",
+          "file_type": "01",
+          "file_subtype": "00"
+        },
+        "info": {
+          "0409": {
+            "CompanyName": "Golden Dog Radar",
+            "FileDescription": "Golden Dog Radar",
+            "FileVersion": "1.0.0",
+            "InternalName": "GoldenDogRadar",
+            "LegalCopyright": "Open source. Not a financial product.",
+            "OriginalFilename": "GoldenDogRadar.exe",
+            "ProductName": "Golden Dog Radar",
+            "ProductVersion": "1.0.0",
+            "Comments": "On-chain memecoin research scanner. Source in this repository."
+          },
+          "0804": {
+            "CompanyName": "金狗雷达",
+            "FileDescription": "金狗雷达",
+            "FileVersion": "1.0.0",
+            "InternalName": "GoldenDogRadar",
+            "LegalCopyright": "开源研究工具，非投资产品",
+            "OriginalFilename": "GoldenDogRadar.exe",
+            "ProductName": "金狗雷达",
+            "ProductVersion": "1.0.0",
+            "Comments": "链上迷因币研究扫描器，源码在本仓库。"
+          }
+        }
+      }
+    }
+  }
+}

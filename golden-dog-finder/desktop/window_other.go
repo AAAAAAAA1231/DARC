@@ -9,7 +9,7 @@ import (
 	"runtime"
 )
 
-func startAppWindow(appURL string) (*exec.Cmd, error) {
+func runAppWindow(appURL string) error {
 	var cmd *exec.Cmd
 	switch runtime.GOOS {
 	case "darwin":
@@ -18,12 +18,17 @@ func startAppWindow(appURL string) (*exec.Cmd, error) {
 		if _, err := exec.LookPath("xdg-open"); err == nil {
 			cmd = exec.Command("xdg-open", appURL)
 		} else {
-			cmd = exec.Command("sh", "-c", "echo "+appURL)
+			log.Println("请在浏览器打开:", appURL)
+			select {}
 		}
 	}
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
-	return cmd, cmd.Start()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	log.Println("金狗雷达已启动:", appURL)
+	select {}
 }
 
 func showError(msg string) {

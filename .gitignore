@@ -29,3 +29,4 @@ golden-dog-finder/frontend/dist
 .pytest_cache
 golden-dog-finder/desktop/dist/
 golden-dog-finder/desktop/ui/assets/
+golden-dog-finder/desktop/rsrc_windows_*.syso

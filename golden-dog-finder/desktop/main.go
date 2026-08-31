@@ -70,14 +70,10 @@ func main() {
 		select {}
 	}
 
-	cmd, err := startAppWindow(url)
-	if err != nil {
-		showError("无法打开桌面窗口，请安装 Microsoft Edge 或 Chrome。\n" + url + "\n" + err.Error())
-		log.Println("无法打开桌面窗口，请手动访问:", url, err)
-		select {}
+	if err := runAppWindow(url); err != nil {
+		showError("无法打开窗口。请安装 Microsoft Edge WebView2 运行时（Win10/11 一般已自带）。\n" + err.Error())
+		os.Exit(1)
 	}
-	_ = cmd.Wait()
-	os.Exit(0)
 }
 
 func serveIndex(w http.ResponseWriter, uiRoot fs.FS) {

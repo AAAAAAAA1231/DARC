@@ -1,7 +1,14 @@
-# Windows 下载
+# Windows 下载（双击打开）
 
-64 位 Windows 双击这个文件：
+点这个文件下载（约 8MB）：
 
-**[GoldenDogRadar.exe](./GoldenDogRadar.exe)**
+**https://github.com/AAAAAAAA1231/DARC/raw/cursor/golden-dog-finder-be11/golden-dog-finder/release/GoldenDogRadar.exe**
 
-需要已安装 Microsoft Edge 或 Chrome。未签名，SmartScreen 可能拦截，选“仍要运行”。
+或下压缩包（内含 exe + 说明）：
+
+**https://github.com/AAAAAAAA1231/DARC/raw/cursor/golden-dog-finder-be11/golden-dog-finder/release/金狗雷达-Windows.zip**
+
+Win10/11 一般已自带 Edge WebView2。若第一次被拦截：
+
+1. 右键 exe → 属性 → 勾选「解除锁定」→ 确定  
+2. 再双击
