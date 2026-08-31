@@ -120,7 +120,7 @@ a { color: var(--gold); }
   overflow: hidden;
   box-shadow: inset 0 0 40px rgba(0,0,0,.55), 0 0 0 1px var(--line);
 }
-.radar-ring { position: absolute; inset: 12%; border: 1px solid rgba(226,176,66,.18); border-radius: 50%; }
+.radar-ring { position: absolute; inset: 12%; border: 1px solid rgba(226,176,66,.18); border-radius: 50%; pointer-events: none; }
 .radar-ring.r2 { inset: 22%; }
 .radar-ring.r3 { inset: 34%; }
 .radar-ring.r4 { inset: 46%; }
@@ -128,10 +128,12 @@ a { color: var(--gold); }
   position: absolute; inset: 0;
   background: conic-gradient(from 0deg, transparent 0 320deg, rgba(226,176,66,.28) 360deg);
   animation: sweep 4.5s linear infinite;
+  pointer-events: none;
 }
 @keyframes sweep { to { transform: rotate(360deg); } }
 .radar-cross {
   position: absolute; inset: 0;
+  pointer-events: none;
   background:
     linear-gradient(var(--line), var(--line)) center/1px 100% no-repeat,
     linear-gradient(var(--line), var(--line)) center/100% 1px no-repeat;
@@ -143,16 +145,18 @@ a { color: var(--gold); }
   font-size: 11px;
   letter-spacing: 0.2em;
   color: var(--gold);
+  pointer-events: none;
 }
 .blip {
   position: absolute;
-  width: 8px; height: 8px;
+  width: 10px; height: 10px;
   border: 0;
   border-radius: 50%;
   transform: translate(-50%, -50%);
   background: var(--gold);
   box-shadow: 0 0 8px var(--gold);
   cursor: pointer;
+  z-index: 2;
 }
 .blip.dead { background: #5a5346; box-shadow: none; }
 .blip.grade-S { width: 11px; height: 11px; background: #fff3c4; }
@@ -160,6 +164,12 @@ a { color: var(--gold); }
 .radar-caption { color: var(--mist); font-size: 12px; text-align: center; }
 
 .tape { display: flex; flex-direction: column; gap: 8px; max-height: calc(100vh - 150px); overflow: auto; padding-right: 4px; }
+.tape-label {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  color: var(--mist);
+  padding: 6px 2px 2px;
+}
 .card {
   display: grid;
   grid-template-columns: 28px 1.2fr 1.6fr auto auto;
