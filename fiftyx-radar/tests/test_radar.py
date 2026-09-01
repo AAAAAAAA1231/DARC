@@ -3,6 +3,7 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timezone
 
+from radar.__main__ import build_parser
 from radar.models import TokenSnapshot
 from radar.scoring import score_many, score_token, summarize_venues
 from radar.sources import pools_to_snapshots
@@ -156,6 +157,13 @@ class SourceParseTests(unittest.TestCase):
         self.assertEqual(snaps[0].dex, "pumpswap")
         self.assertEqual(snaps[0].volume_h24, 500000)
         self.assertIsNotNone(snaps[0].age_days)
+
+
+class CliTests(unittest.TestCase):
+    def test_parser_accepts_html_flag(self):
+        args = build_parser().parse_args(["--html", "out.html", "--min-score", "60"])
+        self.assertEqual(args.html, "out.html")
+        self.assertEqual(args.min_score, 60)
 
 
 if __name__ == "__main__":

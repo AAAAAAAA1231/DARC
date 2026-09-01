@@ -31,7 +31,17 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _configure_stdio() -> None:
+    if sys.platform != "win32":
+        return
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8")
+
+
 def run(argv: list[str] | None = None) -> int:
+    _configure_stdio()
     args = build_parser().parse_args(argv)
     networks = tuple(n.strip() for n in args.networks.split(",") if n.strip())
     generated_at = utcnow().astimezone(timezone.utc)
