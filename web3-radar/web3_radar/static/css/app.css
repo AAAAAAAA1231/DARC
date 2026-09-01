@@ -1,0 +1,93 @@
+:root {
+  --bg: #07090d;
+  --panel: #10151d;
+  --panel-2: #161d28;
+  --line: #243044;
+  --text: #e8eef7;
+  --muted: #8b9bb4;
+  --accent: #3ee0b0;
+  --accent-2: #f5c15c;
+  --up: #3ee0b0;
+  --down: #ff6b7a;
+  --wait: #8b9bb4;
+  --danger: #ff6b7a;
+  --shadow: 0 10px 40px rgba(0,0,0,.35);
+  font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); }
+body { display: grid; grid-template-columns: 240px 1fr; }
+.sidebar {
+  background: linear-gradient(180deg, #0c1118 0%, #0a0e14 100%);
+  border-right: 1px solid var(--line);
+  padding: 20px 14px;
+  display: flex; flex-direction: column; gap: 18px;
+}
+.brand { display: flex; gap: 10px; align-items: center; }
+.logo {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: radial-gradient(circle at 30% 30%, #5fffd0, #1aa37e);
+  color: #04281e; font-weight: 800; display: grid; place-items: center;
+}
+.brand h1 { font-size: 18px; margin: 0; }
+.brand p { margin: 0; color: var(--muted); font-size: 12px; }
+nav { display: flex; flex-direction: column; gap: 6px; }
+nav button, .btn {
+  background: transparent; color: var(--text); border: 1px solid transparent;
+  padding: 10px 12px; border-radius: 10px; text-align: left; cursor: pointer;
+}
+nav button:hover, .btn:hover { background: var(--panel-2); }
+nav button.active {
+  background: #13251f; border-color: #1e5c4a; color: var(--accent);
+}
+.wallet-chip {
+  margin-top: auto; font-size: 12px; color: var(--muted);
+  border: 1px dashed var(--line); border-radius: 10px; padding: 10px;
+  word-break: break-all;
+}
+main { overflow: auto; padding: 18px 22px 40px; }
+.topbar { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.topbar h2 { margin: 0 0 4px; }
+.topbar p, .muted { color: var(--muted); }
+.top-actions { display: flex; gap: 8px; align-items: center; }
+.btn { border: 1px solid var(--line); background: var(--panel); }
+.btn.primary { background: #123c31; border-color: #1f6b57; color: var(--accent); }
+.hidden { display: none !important; }
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.pill { font-size: 12px; color: var(--accent-2); border: 1px solid #4a3c1d; background: #1c170c; padding: 4px 8px; border-radius: 999px; }
+input, select {
+  background: var(--panel); color: var(--text); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px;
+}
+.table-wrap { overflow: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--panel); box-shadow: var(--shadow); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+th { color: var(--muted); font-weight: 600; background: #0e141c; position: sticky; top: 0; }
+.tag { padding: 2px 8px; border-radius: 999px; font-size: 12px; }
+.tag.up { background: #123c31; color: var(--up); }
+.tag.down { background: #3c1218; color: var(--down); }
+.tag.seed { background: #1c170c; color: var(--accent-2); }
+.tag.wait { background: #1b2230; color: var(--wait); }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.card, .panel {
+  background: var(--panel); border: 1px solid var(--line); border-radius: 14px;
+  padding: 14px; box-shadow: var(--shadow);
+}
+.card h3, .panel h3 { margin: 0 0 8px; font-size: 16px; }
+.card p { margin: 0 0 8px; color: var(--muted); font-size: 13px; line-height: 1.45; }
+.row-actions, .card-actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.progress { height: 6px; background: #1b2230; border-radius: 99px; overflow: hidden; margin-bottom: 10px; }
+.progress > div { height: 100%; width: 0; background: linear-gradient(90deg, #1aa37e, #f5c15c); }
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+.form { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.form label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+.check { flex-direction: row !important; align-items: center; gap: 8px !important; color: var(--text) !important; }
+.detail { margin-top: 14px; }
+code { color: var(--accent-2); }
+a { color: var(--accent); }
+@media (max-width: 960px) {
+  body { grid-template-columns: 1fr; }
+  .sidebar { flex-direction: row; overflow: auto; }
+  nav { flex-direction: row; }
+  .form, .grid-2 { grid-template-columns: 1fr; }
+}

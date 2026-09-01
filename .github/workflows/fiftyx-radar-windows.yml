@@ -1,0 +1,51 @@
+name: 工作台 Windows exe
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "desk-suite/**"
+      - "fiftyx-radar/**"
+      - "football-predictor/**"
+      - "web3-radar/**"
+      - ".github/workflows/fiftyx-radar-windows.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r desk-suite/requirements.txt pyinstaller
+      - name: Test radar
+        working-directory: fiftyx-radar
+        run: python -m unittest tests.test_radar -v
+      - name: Test football
+        working-directory: football-predictor
+        run: python -m pytest tests/test_model.py -q
+      - name: Test contract engine
+        working-directory: web3-radar
+        run: python -m pytest tests/test_engine.py tests/test_risk.py -q
+      - name: Test suite
+        working-directory: desk-suite
+        run: python -m pytest tests -q
+      - name: Build OneFile exe
+        working-directory: desk-suite
+        run: python -m PyInstaller --noconfirm --clean GongZuoTai.spec
+      - name: Attach GongZuoTai.exe to Latest release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: chainradar
+          files: desk-suite/dist/GongZuoTai.exe
+          fail_on_unmatched_files: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

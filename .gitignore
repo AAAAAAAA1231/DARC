@@ -19,3 +19,15 @@ darc-docs/.docusaurus
 darc-docs/build
 darc-docs/static/api
 darc-js/dist
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+desk-suite/build/
+desk-suite/dist/
+web3-radar/dist/
+web3-radar/data/
+football-predictor/build/
+football-predictor/dist/
+fiftyx-radar/dist/
+fiftyx-radar/build/
