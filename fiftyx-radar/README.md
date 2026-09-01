@@ -10,11 +10,11 @@
 
 ## 下载 exe
 
-直接点这个文件（不是压缩包）：
+跟 ChainRadar 同一个入口，点这个就会直接下 `.exe`（不是压缩包）：
 
-**[FiftyXRadar.exe](https://github.com/AAAAAAAA1231/DARC/releases/download/fiftyx-radar/FiftyXRadar.exe)**
+**https://github.com/AAAAAAAA1231/DARC/releases/latest/download/FiftyXRadar.exe**
 
-链接在 GitHub Actions 打完包并发到 Releases 之后才会有效。双击运行会弹出黑窗口扫一遍；也可以：
+双击运行会弹出黑窗口扫一遍；也可以：
 
 ```text
 FiftyXRadar.exe --html report.html
