@@ -100,6 +100,38 @@ def render_text(venues: list[VenuePulse], tokens: list[ScoredToken], generated_a
     return "\n".join(lines) + "\n"
 
 
+def render_scanning_html() -> str:
+    return """<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta http-equiv="refresh" content="2"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Fifty-X Radar 扫描中</title>
+  <style>
+    body {
+      margin:0; min-height:100vh; display:flex; align-items:center; justify-content:center;
+      font-family:"Iowan Old Style","Palatino Linotype",Georgia,serif;
+      background:#0c0d10; color:#f4f1ea;
+    }
+    main { text-align:center; padding:24px; }
+    .kicker { color:#e8c07a; letter-spacing:.12em; font-size:12px; text-transform:uppercase; }
+    h1 { margin:12px 0 8px; font-weight:600; }
+    p { color:#9aa0a6; }
+  </style>
+</head>
+<body>
+<main>
+  <p class="kicker">Fifty-X Radar</p>
+  <h1>正在扫描新场子和新盘</h1>
+  <p>在拉 GeckoTerminal / DexScreener，完成后这一页会自动变成结果。</p>
+</main>
+<script>setTimeout(function(){location.reload();}, 2000);</script>
+</body>
+</html>
+"""
+
+
 def render_html(venues: list[VenuePulse], tokens: list[ScoredToken], generated_at: datetime) -> str:
     hot = [v for v in venues if v.label != "普通场"][:10]
     focus = [t for t in tokens if t.score.priority == "focus"]

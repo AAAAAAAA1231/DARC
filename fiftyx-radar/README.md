@@ -14,9 +14,10 @@
 
 **https://github.com/AAAAAAAA1231/DARC/releases/latest/download/FiftyXRadar.exe**
 
-双击运行会弹出黑窗口扫一遍；也可以：
+双击后会先打开浏览器（黑窗口只是扫描进度）。扫完页面会自动变成结果。也可以：
 
 ```text
+FiftyXRadar.exe --text
 FiftyXRadar.exe --html report.html
 ```
 
@@ -32,16 +33,19 @@ python3 -m radar
 常用参数：
 
 ```bash
-# 终端名单
+# 默认：扫完后打开浏览器
 python3 -m radar
+
+# 只要终端名单
+python3 -m radar --text
 
 # JSON
 python3 -m radar --json
 
-# 写成网页
+# 写成网页，不打开浏览器
 python3 -m radar --html report.html
 
-# 生成本地页（默认 http://127.0.0.1:8765/fiftyx-radar-report.html）
+# 本地 http 页（默认 http://127.0.0.1:8765/fiftyx-radar-report.html）
 python3 -m radar --serve
 
 # 只扫部分链

@@ -3,7 +3,10 @@ from __future__ import annotations
 import unittest
 from datetime import datetime, timezone
 
-from radar.__main__ import build_parser
+from unittest.mock import patch
+
+from radar.__main__ import build_parser, run, use_browser_ui
+from radar.report import render_scanning_html
 from radar.models import TokenSnapshot
 from radar.scoring import score_many, score_token, summarize_venues
 from radar.sources import pools_to_snapshots
@@ -164,6 +167,55 @@ class CliTests(unittest.TestCase):
         args = build_parser().parse_args(["--html", "out.html", "--min-score", "60"])
         self.assertEqual(args.html, "out.html")
         self.assertEqual(args.min_score, 60)
+
+    def test_default_uses_browser_ui(self):
+        args = build_parser().parse_args([])
+        self.assertTrue(use_browser_ui(args))
+
+    def test_text_and_json_skip_browser_ui(self):
+        self.assertFalse(use_browser_ui(build_parser().parse_args(["--text"])))
+        self.assertFalse(use_browser_ui(build_parser().parse_args(["--json"])))
+        self.assertFalse(use_browser_ui(build_parser().parse_args(["--html", "out.html"])))
+
+    def test_serve_uses_browser_ui(self):
+        self.assertTrue(use_browser_ui(build_parser().parse_args(["--serve"])))
+
+    def test_scanning_html_auto_refreshes(self):
+        page = render_scanning_html()
+        self.assertIn("refresh", page)
+        self.assertIn("正在扫描", page)
+
+    def test_default_run_opens_browser(self):
+        class DummyHttpd:
+            def shutdown(self) -> None:
+                return None
+
+        with (
+            patch("radar.__main__.collect_snapshots", return_value=[]),
+            patch("radar.__main__.open_in_browser", return_value=True) as opener,
+            patch("radar.__main__.keep_window_open") as waiter,
+            patch(
+                "radar.__main__._serve_in_background",
+                return_value=(DummyHttpd(), 8765, None),
+            ),
+        ):
+            code = run([])
+        self.assertEqual(code, 0)
+        self.assertTrue(opener.called)
+        self.assertTrue(waiter.called)
+        target = opener.call_args[0][0]
+        self.assertEqual(target, "http://127.0.0.1:8765/fiftyx-radar-report.html")
+
+    def test_text_run_does_not_open_browser(self):
+        with (
+            patch("radar.__main__.collect_snapshots", return_value=[]),
+            patch("radar.__main__.open_in_browser") as opener,
+            patch("radar.__main__.keep_window_open") as waiter,
+        ):
+            code = run(["--text"])
+        self.assertEqual(code, 0)
+        opener.assert_not_called()
+        waiter.assert_not_called()
 
 
 if __name__ == "__main__":
