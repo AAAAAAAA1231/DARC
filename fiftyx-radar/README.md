@@ -10,20 +10,11 @@
 
 ## 下载 exe
 
-跟 ChainRadar 同一个入口，点这个就会直接下 `.exe`（不是压缩包）：
+现在三个工具在**同一个工作台**里（50 倍雷达 / 三大联赛 / 合约分析）：
 
-**https://github.com/AAAAAAAA1231/DARC/releases/latest/download/FiftyXRadar.exe**
+**https://github.com/AAAAAAAA1231/DARC/releases/latest/download/GongZuoTai.exe**
 
-双击后会先打开浏览器（黑窗口只是扫描进度）。扫完页面会自动变成结果。也可以：
-
-```text
-FiftyXRadar.exe --text
-FiftyXRadar.exe --html report.html
-```
-
-未签名的 PyInstaller 程序偶尔会被杀毒软件误拦。
-
-本机已有 Python 的话，不必等 exe：
+双击后浏览器打开，左侧切换模块。只要雷达源码：
 
 ```bash
 cd fiftyx-radar

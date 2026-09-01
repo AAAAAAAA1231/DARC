@@ -1,0 +1,118 @@
+{
+  "ambassadors": [
+    {
+      "key": "seed-x-search-amb",
+      "project": "X 检索：新项目社区大使",
+      "username": "",
+      "title": "搜 7 天内新项目大使，不要只看交易所",
+      "text": "在 X 搜索：ambassador program apply、we're looking for ambassadors、招募社区大使、regional ambassador。只要带报名表、测试网/TGE/白名单的新项目，忽略 OKX/币安校园计划。",
+      "url": "https://x.com/search?q=web3%20ambassador%20program%20apply&src=typed_query&f=live",
+      "deadline": "滚动 7 天窗口",
+      "priority": "高",
+      "priority_detail": "高 · 检索方法",
+      "score": 70,
+      "source": "观察池"
+    },
+    {
+      "key": "seed-galxe-zealy",
+      "project": "Galxe / Zealy 任务里的大使",
+      "username": "",
+      "title": "新项目常把大使申请做成任务页",
+      "text": "很多未发币项目会在 Galxe、Zealy 发 Ambassador / Mod / Content Creator 任务。按项目名交叉验证官网和 X 账号，避免假表。",
+      "url": "https://galxe.com/",
+      "deadline": "以任务页截止为准",
+      "priority": "中",
+      "priority_detail": "中 · 任务平台",
+      "score": 62,
+      "source": "观察池"
+    }
+  ],
+  "launches": [
+    {
+      "key": "seed-x-search-launch",
+      "name": "X 检索：白名单 / Presale / TGE",
+      "kind": "社媒打新（方法）",
+      "chain": "多链",
+      "text": "搜 whitelist open、presale live、fair launch、TGE date、白名单开启、公售。这是新项目打新，不是币安/OKX 上新公告。",
+      "url": "https://x.com/search?q=whitelist%20open%20TGE%20crypto&src=typed_query&f=live",
+      "source": "观察池",
+      "price_usd": null
+    },
+    {
+      "key": "seed-new-protocol-watch",
+      "name": "新协议刚上线（跟 X + 官网）",
+      "kind": "新项目上线",
+      "chain": "多链",
+      "text": "DefiLlama 近三周新上线的协议通常还没上交易所。优先看有 X 账号和官网的项目，参加测试网/积分/白名单。",
+      "url": "https://defillama.com/",
+      "source": "观察池",
+      "price_usd": null
+    }
+  ],
+  "airdrops": [
+    {
+      "key": "seed-megaeth",
+      "name": "MegaETH",
+      "total_funding_usd": 450000000,
+      "latest_round": "Strategic",
+      "latest_date": "",
+      "sector": "L2 / 高性能链",
+      "chains": ["Ethereum"],
+      "famous_investors": ["Vitalik Buterin", "Dragonfly", "Robot Ventures"],
+      "famous_count": 3,
+      "investor_count": 8,
+      "token_status": "未发币（待核验）",
+      "token_expect": "未发币，空投预期较高 · 内置观察池，请核验官网",
+      "score": 88,
+      "source": "https://megaeth.com/"
+    },
+    {
+      "key": "seed-monad",
+      "name": "Monad",
+      "total_funding_usd": 225000000,
+      "latest_round": "Series A",
+      "latest_date": "",
+      "sector": "L1",
+      "chains": ["Monad"],
+      "famous_investors": ["Paradigm", "Electric Capital"],
+      "famous_count": 2,
+      "investor_count": 10,
+      "token_status": "未发币（待核验）",
+      "token_expect": "未发币，空投预期较高 · 内置观察池，请核验官网",
+      "score": 86,
+      "source": "https://www.monad.xyz/"
+    },
+    {
+      "key": "seed-plasma",
+      "name": "Plasma",
+      "total_funding_usd": 500000000,
+      "latest_round": "Strategic",
+      "latest_date": "",
+      "sector": "稳定币链 / Payments",
+      "chains": ["Plasma"],
+      "famous_investors": ["Framework", "Bitfinex", "Founders Fund"],
+      "famous_count": 3,
+      "investor_count": 12,
+      "token_status": "未发币（待核验）",
+      "token_expect": "未发币，空投预期较高 · 内置观察池，请核验官网",
+      "score": 90,
+      "source": "https://www.plasma.to/"
+    },
+    {
+      "key": "seed-initia",
+      "name": "Initia",
+      "total_funding_usd": 24000000,
+      "latest_round": "Series A",
+      "latest_date": "",
+      "sector": "模块化 / Interwoven",
+      "chains": ["Initia"],
+      "famous_investors": ["Delphi", "Hack VC"],
+      "famous_count": 2,
+      "investor_count": 8,
+      "token_status": "疑似已发币",
+      "token_expect": "可能已有代币，空投不确定 · 内置观察池",
+      "score": 62,
+      "source": "https://initia.xyz/"
+    }
+  ]
+}

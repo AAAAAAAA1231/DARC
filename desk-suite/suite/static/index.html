@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>工作台</title>
+  <link rel="stylesheet" href="/assets/style.css"/>
+</head>
+<body>
+  <aside>
+    <div class="brand">
+      <div class="logo">台</div>
+      <div>
+        <h1>工作台</h1>
+        <p>三个原来的工具，一个窗口</p>
+      </div>
+    </div>
+    <nav>
+      <button data-view="radar" class="active">50 倍雷达</button>
+      <button data-view="football">三大联赛胜负</button>
+      <button data-view="contracts">合约分析</button>
+    </nav>
+    <p class="foot">不是投资 / 投注建议。关掉黑窗口即退出。</p>
+  </aside>
+  <main>
+    <header>
+      <div>
+        <h2 id="viewTitle">50 倍雷达</h2>
+        <p id="viewSub">新场子 + 独占叙事 + 浅开盘</p>
+      </div>
+      <div class="actions">
+        <span id="statusLine" class="muted">就绪</span>
+      </div>
+    </header>
+
+    <section id="view-radar" class="view">
+      <div class="toolbar">
+        <button class="btn primary" id="radarScan">重新扫描</button>
+        <span class="pill">开盘段才有 50 倍</span>
+      </div>
+      <iframe id="radarFrame" title="50倍雷达"></iframe>
+    </section>
+
+    <section id="view-football" class="view hidden">
+      <div class="toolbar">
+        <input id="footballQuery" placeholder="下一场皇马　巴萨vs马竞　德甲　尤文"/>
+        <button class="btn primary" id="footballSearch">搜索预测</button>
+        <button class="btn" id="footballAll">近期全部</button>
+        <span class="pill">西甲 / 德甲 / 意甲</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>联赛</th><th>开球</th><th>对阵</th><th>90分钟</th>
+              <th>最终</th><th>比分</th><th>主胜 / 平 / 客胜</th><th>把握</th>
+            </tr>
+          </thead>
+          <tbody id="footballRows">
+            <tr><td colspan="8" class="muted">点「近期全部」或搜索一场。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="view-contracts" class="view hidden">
+      <div class="toolbar">
+        <button class="btn primary" id="analyzeAll">刷新信号</button>
+        <button class="btn" id="refitWeights">重新拟合权重</button>
+        <label>周期
+          <select id="klineInterval">
+            <option>15m</option>
+            <option selected>4h</option>
+            <option>1d</option>
+          </select>
+        </label>
+        <input id="contractFilter" placeholder="筛选币种 / 结论"/>
+        <span class="pill" id="simBadge">先校准一次指标权重，之后刷新只出涨跌</span>
+      </div>
+      <div class="progress hidden" id="analyzeProgress"><div></div></div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>标的</th><th>市值排名</th><th>结论</th><th>质量</th><th>综合分</th>
+              <th>现价</th><th>建仓</th><th>止损</th><th>减仓/保本</th><th>止盈</th><th>建议仓位</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="contractRows">
+            <tr><td colspan="11" class="muted">点「刷新信号」加载永续合约名单。</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div id="contractDetail"></div>
+    </section>
+  </main>
+  <script src="/assets/app.js"></script>
+</body>
+</html>
