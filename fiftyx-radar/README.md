@@ -8,18 +8,19 @@
 
 这不是买卖信号，更不是投资建议。50 倍发生在开盘段，不发生在市值过亿之后。
 
-## 有没有 exe？
+## 下载 exe
 
-**没有现成的官网安装包。** 这是一个 Python 工具，仓库里不托管 `.exe` 文件。
+直接点这个文件（不是压缩包）：
 
-Windows 想下 exe，等 GitHub Actions 打好包：
+**[FiftyXRadar.exe](https://github.com/AAAAAAAA1231/DARC/releases/download/fiftyx-radar/FiftyXRadar.exe)**
 
-1. 打开 [Actions：Fifty-X Radar Windows exe](https://github.com/AAAAAAAA1231/DARC/actions/workflows/fiftyx-radar-windows.yml)
-2. 点最新一次成功的绿色运行
-3. 底下 Artifacts 里下载 **FiftyXRadar-windows**
-4. 解压后运行 `FiftyXRadar.exe`（双击会弹出黑窗口扫一遍；也可在 cmd 里加 `--html report.html`）
+链接在 GitHub Actions 打完包并发到 Releases 之后才会有效。双击运行会弹出黑窗口扫一遍；也可以：
 
-第一次打开 Actions 如果还在排队，等几分钟。杀毒软件偶尔会拦 PyInstaller 打包的未签名 exe，那是误报，不是从商店分发的安装程序。
+```text
+FiftyXRadar.exe --html report.html
+```
+
+未签名的 PyInstaller 程序偶尔会被杀毒软件误拦。
 
 本机已有 Python 的话，不必等 exe：
 

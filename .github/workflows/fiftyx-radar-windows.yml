@@ -6,10 +6,9 @@ on:
     paths:
       - "fiftyx-radar/**"
       - ".github/workflows/fiftyx-radar-windows.yml"
-  pull_request:
-    paths:
-      - "fiftyx-radar/**"
-      - ".github/workflows/fiftyx-radar-windows.yml"
+
+permissions:
+  contents: write
 
 jobs:
   windows-exe:
@@ -24,7 +23,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip pyinstaller
           python -m PyInstaller --noconfirm --clean --onefile --console --name FiftyXRadar --hidden-import radar --hidden-import radar.models --hidden-import radar.scoring --hidden-import radar.sources --hidden-import radar.report --hidden-import radar.__main__ fiftyx_radar.py
-      - uses: actions/upload-artifact@v4
+      - name: Publish FiftyXRadar.exe to Releases
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
         with:
-          name: FiftyXRadar-windows
-          path: fiftyx-radar/dist/FiftyXRadar.exe
+          tag_name: fiftyx-radar
+          name: FiftyXRadar.exe
+          body: |
+            Direct `.exe` download (not a zip):
+
+            https://github.com/${{ github.repository }}/releases/download/fiftyx-radar/FiftyXRadar.exe
+
+            Double-click to scan. Optional: `FiftyXRadar.exe --html report.html`
+          files: fiftyx-radar/dist/FiftyXRadar.exe
+          fail_on_unmatched_files: true
+          prerelease: true
+          make_latest: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
