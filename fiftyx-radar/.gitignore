@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.pytest_cache/
+fiftyx-radar-report.html
+report.html
+.venv/
