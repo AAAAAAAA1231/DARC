@@ -64,7 +64,7 @@
     .wrap { padding: 8px 28px 40px; display: grid; gap: 18px; }
     .pipeline {
       display: grid;
-      grid-template-columns: repeat(9, minmax(110px, 1fr));
+      grid-template-columns: repeat(6, minmax(140px, 1fr));
       gap: 8px;
       overflow-x: auto;
       padding-bottom: 4px;
@@ -134,12 +134,12 @@
         <h1>金狗雷达</h1>
         <div class="sub">
           按加密狗 <a href="https://x.com/jiamigou/status/2075057589457735949" target="_blank" rel="noopener">@jiamigou 保姆级教程</a>
-          固化的发现顺序，扫描 Robinhood Chain 公开行情。只筛选、不代买、不碰私钥。
+          固化的<strong>筛选顺序</strong>扫描 Robinhood Chain。只过滤候选，不含开仓或止盈。
         </div>
       </div>
     </div>
     <div class="actions">
-      <button class="primary" id="btnScan">按顺序扫描</button>
+      <button class="primary" id="btnScan">开始筛选</button>
       <a class="btn" href="https://dexscreener.com/new-pairs/robinhood" target="_blank" rel="noopener">Dex 新对</a>
       <a class="btn" href="https://fun.noxa.fi/robinhood" target="_blank" rel="noopener">NOXA</a>
       <a class="btn" href="https://gmgn.ai" target="_blank" rel="noopener">GMGN</a>
@@ -155,8 +155,8 @@
       <div class="stat"><b id="nTime">—</b><span>最近扫描</span></div>
     </div>
     <div class="warnbox">
-      原文纪律：新链早期 99% Memecoin 会归零；永远小额测试；自动买入风险极高，本软件已永久关闭该功能。
-      发现顺序不能跳：年龄 → 叙事 → 数据 → 链上 → 聪明钱 → 1–2% 小仓 → 2x/5x/10x 分批止盈，跌 50% 止损。
+      筛选顺序：双监控发现 → 年龄窗口 → 叙事快筛 → 数据确认 → 链上核查 → 聪明钱确认。
+      连续通过才会标成金狗候选。本工具只过滤，不代买、不保存私钥。
     </div>
     <div class="layout">
       <div class="card">
@@ -166,21 +166,21 @@
               <th>#</th><th>代币</th><th>年龄</th><th>市值 / 流动性</th><th>买/卖</th><th>进度</th><th>得分</th><th>结论</th>
             </tr>
           </thead>
-          <tbody id="rows"><tr><td colspan="8" class="empty">点击右上角「按顺序扫描」开始。</td></tr></tbody>
+          <tbody id="rows"><tr><td colspan="8" class="empty">点击右上角「开始筛选」。</td></tr></tbody>
         </table>
       </div>
       <div class="card" id="detail">
-        <div class="muted">选中左侧一只币，查看它走到发现顺序的哪一步。</div>
+        <div class="muted">选中左侧一只币，查看它筛到哪一步。</div>
       </div>
     </div>
     <div class="footer">
       数据来自 Dexscreener / Blockscout 公开接口。教程来源：
       <a href="https://x.com/jiamigou/status/2075057589457735949" target="_blank" rel="noopener">x.com/jiamigou/status/2075057589457735949</a>
-      · 本工具不是投资建议。
+      · 只做筛选，不是投资建议。
     </div>
   </div>
 <script>
-const kindMap = {manual:"手动", auto:"自动", semi:"半自动", advice:"纪律"};
+const kindMap = {auto:"自动", semi:"半自动"};
 let state = {candidates: [], selected: null, pipeline: []};
 
 function money(v){
@@ -221,7 +221,7 @@ async function scan(){
   } catch(e){
     document.getElementById("rows").innerHTML = `<tr><td colspan="8" class="empty">扫描失败：${e.message}</td></tr>`;
   } finally {
-    btn.disabled = false; btn.textContent = "按顺序扫描";
+    btn.disabled = false; btn.textContent = "开始筛选";
   }
 }
 
@@ -262,16 +262,9 @@ function renderDetail(c){
   document.getElementById("detail").innerHTML = `
     <h2 style="margin:0 0 6px">$${c.symbol} · ${c.verdictLabel}</h2>
     <div class="muted">${c.name || ""} · ${c.address}</div>
-    <p>当前停在发现顺序第 <b>${c.stage}</b> 步：${c.stageTitle}。综合得分 <b>${c.score}</b>。</p>
+    <p>筛选停在第 <b>${c.stage}</b> 步：${c.stageTitle}。综合得分 <b>${c.score}</b>。</p>
     ${flags}
     ${checks}
-    <div class="check">
-      <div class="t">（6）（7）仓位与离场</div>
-      <div>${c.advice.position}</div>
-      <div>${c.advice.takeProfit}</div>
-      <div>${c.advice.stopLoss}</div>
-      <div>${c.advice.diversify}</div>
-    </div>
     <div class="links">
       <a href="${L.dexscreener||"#"}" target="_blank">Dexscreener</a>
       <a href="${L.blockscout||"#"}" target="_blank">Blockscout</a>

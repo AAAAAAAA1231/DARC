@@ -143,7 +143,7 @@ func ScanMarket(now time.Time) ScanResult {
 	res := ScanResult{
 		GeneratedAt: now,
 		Source:      Chain.SourceURL,
-		Logic:       "按加密狗原文顺序：双监控发现 → 年龄窗口 → 叙事快筛 → 数据确认 → 链上核查 → 聪明钱确认 → 小仓试探。不自动买入。",
+		Logic:       "筛选顺序：双监控发现 → 年龄窗口 → 叙事快筛 → 数据确认 → 链上核查 → 聪明钱确认。",
 		Chain:       Chain,
 		Pipeline:    Pipeline,
 		Errors:      []string{},

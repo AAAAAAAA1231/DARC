@@ -61,13 +61,6 @@ type Check struct {
 	Points int    `json:"points"`
 }
 
-type Advice struct {
-	Position   string `json:"position"`
-	TakeProfit string `json:"takeProfit"`
-	StopLoss   string `json:"stopLoss"`
-	Diversify  string `json:"diversify"`
-}
-
 type Candidate struct {
 	Symbol       string            `json:"symbol"`
 	Name         string            `json:"name"`
@@ -93,7 +86,6 @@ type Candidate struct {
 	Flags        []string          `json:"flags"`
 	Checks       []Check           `json:"checks"`
 	Links        map[string]string `json:"links"`
-	Advice       Advice            `json:"advice"`
 	ImageURL     string            `json:"imageUrl"`
 	HasTwitter   bool              `json:"hasTwitter"`
 	HasTelegram  bool              `json:"hasTelegram"`
@@ -132,12 +124,6 @@ func Evaluate(t TokenSnapshot, now time.Time) Candidate {
 		HasWebsite:   t.HasWebsite,
 		Flags:        []string{},
 		Links:        tokenLinks(t),
-		Advice: Advice{
-			Position:   "只买总资金的 1–2% 做测试仓，不要一把梭。",
-			TakeProfit: "涨 2x 卖 30%；5x 再卖 30%；10x 卖剩余。",
-			StopLoss:   "跌 50% 坚决卖出，或提前设好警告。",
-			Diversify:  "同时观察 3–5 个标的，不要把仓位堆在一只币上。",
-		},
 	}
 	if t.MarketCap > 0 {
 		c.LiqMCRatio = t.LiquidityUSD / t.MarketCap
@@ -232,7 +218,7 @@ func stageTitle(stage int) string {
 		3: "叙事过关，待数据",
 		4: "数据过关，待链上",
 		5: "链上过关，待聪明钱",
-		6: "可进入小仓试探",
+		6: "筛选通过",
 	}
 	if s, ok := titles[stage]; ok {
 		return s
@@ -464,7 +450,7 @@ func scoreSmart(t TokenSnapshot) Check {
 		Skip:   true,
 		Pass:   true, // 不阻断流水线，但不得分冒充已确认
 		Points: 4,
-		Detail: "公开接口拿不到 GMGN 聪明钱与蜜罐扫描。请用右侧链接人工确认后再考虑小仓。本工具永不自动买入。",
+		Detail: "公开接口拿不到 GMGN 聪明钱与蜜罐扫描。请用右侧链接人工确认。本工具只做筛选，不自动买入。",
 	}
 	_ = t
 	return ch

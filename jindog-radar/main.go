@@ -54,8 +54,8 @@ func main() {
 	fmt.Println("  逻辑来源：加密狗 @jiamigou")
 	fmt.Println("  https://x.com/jiamigou/status/2075057589457735949")
 	fmt.Println("----------------------------------------")
-	fmt.Println("  发现顺序：准备 → 双监控 → 年龄 → 叙事 → 数据 → 链上 → 聪明钱 → 小仓 → 止盈")
-	fmt.Println("  本工具只做公开数据筛选，不保存私钥，不自动买入。")
+	fmt.Println("  筛选顺序：双监控 → 年龄 → 叙事 → 数据 → 链上 → 聪明钱")
+	fmt.Println("  只做公开数据筛选，不含开仓或止盈止损。")
 	fmt.Println("  界面：", url)
 	fmt.Println("  关闭本窗口即停止。")
 	fmt.Println("========================================")
@@ -88,7 +88,7 @@ func handlePipeline(w http.ResponseWriter, r *http.Request) {
 		"source":   Chain.SourceURL,
 		"chain":    Chain,
 		"pipeline": Pipeline,
-		"note":     "看到新币后按顺序检查。99% 新链 Memecoin 会归零。活得久比抓到 100 倍更重要。",
+		"note":     "筛选顺序：年龄 → 叙事 → 数据 → 链上 → 聪明钱。程序只做过滤，不含开仓或止盈。",
 	})
 }
 

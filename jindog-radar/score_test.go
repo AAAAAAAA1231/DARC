@@ -104,12 +104,12 @@ func TestSellPressureAvoid(t *testing.T) {
 }
 
 func TestPipelineOrderIsFixed(t *testing.T) {
-	if len(Pipeline) != 9 {
-		t.Fatalf("expected 9 steps 0-8, got %d", len(Pipeline))
+	if len(Pipeline) != 6 {
+		t.Fatalf("expected 6 filter steps, got %d", len(Pipeline))
 	}
-	want := []string{"prep", "watch", "age", "narrative", "data", "onchain", "smart", "size", "exit"}
+	want := []string{"watch", "age", "narrative", "data", "onchain", "smart"}
 	for i, id := range want {
-		if Pipeline[i].ID != id || Pipeline[i].Index != i {
+		if Pipeline[i].ID != id || Pipeline[i].Index != i+1 {
 			t.Fatalf("step %d want %s, got %+v", i, id, Pipeline[i])
 		}
 	}

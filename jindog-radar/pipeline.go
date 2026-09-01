@@ -1,23 +1,8 @@
 package main
 
-// Pipeline 是加密狗 @jiamigou 2026-07-09 长文
-// 《Robinhood Chain 「Memecoin」打新--保姆级教程（全流程）》里固化的发现顺序。
-// 原文强调：看到新币后必须按顺序检查，而不是只看市值或 K 线。
+// Pipeline 只保留筛选步骤：发现 → 年龄 → 叙事 → 数据 → 链上 → 聪明钱。
+// 仓位、止盈止损不属于筛选顺序。
 var Pipeline = []PipelineStep{
-	{
-		Index:   0,
-		ID:      "prep",
-		Title:   "上场准备",
-		Kind:    "manual",
-		Summary: "钱包加入 Robinhood Chain，再跨入少量 ETH。没有 gas 就不要扫链。",
-		Quote:   "网络名称：Robinhood Chain；RPC：rpc.mainnet.chain.robinhood.com；Chain ID：4663；货币符号：ETH。",
-		Links: []Link{
-			{Label: "官方跨链文档", URL: "https://docs.robinhood.com/chain/bridging/"},
-			{Label: "Relay 桥", URL: "https://relay.link/bridge/robinhood"},
-			{Label: "Arbitrum 桥", URL: "https://portal.arbitrum.io/bridge"},
-			{Label: "Uniswap", URL: "https://app.uniswap.org/swap"},
-		},
-	},
 	{
 		Index:   1,
 		ID:      "watch",
@@ -78,29 +63,13 @@ var Pipeline = []PipelineStep{
 			{Label: "GMGN", URL: "https://gmgn.ai"},
 		},
 	},
-	{
-		Index:   7,
-		ID:      "size",
-		Title:   "小仓试探",
-		Kind:    "advice",
-		Summary: "只拿总资金 1–2% 试水。出现开发者抛售、极端集中、无叙事、可撤池、蜜罐则立即回避。",
-		Quote:   "（6）只买小仓：先买总资金的 1-2% 测试。永远小额测试+分批操作。",
-	},
-	{
-		Index:   8,
-		ID:      "exit",
-		Title:   "止盈止损",
-		Kind:    "advice",
-		Summary: "2x 卖 30%，5x 卖 30%，10x 卖剩余；跌 50% 坚决走。同时看 3–5 个币，不要全仓一只。",
-		Quote:   "止盈：涨 2x 卖 30%、5x 卖 30%、10x 卖剩余。止损：跌 50% 坚决卖。分散：同时看 3-5 个币。",
-	},
 }
 
 type PipelineStep struct {
 	Index   int    `json:"index"`
 	ID      string `json:"id"`
 	Title   string `json:"title"`
-	Kind    string `json:"kind"` // manual / auto / semi / advice
+	Kind    string `json:"kind"` // auto / semi
 	Summary string `json:"summary"`
 	Quote   string `json:"quote"`
 	Links   []Link `json:"links,omitempty"`
