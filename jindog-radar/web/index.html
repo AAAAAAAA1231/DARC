@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>金狗雷达 · Robinhood Chain</title>
+  <style>
+    :root {
+      --bg: #07090c;
+      --bg2: #10151b;
+      --line: rgba(232, 197, 71, .16);
+      --gold: #e8c547;
+      --gold2: #f3e0a6;
+      --mint: #5dffcf;
+      --danger: #ff6b6b;
+      --warn: #ffb020;
+      --muted: #8b93a1;
+      --text: #eef2f6;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; background: var(--bg); color: var(--text); font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; }
+    body {
+      min-height: 100vh;
+      background:
+        radial-gradient(1200px 500px at 10% -10%, rgba(232,197,71,.12), transparent 55%),
+        radial-gradient(900px 400px at 90% 0%, rgba(93,255,207,.08), transparent 50%),
+        var(--bg);
+    }
+    a { color: var(--mint); }
+    header {
+      padding: 22px 28px 8px;
+      display: flex;
+      justify-content: space-between;
+      gap: 16px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+    }
+    .brand { display: flex; gap: 14px; align-items: center; }
+    .paw {
+      width: 52px; height: 52px; border-radius: 16px;
+      display: grid; place-items: center;
+      background: linear-gradient(160deg, #f3e0a6, #c9a227);
+      color: #1a1403; font-size: 28px; font-weight: 800;
+      box-shadow: 0 8px 30px rgba(232,197,71,.25);
+    }
+    h1 { margin: 0; font-size: 26px; letter-spacing: .04em; }
+    .sub { color: var(--muted); font-size: 13px; margin-top: 4px; max-width: 720px; line-height: 1.55; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; }
+    button, .btn {
+      border: 1px solid var(--line);
+      background: #1a2118;
+      color: var(--gold2);
+      padding: 10px 14px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 650;
+    }
+    button.primary {
+      background: linear-gradient(180deg, #f0d36a, #c9a227);
+      color: #1a1403;
+      border: none;
+    }
+    button:disabled { opacity: .55; cursor: wait; }
+    .wrap { padding: 8px 28px 40px; display: grid; gap: 18px; }
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(9, minmax(110px, 1fr));
+      gap: 8px;
+      overflow-x: auto;
+      padding-bottom: 4px;
+    }
+    .step {
+      background: var(--bg2);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 10px 12px;
+      min-width: 120px;
+    }
+    .step .idx { color: var(--gold); font-size: 11px; font-weight: 700; }
+    .step h3 { margin: 4px 0 6px; font-size: 13px; }
+    .step p { margin: 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+    .kind { display: inline-block; margin-top: 8px; font-size: 10px; color: #0c1210; background: var(--mint); border-radius: 999px; padding: 1px 7px; }
+    .kind.manual { background: #8b93a1; }
+    .kind.advice { background: var(--gold); }
+    .kind.semi { background: #7ab8ff; }
+    .stats { display: flex; gap: 10px; flex-wrap: wrap; }
+    .stat { background: var(--bg2); border: 1px solid var(--line); border-radius: 12px; padding: 12px 16px; min-width: 110px; }
+    .stat b { display: block; font-size: 22px; color: var(--gold); }
+    .stat span { color: var(--muted); font-size: 12px; }
+    .layout { display: grid; grid-template-columns: 1.7fr .9fr; gap: 16px; }
+    @media (max-width: 1080px) { .layout, .pipeline { grid-template-columns: 1fr; } }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 10px 8px; border-bottom: 1px solid var(--line); font-size: 13px; vertical-align: top; }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; }
+    tr.clickable { cursor: pointer; }
+    tr.clickable:hover { background: rgba(232,197,71,.06); }
+    tr.selected { background: rgba(93,255,207,.07); }
+    .pill { border-radius: 999px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+    .gold { background: rgba(232,197,71,.18); color: var(--gold); }
+    .watch { background: rgba(122,184,255,.15); color: #9cc9ff; }
+    .avoid { background: rgba(255,107,107,.15); color: var(--danger); }
+    .stale { background: rgba(139,147,161,.16); color: var(--muted); }
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 16px;
+    }
+    .check { margin: 10px 0; padding: 10px; border-radius: 10px; background: #0c1116; }
+    .check .t { font-weight: 700; font-size: 13px; }
+    .ok { color: var(--mint); }
+    .no { color: var(--danger); }
+    .skip { color: var(--warn); }
+    .muted { color: var(--muted); }
+    .links a { margin-right: 10px; display: inline-block; margin-top: 6px; font-size: 13px; }
+    .warnbox {
+      border: 1px solid rgba(255,176,32,.35);
+      background: rgba(255,176,32,.08);
+      color: #f4d48a;
+      padding: 12px 14px;
+      border-radius: 12px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    .footer { color: var(--muted); font-size: 12px; line-height: 1.6; }
+    .empty { color: var(--muted); padding: 24px; text-align: center; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div class="paw">狗</div>
+      <div>
+        <h1>金狗雷达</h1>
+        <div class="sub">
+          按加密狗 <a href="https://x.com/jiamigou/status/2075057589457735949" target="_blank" rel="noopener">@jiamigou 保姆级教程</a>
+          固化的发现顺序，扫描 Robinhood Chain 公开行情。只筛选、不代买、不碰私钥。
+        </div>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="primary" id="btnScan">按顺序扫描</button>
+      <a class="btn" href="https://dexscreener.com/new-pairs/robinhood" target="_blank" rel="noopener">Dex 新对</a>
+      <a class="btn" href="https://fun.noxa.fi/robinhood" target="_blank" rel="noopener">NOXA</a>
+      <a class="btn" href="https://gmgn.ai" target="_blank" rel="noopener">GMGN</a>
+    </div>
+  </header>
+  <div class="wrap">
+    <div class="pipeline" id="pipeline"></div>
+    <div class="stats">
+      <div class="stat"><b id="nAll">—</b><span>扫描到的币</span></div>
+      <div class="stat"><b id="nGold">—</b><span>金狗候选</span></div>
+      <div class="stat"><b id="nWatch">—</b><span>观察</span></div>
+      <div class="stat"><b id="nAvoid">—</b><span>回避 / 过期</span></div>
+      <div class="stat"><b id="nTime">—</b><span>最近扫描</span></div>
+    </div>
+    <div class="warnbox">
+      原文纪律：新链早期 99% Memecoin 会归零；永远小额测试；自动买入风险极高，本软件已永久关闭该功能。
+      发现顺序不能跳：年龄 → 叙事 → 数据 → 链上 → 聪明钱 → 1–2% 小仓 → 2x/5x/10x 分批止盈，跌 50% 止损。
+    </div>
+    <div class="layout">
+      <div class="card">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>代币</th><th>年龄</th><th>市值 / 流动性</th><th>买/卖</th><th>进度</th><th>得分</th><th>结论</th>
+            </tr>
+          </thead>
+          <tbody id="rows"><tr><td colspan="8" class="empty">点击右上角「按顺序扫描」开始。</td></tr></tbody>
+        </table>
+      </div>
+      <div class="card" id="detail">
+        <div class="muted">选中左侧一只币，查看它走到发现顺序的哪一步。</div>
+      </div>
+    </div>
+    <div class="footer">
+      数据来自 Dexscreener / Blockscout 公开接口。教程来源：
+      <a href="https://x.com/jiamigou/status/2075057589457735949" target="_blank" rel="noopener">x.com/jiamigou/status/2075057589457735949</a>
+      · 本工具不是投资建议。
+    </div>
+  </div>
+<script>
+const kindMap = {manual:"手动", auto:"自动", semi:"半自动", advice:"纪律"};
+let state = {candidates: [], selected: null, pipeline: []};
+
+function money(v){
+  if(v == null || isNaN(v)) return "—";
+  if(v >= 1e6) return "$" + (v/1e6).toFixed(2) + "M";
+  if(v >= 1e3) return "$" + (v/1e3).toFixed(1) + "K";
+  return "$" + Math.round(v);
+}
+
+async function loadPipeline(){
+  const r = await fetch("/api/pipeline");
+  const d = await r.json();
+  state.pipeline = d.pipeline || [];
+  document.getElementById("pipeline").innerHTML = state.pipeline.map(s => `
+    <div class="step">
+      <div class="idx">STEP ${s.index}</div>
+      <h3>${s.title}</h3>
+      <p>${s.summary}</p>
+      <span class="kind ${s.kind}">${kindMap[s.kind] || s.kind}</span>
+    </div>`).join("");
+}
+
+async function scan(){
+  const btn = document.getElementById("btnScan");
+  btn.disabled = true; btn.textContent = "扫描中…";
+  try {
+    const r = await fetch("/api/scan?refresh=1");
+    if(!r.ok) throw new Error(await r.text());
+    const d = await r.json();
+    state.candidates = d.candidates || [];
+    document.getElementById("nAll").textContent = d.count ?? 0;
+    document.getElementById("nGold").textContent = d.gold ?? 0;
+    document.getElementById("nWatch").textContent = d.watch ?? 0;
+    document.getElementById("nAvoid").textContent = (d.avoid||0) + (d.stale||0);
+    document.getElementById("nTime").textContent = new Date(d.generatedAt).toLocaleTimeString();
+    renderRows();
+    if(state.candidates[0]) select(state.candidates[0].address);
+  } catch(e){
+    document.getElementById("rows").innerHTML = `<tr><td colspan="8" class="empty">扫描失败：${e.message}</td></tr>`;
+  } finally {
+    btn.disabled = false; btn.textContent = "按顺序扫描";
+  }
+}
+
+function renderRows(){
+  const tb = document.getElementById("rows");
+  if(!state.candidates.length){
+    tb.innerHTML = `<tr><td colspan="8" class="empty">这一轮没有扫到 Robinhood 交易对。</td></tr>`;
+    return;
+  }
+  tb.innerHTML = state.candidates.map((c,i) => `
+    <tr class="clickable ${state.selected===c.address?"selected":""}" onclick="select('${c.address}')">
+      <td>${i+1}</td>
+      <td><b>$${c.symbol || "??"}</b><div class="muted">${c.name || ""}</div></td>
+      <td>${c.ageLabel}</td>
+      <td>${money(c.marketCap)}<div class="muted">LP ${money(c.liquidityUsd)} · ${Math.round((c.liqMcRatio||0)*100)}%</div></td>
+      <td>${c.buysH1}/${c.sellsH1}</td>
+      <td>第 ${c.stage} 步<br><span class="muted">${c.stageTitle}</span></td>
+      <td><b>${c.score}</b></td>
+      <td><span class="pill ${c.verdict}">${c.verdictLabel}</span></td>
+    </tr>`).join("");
+}
+
+function select(addr){
+  state.selected = addr;
+  renderRows();
+  const c = state.candidates.find(x => x.address === addr);
+  if(c) renderDetail(c);
+}
+
+function renderDetail(c){
+  const flags = (c.flags||[]).map(f => `<div class="no">⚠ ${f}</div>`).join("");
+  const checks = (c.checks||[]).map(ch => {
+    const mark = ch.skip ? "○" : (ch.pass ? "✓" : "✕");
+    const cls = ch.skip ? "skip" : (ch.pass ? "ok" : "no");
+    return `<div class="check"><div class="t ${cls}">${mark} ${ch.title} · ${ch.points}分</div><div class="muted">${ch.detail||""}</div></div>`;
+  }).join("");
+  const L = c.links || {};
+  document.getElementById("detail").innerHTML = `
+    <h2 style="margin:0 0 6px">$${c.symbol} · ${c.verdictLabel}</h2>
+    <div class="muted">${c.name || ""} · ${c.address}</div>
+    <p>当前停在发现顺序第 <b>${c.stage}</b> 步：${c.stageTitle}。综合得分 <b>${c.score}</b>。</p>
+    ${flags}
+    ${checks}
+    <div class="check">
+      <div class="t">（6）（7）仓位与离场</div>
+      <div>${c.advice.position}</div>
+      <div>${c.advice.takeProfit}</div>
+      <div>${c.advice.stopLoss}</div>
+      <div>${c.advice.diversify}</div>
+    </div>
+    <div class="links">
+      <a href="${L.dexscreener||"#"}" target="_blank">Dexscreener</a>
+      <a href="${L.blockscout||"#"}" target="_blank">Blockscout</a>
+      <a href="${L.xSearch||"#"}" target="_blank">搜 X 热度</a>
+      <a href="${L.gmgn||"#"}" target="_blank">GMGN</a>
+      <a href="${L.basedbot||"#"}" target="_blank">BasedBot</a>
+      <a href="${L.noxa||"#"}" target="_blank">NOXA</a>
+      ${L.twitter ? `<a href="${L.twitter}" target="_blank">Twitter</a>` : ""}
+    </div>
+    <p><button onclick="deep('${c.address}')">链上深查持仓</button></p>
+  `;
+}
+
+async function deep(ca){
+  const box = document.getElementById("detail");
+  box.insertAdjacentHTML("beforeend", `<p class="muted">正在查 Blockscout 持仓…</p>`);
+  try {
+    const r = await fetch("/api/deep?ca=" + encodeURIComponent(ca));
+    if(!r.ok) throw new Error(await r.text());
+    const c = await r.json();
+    const i = state.candidates.findIndex(x => x.address.toLowerCase() === ca.toLowerCase());
+    if(i >= 0) state.candidates[i] = Object.assign(state.candidates[i], c);
+    renderDetail(c);
+    renderRows();
+  } catch(e){
+    alert("深查失败：" + e.message);
+  }
+}
+
+document.getElementById("btnScan").onclick = scan;
+loadPipeline().then(scan);
+</script>
+</body>
+</html>
