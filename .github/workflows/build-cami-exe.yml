@@ -1,0 +1,83 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/crypto-ai-master-intelligence-11d9
+    paths:
+      - "Crypto-AI-Master-Intelligence/**"
+      - ".github/workflows/build-cami-exe.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: Crypto-AI-Master-Intelligence
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Python deps
+        run: |
+          python -m pip install -U pip
+          python -m pip install -r requirements.txt pyinstaller pywebview
+      - name: Frontend
+        working-directory: Crypto-AI-Master-Intelligence/frontend
+        run: |
+          npm install
+          npm run build
+      - name: PyInstaller
+        run: pyinstaller --noconfirm --clean Crypto-AI-Master-Intelligence.spec
+      - name: Stage Chinese download names
+        shell: pwsh
+        run: |
+          Copy-Item -Force -Path dist\Crypto-AI-Master-Intelligence.exe -Destination dist\CAMI-zhongwen.exe
+          if ('${{ github.event.head_commit.message }}' -match 'cami-freeze-20260902') {
+            Copy-Item -Force -Path dist\Crypto-AI-Master-Intelligence.exe -Destination dist\CAMI-zhongwen-20260902.exe
+          }
+      - name: Publish Crypto-AI-Master-Intelligence.exe
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cami-windows-exe
+          name: Crypto-AI-Master-Intelligence.exe
+          body: |
+            Direct Windows EXE (not a zip).
+            Rolling Chinese UI: CAMI-zhongwen.exe
+            Frozen snapshot 2026-09-02: https://github.com/AAAAAAAA1231/DARC/releases/tag/cami-zh-20260902
+            Put `.env` next to the EXE if you have keys. Missing keys are fine.
+            SQLite and logs are created beside the EXE. No live trading. No private keys in the binary.
+          files: |
+            Crypto-AI-Master-Intelligence/dist/Crypto-AI-Master-Intelligence.exe
+            Crypto-AI-Master-Intelligence/dist/CAMI-zhongwen.exe
+          fail_on_unmatched_files: true
+          prerelease: true
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish frozen 2026-09-02 snapshot
+        if: contains(github.event.head_commit.message, 'cami-freeze-20260902')
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: cami-zh-20260902
+          name: CAMI Chinese UI snapshot 2026-09-02
+          body: |
+            Frozen Chinese Windows EXE. Later builds must not overwrite this tag.
+            Source UI: 1213f22 / f0397c7. Window title 加密智能终端. Nav 总览 / 合约 / 现货.
+            Raw EXE, not a zip. Put `.env` next to the EXE if you have keys.
+            No live trading. No private keys in the binary.
+          files: |
+            Crypto-AI-Master-Intelligence/dist/CAMI-zhongwen-20260902.exe
+          fail_on_unmatched_files: true
+          prerelease: true
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

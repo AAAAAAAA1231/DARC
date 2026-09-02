@@ -1,0 +1,15 @@
+---
+description: Quant, scoring, and recommendation rules
+globs: backend/{services,strategies,models}/**/*.py
+alwaysApply: false
+---
+
+# Quant
+
+- 50X score is multi-factor, not market-cap rank. Security is a hard gate, not a weight that can be outscored.
+- Exclude MALICIOUS, confirmed honeypot, unsellable, hidden mint, unacceptable owner privileges, severe liquidity risk. UNKNOWN cannot enter Top 10/20 or buy-candidate pools.
+- Native protocol assets without token contracts use verdict NATIVE_PROTOCOL (not UNKNOWN).
+- Strategy plugins each emit {direction, score, confidence, signal, reasons[]}.
+- Strategy weights are dynamic: initial + historical + backtest + recent + regime, with min/max, regularization, walk-forward, OOS, versioning, rollback.
+- Never present simulation count as accuracy. Separate Simulation Confidence, Statistical Confidence, Historical Backtest, OOS, Live.
+- All directional calls include invalidation conditions.

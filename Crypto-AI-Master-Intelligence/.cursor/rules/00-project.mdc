@@ -1,0 +1,40 @@
+---
+description: Project-wide rules for Crypto-AI-Master-Intelligence
+globs: **/*
+alwaysApply: true
+---
+
+# Crypto-AI-Master-Intelligence — Project Rules
+
+This is a production intelligence system, not a demo, prototype, V1, V2, V3, or beta.
+
+## Absolute prohibitions
+
+- Never invent market prices, predictions, funding amounts, VC names, injury lists, lottery draws, or API responses.
+- Never use random/fixed/sample payloads as if they were live results.
+- Never ship TODO buttons, "coming soon" feature stubs, or mock adapters that return fabricated success.
+- Never hardcode a permanent universe of symbols (BTC/ETH/SOL lists). Futures universe must be fetched (Binance USDT-M volume Top 100 or equivalent live source).
+- Never store private keys, seed phrases, or trading-account secrets. Public addresses only.
+- Never auto-place real orders (BUY/SELL/OPEN/CLOSE). Analysis, simulation, tracking, and alerts only.
+- Never log API secrets, tokens, passwords, private keys, or seed phrases.
+- Never delete project/position history. Hidden status must persist in the database.
+- Never treat UNKNOWN security as SAFE. UNKNOWN != SAFE. Unverified tokens cannot enter the 50X recommendation pool.
+
+## Required architecture
+
+- Business code talks to DataProvider interfaces, never to a vendor SDK directly.
+- Every datum carries: source, timestamp, retrieved_at, confidence, data_quality.
+- Every recommendation must be explainable (why, evidence for, evidence against, risks, invalidation).
+- Every prediction is statistical, not a certainty. Never claim a specific day "will" top.
+- Model versions are immutable. New weights create a new version; rollback is supported.
+- Project identity is unified (chain+contract, or website+X+name for pre-token). Deduplicate across 50X/Airdrop/Launch/Spot.
+- Project status and Position status are independent. An ABANDONED project can still have an OPEN position.
+
+## Data source outage policy
+
+If a live source is unavailable or an API key is missing:
+
+1. Keep the Provider interface.
+2. Record source status (missing_key / rate_limited / timeout / schema_error).
+3. Surface status in the UI.
+4. Do not fabricate a substitute result.

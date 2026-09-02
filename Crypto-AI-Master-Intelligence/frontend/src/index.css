@@ -1,0 +1,37 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root,
+html.dark {
+  color-scheme: dark;
+  --bg: #0b1020;
+  --panel: #121a2f;
+  --border: #1e2a44;
+  --muted: #8aa0c2;
+  --accent: #3ee0b4;
+  --text: #e2e8f0;
+  --danger: #ff5d73;
+}
+
+html.light {
+  color-scheme: light;
+  --bg: #eef2f8;
+  --panel: #ffffff;
+  --border: #c5d0e0;
+  --muted: #5b6b86;
+  --accent: #0f9d7a;
+  --text: #0b1020;
+  --danger: #c43950;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--text);
+}
+
+input, select, textarea, button {
+  font-family: inherit;
+}

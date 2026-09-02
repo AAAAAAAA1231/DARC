@@ -1,0 +1,17 @@
+---
+description: Testing requirements
+globs: "{backend/tests,tests,frontend}/**/*.{py,ts,tsx}"
+alwaysApply: false
+---
+
+# Testing
+
+Required suites: unit, integration, API, database, provider, strategy, simulation, backtest, security, frontend.
+
+Importing a module is not a passing test.
+
+Live API tests must hit the real endpoint when the network allows. If a key is missing, assert schema + error handling + rate-limit mapping — never fake a successful market snapshot.
+
+Do not skip tests to make CI green. If a source is down, the test documents the outage via SourceStatus.
+
+Backtest tests must prove no future peeking (shuffle timestamps / leak features and expect failure).

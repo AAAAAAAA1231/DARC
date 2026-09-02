@@ -1,0 +1,18 @@
+# Crypto-AI-Master-Intelligence
+.env
+data/*.db
+data/*.db-wal
+data/*.db-shm
+logs/*.log
+frontend/node_modules
+__pycache__/
+*.pyc
+.pytest_cache
+.ruff_cache
+models/*.pkl
+reports/*
+/dist/
+/build/
+*.spec
+!Crypto-AI-Master-Intelligence.spec
+.venv/

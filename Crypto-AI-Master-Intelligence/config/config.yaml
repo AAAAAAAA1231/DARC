@@ -1,0 +1,86 @@
+# Crypto-AI-Master-Intelligence — runtime configuration
+# Secrets belong in environment variables / .env, never in this file.
+
+app:
+  name: 加密智能终端
+  host: 127.0.0.1
+  port: 8787
+  timezone: UTC
+  disclaimer: "所有输出均为统计模型结果，不是确定性预测。不是财经、投注或投资建议。"
+
+database:
+  url: sqlite:///./data/cami.db
+  echo: false
+
+logging:
+  level: INFO
+  dir: ./logs
+  redact_keys:
+    - api_key
+    - api_secret
+    - token
+    - password
+    - private_key
+    - seed
+    - mnemonic
+
+simulation:
+  workers: 4
+  default_paths: 1000000
+  max_paths: 10000000000
+  chunk_size: 1000000
+  allow_gpu: true
+
+scheduler:
+  enabled: true
+  hourly: true
+  daily: true
+
+notifications:
+  in_app: true
+  desktop: true
+  email: false
+  telegram: false
+
+providers:
+  binance:
+    enabled: true
+    spot_base: https://www.binance.com
+    futures_base: https://www.binance.com
+    timeout_sec: 20
+  coingecko:
+    enabled: true
+    base: https://api.coingecko.com/api/v3
+    timeout_sec: 20
+  goplus:
+    enabled: true
+    base: https://api.gopluslabs.io/api/v1
+    timeout_sec: 20
+  dexscreener:
+    enabled: true
+    base: https://api.dexscreener.com
+    timeout_sec: 20
+  defillama:
+    enabled: true
+    base: https://api.llama.fi
+    timeout_sec: 20
+  github:
+    enabled: true
+    base: https://api.github.com
+    timeout_sec: 20
+  football_data:
+    enabled: true
+    base: https://api.football-data.org/v4
+    timeout_sec: 20
+  thesportsdb:
+    enabled: true
+    base: https://www.thesportsdb.com/api/v1/json
+    timeout_sec: 20
+  lottery_ssq:
+    enabled: true
+    base: https://www.cwl.gov.cn
+    timeout_sec: 20
+  lottery_dlt:
+    enabled: true
+    base: https://webapi.sporttery.cn
+    timeout_sec: 20

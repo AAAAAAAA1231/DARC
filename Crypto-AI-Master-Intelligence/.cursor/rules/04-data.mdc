@@ -1,0 +1,14 @@
+---
+description: Data provider and quality rules
+globs: backend/data_sources/**/*.py
+alwaysApply: false
+---
+
+# Data
+
+- One adapter per vendor. Register in the provider registry. Business modules never import a vendor module directly except through the registry.
+- Every fetch returns a QualityEnvelope: source, timestamp, retrieved_at, confidence, data_quality, errors.
+- Quality checks: null, duplicate, stale, outlier, timestamp error, API error, schema mismatch.
+- Rate-limit, timeout, and 4xx/5xx must be mapped to structured SourceStatus, not raised through the UI as a crash.
+- Missing API keys produce `missing_key` status and empty payload — not placeholder coins or matches.
+- Providers are replaceable. Interface first, vendor second.
