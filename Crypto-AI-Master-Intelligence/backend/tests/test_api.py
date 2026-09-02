@@ -26,7 +26,14 @@ def test_holdings_overlay_empty():
 
 
 
-def test_settings_does_not_leak_secrets():
+def test_spa_fallback_for_client_routes():
+    res = client.get("/lottery")
+    assert res.status_code == 200
+    assert "html" in res.headers.get("content-type", "")
+    res2 = client.get("/assets/BTCUSDT")
+    assert res2.status_code == 200
+    assert "html" in res2.headers.get("content-type", "")
+
     res = client.get("/api/settings")
     text = res.text.lower()
     assert "sk-" not in text

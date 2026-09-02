@@ -8,8 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse, JSONResponse
 
 from backend.api.schemas import (
     AlertResolveIn,
@@ -632,5 +631,18 @@ async def api_settings():
 
 
 frontend_dir = PROJECT_ROOT / "frontend" / "dist"
-if frontend_dir.exists():
-    app.mount("/", StaticFiles(directory=str(frontend_dir), html=True), name="ui")
+
+
+@app.get("/{full_path:path}")
+async def serve_ui(full_path: str):
+    """SPA fallback so /lottery and /assets/BTCUSDT load the React shell instead of JSON 404."""
+    if full_path.startswith("api/") or full_path.startswith("api"):
+        return JSONResponse(status_code=404, content={"ok": False, "error": "not found"})
+    if frontend_dir.exists():
+        candidate = frontend_dir / full_path
+        if full_path and candidate.is_file():
+            return FileResponse(candidate)
+        index = frontend_dir / "index.html"
+        if index.is_file():
+            return FileResponse(index)
+    return JSONResponse(status_code=404, content={"ok": False, "error": "frontend dist missing — run npm run build"})
