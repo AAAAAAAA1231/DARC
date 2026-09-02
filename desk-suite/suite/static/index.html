@@ -12,7 +12,7 @@
       <div class="logo">台</div>
       <div>
         <h1>工作台</h1>
-        <p>雷达 / 联赛 / 合约 / 空投</p>
+        <p>雷达 / 联赛 / 合约 / 空投 / 打新</p>
       </div>
     </div>
     <nav>
@@ -20,6 +20,7 @@
       <button data-view="football">三大联赛胜负</button>
       <button data-view="contracts">合约分析</button>
       <button data-view="airdrops">空投推荐</button>
+      <button data-view="launches">打新</button>
     </nav>
     <p class="foot">不是投资 / 投注建议。关掉黑窗口即退出。</p>
   </aside>
@@ -118,6 +119,27 @@
           </thead>
           <tbody id="airdropRows">
             <tr><td colspan="9" class="muted">点「刷新推荐」，按模型得分从高到低排列。</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="view-launches" class="view hidden">
+      <div class="toolbar">
+        <button class="btn primary" id="launchScan">刷新打新</button>
+        <input id="launchFilter" placeholder="筛选账号 / 关键词 / 机构 / 名人"/>
+        <span class="pill">近一个月 · 发射 / launch / 新平台 / 预售</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>综合分</th><th>账号</th><th>摘要</th>
+              <th>机构 / VC</th><th>名人 / KOL</th><th>时间</th><th>排序理由</th>
+            </tr>
+          </thead>
+          <tbody id="launchRows">
+            <tr><td colspan="8" class="muted">点「刷新打新」，检索近一个月 X 动态并按机构/名人关注排序。</td></tr>
           </tbody>
         </table>
       </div>

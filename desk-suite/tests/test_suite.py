@@ -56,7 +56,7 @@ class HubHttpTests(unittest.TestCase):
     def test_health_lists_modules(self):
         payload = self.client.get("/api/health").json()
         self.assertEqual(payload["app"], "工作台")
-        self.assertEqual(payload["modules"], ["radar", "football", "contracts", "airdrops"])
+        self.assertEqual(payload["modules"], ["radar", "football", "contracts", "airdrops", "launches"])
 
     def test_hub_page_has_tabs(self):
         page = self.client.get("/").text
@@ -64,6 +64,8 @@ class HubHttpTests(unittest.TestCase):
         self.assertIn("三大联赛", page)
         self.assertIn("合约分析", page)
         self.assertIn("空投推荐", page)
+        self.assertIn("打新", page)
+        self.assertIn("刷新打新", page)
         self.assertIn("四年周期", page)
         self.assertIn("刷新开单", page)
         self.assertIn("持仓时长", page)
@@ -72,6 +74,11 @@ class HubHttpTests(unittest.TestCase):
     def test_airdrop_status_starts_idle(self):
         payload = self.client.get("/api/airdrops/status").json()
         self.assertIn(payload["status"], {"idle", "running", "done", "error"})
+
+    def test_launch_status_starts_idle(self):
+        payload = self.client.get("/api/launches/status").json()
+        self.assertIn(payload["status"], {"idle", "running", "done", "error"})
+        self.assertEqual(payload.get("lookback_days"), 30)
 
     def test_contract_module_is_mounted(self):
         payload = self.client.get("/chain/api/health").json()

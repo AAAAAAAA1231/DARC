@@ -3,6 +3,7 @@ const views = {
   football: ["三大联赛胜负", "西甲 / 德甲 / 意甲，打开后可预测近期未赛。仅供观赛参考。"],
   contracts: ["合约分析", "主体是永续开单推荐。四年周期只给大方向和持仓时长。"],
   airdrops: ["空投推荐", "机构、是否明确空投、参与难度、预计总金额打分，再用历史空投修正。按得分排序。"],
+  launches: ["打新", "搜 X 上发射、launch、新平台、newproject、预售、presale，只看近一个月，机构/名人/VC 关注排前面。"],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -13,6 +14,7 @@ let analyzeStarting = false;
 let footballTimer = null;
 let radarTimer = null;
 let airdropTimer = null;
+let launchTimer = null;
 
 document.querySelectorAll("nav button").forEach((btn) => {
   btn.addEventListener("click", () => showView(btn.dataset.view));
@@ -28,6 +30,8 @@ $("refitWeights").addEventListener("click", () => startAnalyze("fit"));
 $("contractFilter").addEventListener("input", () => filterTable("contractRows", $("contractFilter").value));
 $("airdropScan").addEventListener("click", () => startAirdrops());
 $("airdropFilter").addEventListener("input", () => filterTable("airdropRows", $("airdropFilter").value));
+$("launchScan").addEventListener("click", () => startLaunches());
+$("launchFilter").addEventListener("input", () => filterTable("launchRows", $("launchFilter").value));
 
 function showView(name) {
   currentView = name;
@@ -39,6 +43,7 @@ function showView(name) {
   if (name === "football") pollFootball();
   if (name === "contracts") loadContracts();
   if (name === "airdrops") startAirdrops();
+  if (name === "launches") startLaunches();
 }
 
 async function api(path, opts = {}) {
@@ -346,6 +351,77 @@ async function pollAirdrops() {
     if (data.status === "running") airdropTimer = setTimeout(pollAirdrops, 1000);
   } catch (err) {
     setStatus("空投查询失败：" + err.message);
+  }
+}
+
+function timeAgo(iso) {
+  if (!iso) return "近一个月";
+  const ts = Date.parse(iso);
+  if (!Number.isFinite(ts)) return "近一个月";
+  const hours = Math.max(0, (Date.now() - ts) / 3600000);
+  if (hours < 1) return "刚刚";
+  if (hours < 24) return Math.round(hours) + " 小时前";
+  const days = Math.round(hours / 24);
+  if (days <= 30) return days + " 天前";
+  return iso.slice(0, 10);
+}
+
+function launchRow(a) {
+  const handle = (a.handle || "").replace(/^@/, "");
+  const profile = handle ? `https://x.com/${handle}` : (a.url || "#");
+  const account = handle
+    ? `<a href="${esc(profile)}" target="_blank" rel="noreferrer">@${esc(handle)}</a>`
+    : "—";
+  const text = a.url
+    ? `<a class="tweet-link" href="${esc(a.url)}" target="_blank" rel="noreferrer">${esc(a.text || "查看原帖")}</a>`
+    : esc(a.text || "—");
+  const inst = (a.institutions || []).slice(0, 3).join("、") || "—";
+  const notable = a.notable
+    ? `<span class="tag seed">${esc(a.notable)}</span>`
+    : '<span class="muted">—</span>';
+  const hot = (a.score || 0) >= 55;
+  return `<tr class="${hot ? "trade-row" : ""}">
+    <td>${a.rank ?? "-"}</td>
+    <td><strong>${a.score ?? "-"}</strong></td>
+    <td>${account}</td>
+    <td class="wrap">${text}</td>
+    <td>${esc(inst)}</td>
+    <td>${notable}</td>
+    <td>${esc(timeAgo(a.created_at))}</td>
+    <td class="wrap muted">${esc((a.reasons || []).join(" · ") || "关键词匹配")}</td>
+  </tr>`;
+}
+
+async function startLaunches() {
+  setStatus("正在搜近一个月的发射 / launch / 预售…");
+  $("launchRows").innerHTML = `<tr><td colspan="8" class="muted">正在检索 X，并按机构、名人、VC 关注排序…</td></tr>`;
+  try {
+    await api("/api/launches/scan", { method: "POST", body: {} });
+    pollLaunches();
+  } catch (err) {
+    setStatus("打新扫描失败：" + err.message);
+  }
+}
+
+async function pollLaunches() {
+  if (launchTimer) clearTimeout(launchTimer);
+  try {
+    const data = await api("/api/launches/status");
+    setStatus(data.phase || data.status || "就绪");
+    const rows = data.items || [];
+    if (rows.length) {
+      $("launchRows").innerHTML = rows.map(launchRow).join("");
+      filterTable("launchRows", $("launchFilter").value);
+    } else if (data.status === "done") {
+      const hint = (data.errors || []).length
+        ? "这一轮没搜到帖子。可在链上雷达设置里填 Twitter Bearer，覆盖会更稳。"
+        : "这一轮没有扫到候选。";
+      $("launchRows").innerHTML = `<tr><td colspan="8" class="muted">${esc(hint)}</td></tr>`;
+    }
+    if (data.status === "error") setStatus("失败：" + String(data.error || "").slice(0, 180));
+    if (data.status === "running") launchTimer = setTimeout(pollLaunches, 1000);
+  } catch (err) {
+    setStatus("打新查询失败：" + err.message);
   }
 }
 

@@ -16,6 +16,7 @@ from web3_radar.collectors.airdrop_recommend import recommend_airdrops
 from web3_radar.collectors.ambassador import scan_ambassadors
 from web3_radar.collectors.binance import BinanceClient
 from web3_radar.collectors.launch import scan_launches
+from web3_radar.collectors.launch_hunt import hunt_launches
 from web3_radar.collectors.meme import scan_meme_coins
 from web3_radar.config import INITIAL_INDICATOR_SHARES, STATIC_DIR, load_settings, save_settings
 from web3_radar.engine.risk import RiskConfig, apply_portfolio_overlay, path_expectancy
@@ -463,6 +464,17 @@ async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
             twitter_bearer=str(settings.get("twitter_bearer_token") or ""),
             lookback_days=int(settings.get("ambassador_lookback_days") or 7),
         ),
+    )
+
+
+@app.get("/api/launches/hunt")
+async def launches_hunt(refresh: bool = Query(False)) -> dict[str, Any]:
+    return await _scan_or_cache(
+        "launch_hunt_v1",
+        "launch",
+        300,
+        refresh,
+        hunt_launches,
     )
 
 

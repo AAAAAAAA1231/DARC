@@ -57,6 +57,9 @@ input, select {
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
 th, td { padding: 10px 12px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
 th { color: var(--muted); background: #0e141c; position: sticky; top: 0; }
+td.wrap { white-space: normal; max-width: 420px; line-height: 1.45; }
+a.tweet-link { color: var(--text); }
+tr.trade-row td { background: #14100a; }
 .tag { padding: 2px 8px; border-radius: 999px; font-size: 12px; }
 .tag.up { background: #123c31; color: var(--good); }
 .tag.down { background: #3c1218; color: var(--bad); }
