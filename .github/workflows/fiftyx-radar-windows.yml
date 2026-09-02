@@ -33,7 +33,7 @@ jobs:
         run: python -m pytest tests/test_model.py -q
       - name: Test contract engine
         working-directory: web3-radar
-        run: python -m pytest tests/test_engine.py tests/test_risk.py -q
+        run: python -m pytest tests/test_engine.py tests/test_risk.py tests/test_cycle.py -q
       - name: Test suite
         working-directory: desk-suite
         run: python -m pytest tests -q

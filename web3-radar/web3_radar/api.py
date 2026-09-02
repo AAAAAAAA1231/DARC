@@ -102,6 +102,17 @@ async def post_mark(body: MarkBody) -> dict[str, Any]:
     return await db.upsert_mark(body.category, body.item_key, body.status, body.note, body.extra)
 
 
+@app.get("/api/contracts/cycle")
+async def contract_cycle() -> dict[str, Any]:
+    from web3_radar.engine.cycle import current_cycle
+
+    try:
+        view = await asyncio.to_thread(current_cycle)
+    except Exception as exc:
+        raise HTTPException(502, f"四年周期数据暂时拉不到：{exc}") from exc
+    return view.to_dict()
+
+
 @app.get("/api/contracts/universe")
 async def contract_universe() -> dict[str, Any]:
     global _universe_cache

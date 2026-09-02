@@ -37,7 +37,12 @@ def _age(days: float | None) -> str:
     return f"{days:.1f} 天"
 
 
-def render_text(venues: list[VenuePulse], tokens: list[ScoredToken], generated_at: datetime) -> str:
+def render_text(
+    venues: list[VenuePulse],
+    tokens: list[ScoredToken],
+    generated_at: datetime,
+    rejected: list[ScoredToken] | None = None,
+) -> str:
     lines = [
         f"Fifty-X Radar  {generated_at.strftime('%Y-%m-%d %H:%M UTC')}",
         "规则：新场子 + 独占叙事 + 浅开盘；能站住还要有第二支柱。",
@@ -91,6 +96,14 @@ def render_text(venues: list[VenuePulse], tokens: list[ScoredToken], generated_a
                 f"{_money(token.size_usd)}  {' | '.join(item.score.tags)}"
             )
 
+    rejected = rejected or []
+    if rejected:
+        lines += ["", "== 因合约后门剔除（不再推荐） =="]
+        for item in rejected[:12]:
+            token = item.token
+            findings = "；".join((item.security.findings if item.security else [])[:2]) or "后门"
+            lines.append(f"- {token.symbol}  {token.chain}  {findings}")
+
     lines += [
         "",
         "== 已知新场子（配置） ==",
@@ -124,7 +137,7 @@ def render_scanning_html() -> str:
 <main>
   <p class="kicker">Fifty-X Radar</p>
   <h1>正在扫描新场子和新盘</h1>
-  <p>在拉 GeckoTerminal / DexScreener，完成后这一页会自动变成结果。</p>
+  <p>在拉行情，并对推荐合约做后门检测。完成后这一页会自动变成结果。</p>
 </main>
 <script>setTimeout(function(){location.reload();}, 2000);</script>
 </body>
@@ -132,7 +145,12 @@ def render_scanning_html() -> str:
 """
 
 
-def render_html(venues: list[VenuePulse], tokens: list[ScoredToken], generated_at: datetime) -> str:
+def render_html(
+    venues: list[VenuePulse],
+    tokens: list[ScoredToken],
+    generated_at: datetime,
+    rejected: list[ScoredToken] | None = None,
+) -> str:
     hot = [v for v in venues if v.label != "普通场"][:10]
     focus = [t for t in tokens if t.score.priority == "focus"]
     watch = [t for t in tokens if t.score.priority == "watch"]
@@ -154,6 +172,11 @@ def render_html(venues: list[VenuePulse], tokens: list[ScoredToken], generated_a
         reasons = "".join(f"<li>{_esc(r)}</li>" for r in score.reasons[:5])
         warnings = "".join(f"<li class='warn'>{_esc(w)}</li>" for w in score.warnings[:3])
         tags = "".join(f"<span class='tag'>{_esc(t)}</span>" for t in score.tags)
+        sec = item.security
+        if sec and sec.checked and not sec.has_backdoor:
+            tags += "<span class='tag ok'>合约未见后门</span>"
+        elif sec and not sec.checked:
+            tags += "<span class='tag'>未验合约</span>"
         link = f"<a href='{_esc(token.url)}' target='_blank' rel='noreferrer'>打开行情</a>" if token.url else ""
         return f"""
         <article class="card token {kind}">
@@ -178,9 +201,27 @@ def render_html(venues: list[VenuePulse], tokens: list[ScoredToken], generated_a
           </div>
         </article>"""
 
+    rejected = rejected or []
     venue_html = "".join(venue_card(v) for v in hot) or "<p class='empty'>这一轮没有扫到足够热的新链/发射台。</p>"
-    focus_html = "".join(token_card(t, "focus") for t in focus) or "<p class='empty'>没有 72 分以上的币。不是每天都有开盘段人选。</p>"
+    focus_html = "".join(token_card(t, "focus") for t in focus) or "<p class='empty'>没有 72 分以上且合约未见后门的币。</p>"
     watch_html = "".join(token_card(t, "watch") for t in watch[:16]) or "<p class='empty'>没有次一档人选。</p>"
+
+    def rejected_card(item: ScoredToken) -> str:
+        token = item.token
+        findings = "".join(f"<li class='warn'>{_esc(f)}</li>" for f in (item.security.findings if item.security else [])[:4])
+        source = _esc(item.security.source if item.security else "")
+        return f"""
+        <article class="card token rejected">
+          <div class="score bad">拒</div>
+          <div>
+            <div class="kicker">{_esc(token.chain)} / {_esc(token.dex)} · {source}</div>
+            <h3>{_esc(token.symbol)} <small>{_esc(token.name)}</small></h3>
+            <p class="meta">合约 {_esc(token.address)}</p>
+            <ul>{findings or "<li class='warn'>检测到后门</li>"}</ul>
+          </div>
+        </article>"""
+
+    rejected_html = "".join(rejected_card(t) for t in rejected[:16]) or "<p class='empty'>这一轮推荐名单里没有扫到明确后门。未覆盖的新链会标「未验合约」，不会直接推荐为已通过。</p>"
     known = "".join(f"<li><strong>{_esc(k)}</strong> — {_esc(v)}</li>" for k, v in NEW_CHAINS.items())
 
     return f"""<!doctype html>
@@ -223,6 +264,9 @@ def render_html(venues: list[VenuePulse], tokens: list[ScoredToken], generated_a
       display:inline-block; margin:4px 6px 0 0; padding:2px 8px; border-radius:999px;
       border:1px solid var(--line); font-size:12px; color:var(--muted);
     }}
+    .tag.ok {{ color:var(--good); border-color:#35543b; }}
+    .score.bad {{ background:#2a1618; color:var(--bad); font-size:20px; }}
+    .card.rejected {{ opacity:.92; }}
     .bars span {{
       display:inline-block; margin-right:10px; font-size:12px; color:var(--good);
     }}
@@ -238,6 +282,7 @@ def render_html(venues: list[VenuePulse], tokens: list[ScoredToken], generated_a
   <p class="lede">
     扫描时间 {_esc(generated_at.strftime("%Y-%m-%d %H:%M UTC"))}。
     规则来自近几个月能核验的 50 倍样本：新场子、独占叙事、浅开盘；能多活几天的还要有第二支柱。
+    推荐前会查合约后门（蜜罐、隐藏管理员、可改余额、未放弃铸币/冻结权等），有后门的币直接剔除。
     这不是投资建议。
   </p>
 
@@ -250,12 +295,15 @@ def render_html(venues: list[VenuePulse], tokens: list[ScoredToken], generated_a
   <h2>值得跟踪</h2>
   <div class="grid">{watch_html}</div>
 
+  <h2>因合约后门剔除</h2>
+  <div class="grid">{rejected_html}</div>
+
   <h2>配置里的新场子</h2>
   <ul>{known}</ul>
 
   <footer>
-    数据来自 GeckoTerminal 与 DexScreener 公开接口。仿盘、无量盘和已过大的龙头会被降权或标警告。
-    50 倍发生在出生，不发生在市值过亿之后。
+    行情来自 GeckoTerminal 与 DexScreener。合约后门检测来自 GoPlus / Honeypot.is / RugCheck 公开接口。
+    仿盘、无量盘、已过大龙头和留有后门的合约不会进入推荐。50 倍发生在出生，不发生在市值过亿之后。
   </footer>
 </main>
 </body>
@@ -263,7 +311,12 @@ def render_html(venues: list[VenuePulse], tokens: list[ScoredToken], generated_a
 """
 
 
-def render_json(venues: list[VenuePulse], tokens: Iterable[ScoredToken], generated_at: datetime) -> str:
+def render_json(
+    venues: list[VenuePulse],
+    tokens: Iterable[ScoredToken],
+    generated_at: datetime,
+    rejected: Iterable[ScoredToken] | None = None,
+) -> str:
     payload = {
         "generated_at": generated_at.astimezone(timezone.utc).isoformat(),
         "disclaimer": "Not investment advice. 50x happened at launch, not after large caps.",
@@ -302,9 +355,28 @@ def render_json(venues: list[VenuePulse], tokens: Iterable[ScoredToken], generat
                 "tags": t.score.tags,
                 "reasons": t.score.reasons,
                 "warnings": t.score.warnings,
+                "security": {
+                    "checked": bool(t.security.checked) if t.security else False,
+                    "has_backdoor": bool(t.security.has_backdoor) if t.security else False,
+                    "verdict": t.security.verdict if t.security else "unchecked",
+                    "source": t.security.source if t.security else "",
+                    "findings": t.security.findings if t.security else [],
+                },
             }
             for t in tokens
             if t.score.watch
+        ],
+        "rejected": [
+            {
+                "symbol": t.token.symbol,
+                "name": t.token.name,
+                "chain": t.token.chain,
+                "address": t.token.address,
+                "findings": t.security.findings if t.security else [],
+                "source": t.security.source if t.security else "",
+            }
+            for t in (rejected or [])
+            if t.security and t.security.has_backdoor
         ],
     }
     return json.dumps(payload, ensure_ascii=False, indent=2)

@@ -58,6 +58,7 @@ python3 -m radar --networks robinhood,hyperevm,bsc,base
 - **55–71**：值得跟踪
 - 市值已经很大：标「已过大」，不是开盘段买点
 - 稳定币、无量盘、极浅到像骗局：降权或剔除
+- **合约后门**：推荐前用 GoPlus / Honeypot.is / RugCheck 查蜜罐、隐藏管理员、可改余额、未放弃铸币/冻结权等。查到后门的币**不再推荐**，单独列在「因合约后门剔除」
 
 数据来自 GeckoTerminal（各链趋势池/新池）和 DexScreener（付费推广榜，只当热度补充）。
 

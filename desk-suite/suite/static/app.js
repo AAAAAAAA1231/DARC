@@ -1,7 +1,7 @@
 const views = {
   radar: ["50 倍雷达", "新场子刚开张 + 独占叙事 + 极浅开盘。不是买卖信号。"],
   football: ["三大联赛胜负", "西甲 / 德甲 / 意甲，打开后可预测近期未赛。仅供观赛参考。"],
-  contracts: ["合约分析", "市值前 100 永续。100 万次只校准权重；之后刷新套用模型给出涨/跌/观望，并带 1R 仓位和止损。"],
+  contracts: ["合约分析", "先看四年周期：现在是牛是熊、持 U 还是持币、拿什么、拿多久。下面才是市值前 100 永续信号。"],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -179,7 +179,52 @@ function showDetail(id) {
     </div>`;
 }
 
+function renderCycle(view) {
+  if (!view || !view.phase) return;
+  $("cyclePhase").textContent = view.phase;
+  $("cycleNarrative").textContent = view.narrative || view.hold_detail || "";
+  $("cycleHold").textContent = view.hold || "—";
+  $("cycleHold").className = "cycle-hold " + (view.regime === "熊市" ? "bear" : "bull");
+  $("cyclePrice").textContent = view.price ? "$" + Number(view.price).toLocaleString() : "—";
+  $("cycleDrawdown").textContent = view.drawdown_pct != null ? "-" + Number(view.drawdown_pct).toFixed(1) + "%" : "—";
+  $("cycleHalving").textContent = view.days_since_halving != null ? view.days_since_halving + " 天" : "—";
+  $("cycleTypical").textContent = `${view.typical_bull_days || "—"} / ${view.typical_bear_days || "—"} 天`;
+  $("cycleNext").textContent = view.next_event || "";
+  const cards = view.allocations || [];
+  $("cycleAlloc").innerHTML = cards.map((a) => `
+    <article class="alloc-card">
+      <div class="muted">${esc(a.name)} · 建议持有 ${a.hold_days} 天</div>
+      <div><strong>${esc(a.symbol)}</strong> <span class="weight">${a.weight_pct}%</span></div>
+      <p class="muted">拿到 ${esc(a.hold_until)}。${esc(a.reason)}</p>
+    </article>`).join("") || "";
+  const rows = view.history || [];
+  $("cycleHistory").innerHTML = rows.map((r) => `<tr>
+    <td>${esc(r.label)}</td>
+    <td>${esc(r.halving)}</td>
+    <td>${esc(r.peak)}</td>
+    <td>${esc(r.bottom)}</td>
+    <td>${r.bull_days != null ? r.bull_days + " 天" : "—"}</td>
+    <td>${r.bear_days != null ? r.bear_days + " 天" : "—"}</td>
+  </tr>`).join("") || `<tr><td colspan="6" class="muted">没有历史周期数据</td></tr>`;
+}
+
+async function loadCycle() {
+  try {
+    const view = await api("/chain/api/contracts/cycle");
+    renderCycle(view);
+  } catch (err) {
+    try {
+      const view = await api("/api/cycle");
+      renderCycle(view);
+    } catch (inner) {
+      $("cyclePhase").textContent = "四年周期暂时拉不到行情";
+      $("cycleNarrative").textContent = inner.message || err.message;
+    }
+  }
+}
+
 async function loadContracts() {
+  loadCycle();
   try {
     const last = await api("/chain/api/contracts/status");
     if ($("simBadge") && last.fitted_note) $("simBadge").textContent = last.fitted_note;

@@ -63,11 +63,32 @@ class HubHttpTests(unittest.TestCase):
         self.assertIn("50 倍雷达", page)
         self.assertIn("三大联赛", page)
         self.assertIn("合约分析", page)
+        self.assertIn("四年周期", page)
+        self.assertIn("持 U 还是持币", page)
 
     def test_contract_module_is_mounted(self):
         payload = self.client.get("/chain/api/health").json()
         self.assertEqual(payload["app"], "链上雷达")
         self.assertEqual(self.client.get("/chain/static/css/app.css").status_code, 200)
+
+    def test_cycle_endpoint_returns_phase(self):
+        from datetime import datetime, timezone
+        from unittest.mock import patch
+
+        from web3_radar.engine.cycle import MarketSnapshot, assess_cycle
+
+        snap = MarketSnapshot(
+            price=72000,
+            ath=120000,
+            ath_date=datetime(2025, 10, 6, tzinfo=timezone.utc),
+            source="test",
+        )
+        view = assess_cycle(snap, datetime(2026, 9, 1, tzinfo=timezone.utc))
+        with patch("web3_radar.engine.cycle.current_cycle", return_value=view):
+            payload = self.client.get("/api/cycle").json()
+        self.assertEqual(payload["phase"], "熊市中期")
+        self.assertEqual(payload["hold"], "持U为主")
+        self.assertTrue(payload["allocations"])
 
 
 if __name__ == "__main__":

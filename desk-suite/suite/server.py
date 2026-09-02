@@ -48,6 +48,15 @@ def create_app() -> FastAPI:
     async def health() -> dict:
         return {"ok": True, "app": "工作台", "modules": ["radar", "football", "contracts"]}
 
+    @app.get("/api/cycle")
+    async def cycle() -> dict:
+        from web3_radar.engine.cycle import current_cycle
+
+        try:
+            return current_cycle().to_dict()
+        except Exception as exc:
+            raise HTTPException(502, f"四年周期数据暂时拉不到：{exc}") from exc
+
     @app.post("/api/radar/scan")
     async def radar_scan() -> dict:
         return radar_api.start()

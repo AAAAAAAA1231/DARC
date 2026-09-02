@@ -78,9 +78,20 @@ class ScoreBreakdown:
 
 
 @dataclass
+class SecurityReport:
+    checked: bool = False
+    has_backdoor: bool = False
+    verdict: str = "unchecked"  # clean | backdoor | unchecked
+    source: str = ""
+    findings: list[str] = field(default_factory=list)
+    flags: list[str] = field(default_factory=list)
+
+
+@dataclass
 class ScoredToken:
     token: TokenSnapshot
     score: ScoreBreakdown
+    security: Optional[SecurityReport] = None
 
 
 @dataclass

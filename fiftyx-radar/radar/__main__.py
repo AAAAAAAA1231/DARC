@@ -15,6 +15,7 @@ from pathlib import Path
 from .models import utcnow
 from .report import render_html, render_json, render_scanning_html, render_text
 from .scoring import score_many, summarize_venues
+from .security import apply_security, rejected_backdoors, scan_security
 from .sources import DEFAULT_NETWORKS, collect_snapshots
 
 
@@ -150,18 +151,21 @@ def run(argv: list[str] | None = None) -> int:
     generated_at = utcnow().astimezone(timezone.utc)
     snapshots = collect_snapshots(networks=networks)
     scored = score_many(snapshots)
+    reports = scan_security(scored)
+    scored = apply_security(scored, reports)
     venues = summarize_venues(snapshots)
-    watchable = [s for s in scored if s.score.total >= args.min_score]
+    rejected = rejected_backdoors(scored)
+    watchable = [s for s in scored if s.score.watch and s.score.total >= args.min_score]
 
     if args.json:
-        sys.stdout.write(render_json(venues, watchable, generated_at))
+        sys.stdout.write(render_json(venues, watchable, generated_at, rejected=rejected))
         return 0
 
     if not ui:
-        sys.stdout.write(render_text(venues, watchable, generated_at))
+        sys.stdout.write(render_text(venues, watchable, generated_at, rejected=rejected))
 
     if html_path:
-        html_path.write_text(render_html(venues, watchable, generated_at), encoding="utf-8")
+        html_path.write_text(render_html(venues, watchable, generated_at, rejected=rejected), encoding="utf-8")
         if not ui:
             print(f"\nHTML: {html_path.resolve()}", file=sys.stderr)
         else:
