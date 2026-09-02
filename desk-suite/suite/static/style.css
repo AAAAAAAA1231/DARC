@@ -62,7 +62,8 @@ th { color: var(--muted); background: #0e141c; position: sticky; top: 0; }
 .tag.down { background: #3c1218; color: var(--bad); }
 .tag.wait { background: #1b2230; color: var(--wait); }
 .tag.seed { background: #1c170c; color: var(--accent); }
-tr.trade-row { background: #16120b; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
 iframe {
   width: 100%; height: calc(100vh - 170px); border: 1px solid var(--line);
   border-radius: 12px; background: #0c0d10;

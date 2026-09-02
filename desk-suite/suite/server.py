@@ -11,7 +11,7 @@ from suite.boot import repo_root, setup_sys_path
 
 setup_sys_path()
 
-from suite import football_api, radar_api  # noqa: E402
+from suite import airdrop_api, football_api, radar_api  # noqa: E402
 from web3_radar.api import app as chain_app  # noqa: E402
 from web3_radar.config import ensure_dirs  # noqa: E402
 
@@ -46,7 +46,7 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health")
     async def health() -> dict:
-        return {"ok": True, "app": "工作台", "modules": ["radar", "football", "contracts"]}
+        return {"ok": True, "app": "工作台", "modules": ["radar", "football", "contracts", "airdrops"]}
 
     @app.get("/api/cycle")
     async def cycle() -> dict:
@@ -87,6 +87,14 @@ def create_app() -> FastAPI:
     @app.get("/api/football/status")
     async def football_status() -> JSONResponse:
         return JSONResponse(football_api.status())
+
+    @app.post("/api/airdrops/scan")
+    async def airdrop_scan() -> dict:
+        return airdrop_api.start()
+
+    @app.get("/api/airdrops/status")
+    async def airdrop_status() -> JSONResponse:
+        return JSONResponse(airdrop_api.status())
 
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.mount("/chain", chain_app)

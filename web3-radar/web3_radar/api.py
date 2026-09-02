@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from web3_radar import copytrade
 from web3_radar import db
 from web3_radar.collectors.airdrop import scan_airdrops
+from web3_radar.collectors.airdrop_recommend import recommend_airdrops
 from web3_radar.collectors.ambassador import scan_ambassadors
 from web3_radar.collectors.binance import BinanceClient
 from web3_radar.collectors.launch import scan_launches
@@ -474,6 +475,17 @@ async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
         180,
         refresh,
         lambda: scan_launches(twitter_bearer=str(settings.get("twitter_bearer_token") or ""), lookback_days=7),
+    )
+
+
+@app.get("/api/airdrops/recommend")
+async def airdrop_recommend(refresh: bool = Query(False)) -> dict[str, Any]:
+    return await _scan_or_cache(
+        "airdrop_recommend_v1",
+        "airdrop",
+        600,
+        refresh,
+        recommend_airdrops,
     )
 
 

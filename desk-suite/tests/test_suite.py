@@ -53,20 +53,25 @@ class HubHttpTests(unittest.TestCase):
 
         cls.client = TestClient(app)
 
-    def test_health_lists_three_modules(self):
+    def test_health_lists_modules(self):
         payload = self.client.get("/api/health").json()
         self.assertEqual(payload["app"], "工作台")
-        self.assertEqual(payload["modules"], ["radar", "football", "contracts"])
+        self.assertEqual(payload["modules"], ["radar", "football", "contracts", "airdrops"])
 
-    def test_hub_page_has_three_tabs(self):
+    def test_hub_page_has_tabs(self):
         page = self.client.get("/").text
         self.assertIn("50 倍雷达", page)
         self.assertIn("三大联赛", page)
         self.assertIn("合约分析", page)
+        self.assertIn("空投推荐", page)
         self.assertIn("四年周期", page)
         self.assertIn("刷新开单", page)
         self.assertIn("持仓时长", page)
         self.assertNotIn("历史四轮周期", page)
+
+    def test_airdrop_status_starts_idle(self):
+        payload = self.client.get("/api/airdrops/status").json()
+        self.assertIn(payload["status"], {"idle", "running", "done", "error"})
 
     def test_contract_module_is_mounted(self):
         payload = self.client.get("/chain/api/health").json()

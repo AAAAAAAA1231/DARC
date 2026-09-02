@@ -2,6 +2,7 @@ const views = {
   radar: ["50 倍雷达", "新场子刚开张 + 独占叙事 + 极浅开盘。不是买卖信号。"],
   football: ["三大联赛胜负", "西甲 / 德甲 / 意甲，打开后可预测近期未赛。仅供观赛参考。"],
   contracts: ["合约分析", "主体是永续开单推荐。四年周期只给大方向和持仓时长。"],
+  airdrops: ["空投推荐", "机构、是否明确空投、参与难度、预计总金额打分，再用历史空投修正。按得分排序。"],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -11,6 +12,7 @@ let analyzeJob = null;
 let analyzeStarting = false;
 let footballTimer = null;
 let radarTimer = null;
+let airdropTimer = null;
 
 document.querySelectorAll("nav button").forEach((btn) => {
   btn.addEventListener("click", () => showView(btn.dataset.view));
@@ -24,6 +26,8 @@ $("footballQuery").addEventListener("keydown", (e) => {
 $("analyzeAll").addEventListener("click", () => startAnalyze("infer"));
 $("refitWeights").addEventListener("click", () => startAnalyze("fit"));
 $("contractFilter").addEventListener("input", () => filterTable("contractRows", $("contractFilter").value));
+$("airdropScan").addEventListener("click", () => startAirdrops());
+$("airdropFilter").addEventListener("input", () => filterTable("airdropRows", $("airdropFilter").value));
 
 function showView(name) {
   currentView = name;
@@ -34,6 +38,7 @@ function showView(name) {
   if (name === "radar") startRadar();
   if (name === "football") pollFootball();
   if (name === "contracts") loadContracts();
+  if (name === "airdrops") startAirdrops();
 }
 
 async function api(path, opts = {}) {
@@ -291,6 +296,56 @@ async function pollAnalyze() {
     else if (data.status === "error") setStatus("任务失败：" + String(data.error || "").slice(0, 180));
   } catch (err) {
     setStatus("分析任务查询失败：" + err.message);
+  }
+}
+
+function airdropRow(a) {
+  const confClass = a.confirmed === "official" || a.confirmed === "points" ? "up" : a.confirmed === "tge" ? "down" : "wait";
+  const rec = a.recommend ? '<span class="tag seed">推荐</span>' : '<span class="tag wait">观察</span>';
+  const vcs = (a.famous_investors || []).slice(0, 3).join("、") || "—";
+  const parts = a.parts || {};
+  const similar = (a.similar || []).join("、") || "—";
+  const link = a.url ? `<a href="${esc(a.url)}" target="_blank" rel="noreferrer">${esc(a.name)}</a>` : esc(a.name);
+  return `<tr class="${a.recommend ? "trade-row" : ""}">
+    <td>${a.rank ?? "-"}</td>
+    <td><strong>${link}</strong><div class="muted">${esc(a.sector || "")} ${(a.chains || []).slice(0, 2).join("/")}</div></td>
+    <td><strong>${a.score ?? "-"}</strong> ${rec}</td>
+    <td>${esc(vcs)}<div class="muted">${a.famous_count || 0} 家</div></td>
+    <td><span class="tag ${confClass}">${esc(a.confirmed_label || a.confirmed)}</span></td>
+    <td>${esc(a.difficulty_label || a.difficulty)}</td>
+    <td>${esc(a.expected_airdrop || "—")}</td>
+    <td>${esc(similar)}</td>
+    <td class="muted">机构${parts.institutions ?? "-"} 确定${parts.confirmed ?? "-"} 难度${parts.difficulty ?? "-"} 金额${parts.expected_amount ?? "-"} 修正${parts.history_adj ?? 0}</td>
+  </tr>`;
+}
+
+async function startAirdrops() {
+  setStatus("正在按模型给空投项目打分…");
+  $("airdropRows").innerHTML = `<tr><td colspan="9" class="muted">正在拉融资和历史对照…</td></tr>`;
+  try {
+    await api("/api/airdrops/scan", { method: "POST", body: {} });
+    pollAirdrops();
+  } catch (err) {
+    setStatus("空投扫描失败：" + err.message);
+  }
+}
+
+async function pollAirdrops() {
+  if (airdropTimer) clearTimeout(airdropTimer);
+  try {
+    const data = await api("/api/airdrops/status");
+    setStatus(data.phase || data.status || "就绪");
+    const rows = data.items || [];
+    if (rows.length) {
+      $("airdropRows").innerHTML = rows.map(airdropRow).join("");
+      filterTable("airdropRows", $("airdropFilter").value);
+    } else if (data.status === "done") {
+      $("airdropRows").innerHTML = `<tr><td colspan="9" class="muted">这一轮没有扫到候选。</td></tr>`;
+    }
+    if (data.status === "error") setStatus("失败：" + String(data.error || "").slice(0, 180));
+    if (data.status === "running") airdropTimer = setTimeout(pollAirdrops, 1000);
+  } catch (err) {
+    setStatus("空投查询失败：" + err.message);
   }
 }
 

@@ -1,0 +1,25 @@
+{
+  "disclaimer": "历史空投金额为公开报道量级，用于校正模型，不是精确账本。",
+  "items": [
+    {"name": "Uniswap", "year": 2020, "sector": "dex", "funding_usd": 16000000, "airdrop_usd": 6400000000, "fdv_tge_usd": 20000000000, "famous": ["a16z", "Paradigm", "Union Square Ventures"], "difficulty": "easy", "confirmed": true},
+    {"name": "dYdX", "year": 2021, "sector": "perps", "funding_usd": 87000000, "airdrop_usd": 2000000000, "fdv_tge_usd": 8000000000, "famous": ["a16z", "Paradigm", "Polychain"], "difficulty": "medium", "confirmed": true},
+    {"name": "ENS", "year": 2021, "sector": "infra", "funding_usd": 0, "airdrop_usd": 1800000000, "fdv_tge_usd": 5000000000, "famous": [], "difficulty": "easy", "confirmed": true},
+    {"name": "Optimism", "year": 2022, "sector": "l2", "funding_usd": 178000000, "airdrop_usd": 1500000000, "fdv_tge_usd": 7000000000, "famous": ["a16z", "Paradigm"], "difficulty": "medium", "confirmed": true},
+    {"name": "Aptos", "year": 2022, "sector": "l1", "funding_usd": 350000000, "airdrop_usd": 1000000000, "fdv_tge_usd": 8000000000, "famous": ["a16z", "Multicoin", "Binance Labs"], "difficulty": "hard", "confirmed": true},
+    {"name": "Arbitrum", "year": 2023, "sector": "l2", "funding_usd": 120000000, "airdrop_usd": 2000000000, "fdv_tge_usd": 12000000000, "famous": ["Lightspeed", "Pantera", "Polychain"], "difficulty": "medium", "confirmed": true},
+    {"name": "Blur", "year": 2023, "sector": "nft", "funding_usd": 11000000, "airdrop_usd": 900000000, "fdv_tge_usd": 3000000000, "famous": ["Paradigm"], "difficulty": "hard", "confirmed": true},
+    {"name": "Celestia", "year": 2023, "sector": "modular", "funding_usd": 55000000, "airdrop_usd": 1500000000, "fdv_tge_usd": 7000000000, "famous": ["Bain Capital Crypto", "Polychain"], "difficulty": "medium", "confirmed": true},
+    {"name": "Pyth", "year": 2023, "sector": "oracle", "funding_usd": 70000000, "airdrop_usd": 1200000000, "fdv_tge_usd": 4000000000, "famous": ["Jump Crypto"], "difficulty": "easy", "confirmed": true},
+    {"name": "Jito", "year": 2023, "sector": "solana", "funding_usd": 12000000, "airdrop_usd": 1000000000, "fdv_tge_usd": 3000000000, "famous": ["Multicoin", "Framework"], "difficulty": "medium", "confirmed": true},
+    {"name": "Starknet", "year": 2024, "sector": "l2", "funding_usd": 282000000, "airdrop_usd": 1800000000, "fdv_tge_usd": 8000000000, "famous": ["Paradigm", "Sequoia", "Pantera"], "difficulty": "hard", "confirmed": true},
+    {"name": "Wormhole", "year": 2024, "sector": "infra", "funding_usd": 225000000, "airdrop_usd": 1500000000, "fdv_tge_usd": 5000000000, "famous": ["Coinbase Ventures", "Multicoin"], "difficulty": "medium", "confirmed": true},
+    {"name": "EigenLayer", "year": 2024, "sector": "restaking", "funding_usd": 164000000, "airdrop_usd": 2500000000, "fdv_tge_usd": 12000000000, "famous": ["a16z", "Coinbase Ventures"], "difficulty": "medium", "confirmed": true},
+    {"name": "zkSync", "year": 2024, "sector": "l2", "funding_usd": 458000000, "airdrop_usd": 900000000, "fdv_tge_usd": 4000000000, "famous": ["a16z", "Blockchain Capital"], "difficulty": "hard", "confirmed": true},
+    {"name": "LayerZero", "year": 2024, "sector": "infra", "funding_usd": 263000000, "airdrop_usd": 1800000000, "fdv_tge_usd": 6000000000, "famous": ["a16z", "Sequoia", "Circle Ventures"], "difficulty": "medium", "confirmed": true},
+    {"name": "Scroll", "year": 2024, "sector": "l2", "funding_usd": 80000000, "airdrop_usd": 400000000, "fdv_tge_usd": 2000000000, "famous": ["Polychain", "Sequoia"], "difficulty": "medium", "confirmed": true},
+    {"name": "Jupiter", "year": 2024, "sector": "solana", "funding_usd": 0, "airdrop_usd": 2000000000, "fdv_tge_usd": 6000000000, "famous": [], "difficulty": "easy", "confirmed": true},
+    {"name": "Blast", "year": 2024, "sector": "l2", "funding_usd": 20000000, "airdrop_usd": 700000000, "fdv_tge_usd": 2500000000, "famous": ["Paradigm", "eGirl Capital"], "difficulty": "easy", "confirmed": true},
+    {"name": "Ethena", "year": 2024, "sector": "defi", "funding_usd": 14000000, "airdrop_usd": 1500000000, "fdv_tge_usd": 5000000000, "famous": ["Dragonfly", "Binance Labs"], "difficulty": "medium", "confirmed": true},
+    {"name": "Hyperliquid", "year": 2024, "sector": "perps", "funding_usd": 0, "airdrop_usd": 6000000000, "fdv_tge_usd": 15000000000, "famous": [], "difficulty": "hard", "confirmed": true}
+  ]
+}

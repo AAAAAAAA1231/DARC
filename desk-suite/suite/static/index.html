@@ -12,13 +12,14 @@
       <div class="logo">台</div>
       <div>
         <h1>工作台</h1>
-        <p>三个原来的工具，一个窗口</p>
+        <p>雷达 / 联赛 / 合约 / 空投</p>
       </div>
     </div>
     <nav>
       <button data-view="radar" class="active">50 倍雷达</button>
       <button data-view="football">三大联赛胜负</button>
       <button data-view="contracts">合约分析</button>
+      <button data-view="airdrops">空投推荐</button>
     </nav>
     <p class="foot">不是投资 / 投注建议。关掉黑窗口即退出。</p>
   </aside>
@@ -99,6 +100,27 @@
         </table>
       </div>
       <div id="contractDetail"></div>
+    </section>
+
+    <section id="view-airdrops" class="view hidden">
+      <div class="toolbar">
+        <button class="btn primary" id="airdropScan">刷新推荐</button>
+        <input id="airdropFilter" placeholder="筛选项目 / 机构 / 确定性"/>
+        <span class="pill">机构 · 是否明确空投 · 难度 · 预计总金额 · 历史修正</span>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>项目</th><th>综合分</th><th>机构</th><th>空投确定性</th>
+              <th>参与难度</th><th>预计总金额</th><th>历史对照</th><th>分项</th>
+            </tr>
+          </thead>
+          <tbody id="airdropRows">
+            <tr><td colspan="9" class="muted">点「刷新推荐」，按模型得分从高到低排列。</td></tr>
+          </tbody>
+        </table>
+      </div>
     </section>
   </main>
   <script src="/assets/app.js"></script>
