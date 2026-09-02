@@ -1,15 +1,20 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { api } from "../api";
 import { Button, Disclaimer, Panel } from "../components/ui";
+import { fmtPct } from "../format";
 
-export default function Football() {
+export default function Football({ query }: { query: string }) {
   const [data, setData] = useState<any>(null);
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({ match_external_id: "", user_placed_bet: false, selection: "HOME", stake: "", odds: "" });
 
   async function refresh() {
     setBusy(true);
-    try { setData(await api("/api/football/refresh", { method: "POST" })); } finally { setBusy(false); }
+    try {
+      const live = await api<any>("/api/football/refresh", { method: "POST" });
+      const cached = await api<any>("/api/football/latest");
+      setData({ ...live, tracked: cached.tracked });
+    } finally { setBusy(false); }
   }
   async function track() {
     await api("/api/football/track", {
@@ -20,19 +25,29 @@ export default function Football() {
         odds: form.odds ? Number(form.odds) : null,
       }),
     });
+    setData(await api("/api/football/latest"));
   }
+
+  useEffect(() => {
+    api("/api/football/latest").then(setData).catch(() => undefined);
+  }, []);
+
+  const rows = useMemo(() => {
+    const q = query.toLowerCase();
+    return (data?.predictions || []).filter((m: any) => `${m.home} ${m.away} ${m.competition}`.toLowerCase().includes(q));
+  }, [data, query]);
 
   return (
     <div className="space-y-4">
       <Panel title="Football — Bundesliga / Serie A / La Liga" action={<Button disabled={busy} onClick={refresh}>{busy ? "Loading TheSportsDB…" : "Refresh live fixtures"}</Button>}>
         <Disclaimer text={data?.disclaimer} />
-        {(data?.predictions || []).map((m: any) => (
-          <div key={m.external_id} className="border-t border-[#1e2a44] py-3 text-sm">
+        {rows.map((m: any) => (
+          <div key={m.external_id} className="border-t py-3 text-sm" style={{ borderColor: "var(--border)" }}>
             <div className="font-semibold">{m.home} vs {m.away} · {m.competition}</div>
-            <div className="font-mono text-xs">1 { (m.home_win*100).toFixed(1)}% · X {(m.draw*100).toFixed(1)}% · 2 {(m.away_win*100).toFixed(1)}% · O2.5 {(m.over_25*100).toFixed(1)}% · BTTS {(m.btts*100).toFixed(1)}%</div>
-            <div className="text-xs text-[#8aa0c2]">Injuries: {m.injuries} · xG: {m.xg} · conf {m.confidence}</div>
+            <div className="font-mono text-xs">1 {fmtPct(m.home_win)} · X {fmtPct(m.draw)} · 2 {fmtPct(m.away_win)} · O2.5 {fmtPct(m.over_25)} · BTTS {fmtPct(m.btts)}</div>
+            <div className="text-xs" style={{ color: "var(--muted)" }}>Injuries: {m.injuries ?? "UNKNOWN"} · xG: {m.xg ?? "UNKNOWN"} · conf {m.confidence}</div>
             <div className="text-xs">Top scorelines: {(m.top_scorelines || []).map((s: any) => `${s.home}-${s.away}`).join(", ")}</div>
-            <button className="mt-1 text-xs text-[#3ee0b4]" onClick={() => setForm((f) => ({ ...f, match_external_id: m.external_id }))}>Track this prediction</button>
+            <button className="mt-1 text-xs" style={{ color: "var(--accent)" }} onClick={() => setForm((f) => ({ ...f, match_external_id: m.external_id }))}>Track this prediction</button>
           </div>
         ))}
       </Panel>
@@ -45,6 +60,22 @@ export default function Football() {
         </div>
         <label className="mt-2 block text-xs"><input type="checkbox" checked={form.user_placed_bet} onChange={(e) => setForm({ ...form, user_placed_bet: e.target.checked })} /> I placed a bet (separate from the model)</label>
         <Button onClick={track}>Save tracking</Button>
+        {(data?.tracked || []).length > 0 && (
+          <table className="mt-3 w-full text-left text-xs">
+            <thead style={{ color: "var(--muted)" }}><tr><th>Match</th><th>User bet</th><th>Sel</th><th>Result</th><th>Profit</th></tr></thead>
+            <tbody>
+              {data.tracked.map((b: any) => (
+                <tr key={b.id} className="border-t" style={{ borderColor: "var(--border)" }}>
+                  <td className="py-1">{b.match}</td>
+                  <td>{b.user_placed_bet ? "YES" : "model only"}</td>
+                  <td>{b.selection}</td>
+                  <td>{b.result}</td>
+                  <td>{b.profit ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </Panel>
     </div>
   );

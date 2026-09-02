@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
 import { Button, Panel } from "../components/ui";
+import { fmtNum, fmtPct } from "../format";
 
 export default function Portfolio() {
   const [data, setData] = useState<any>(null);
@@ -22,19 +23,19 @@ export default function Portfolio() {
         </select>
       }>
         <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
-          <div>Invested {data?.total_invested}</div>
-          <div>Value {data?.current_value}</div>
-          <div>Gross {data?.gross_pnl}</div>
-          <div>Costs {data?.total_cost}</div>
-          <div>Net {data?.net_pnl}</div>
-          <div>Today {data?.today_pnl ?? "UNKNOWN"}</div>
-          <div>Week {data?.week_pnl ?? "UNKNOWN"}</div>
-          <div>Month {data?.month_pnl ?? "UNKNOWN"}</div>
-          <div>ROI {data?.roi != null ? `${(data.roi * 100).toFixed(2)}%` : "—"}</div>
-          <div>Realized {data?.realized_pnl}</div>
-          <div>Unrealized {data?.unrealized_pnl}</div>
+          <div>Invested {fmtNum(data?.total_invested, 2)}</div>
+          <div>Value {fmtNum(data?.current_value, 2)}</div>
+          <div>Gross {fmtNum(data?.gross_pnl, 2)}</div>
+          <div>Costs {fmtNum(data?.total_cost, 4)}</div>
+          <div>Net {fmtNum(data?.net_pnl, 2)}</div>
+          <div>Today {data?.today_pnl != null ? fmtNum(data.today_pnl, 2) : "UNKNOWN"}</div>
+          <div>Week {data?.week_pnl != null ? fmtNum(data.week_pnl, 2) : "UNKNOWN"}</div>
+          <div>Month {data?.month_pnl != null ? fmtNum(data.month_pnl, 2) : "UNKNOWN"}</div>
+          <div>ROI {data?.roi != null ? fmtPct(data.roi) : "—"}</div>
+          <div>Realized {fmtNum(data?.realized_pnl, 2)}</div>
+          <div>Unrealized {fmtNum(data?.unrealized_pnl, 2)}</div>
         </div>
-        <p className="mt-2 text-xs text-[#8aa0c2]">{data?.period_note}</p>
+        <p className="mt-2 text-xs" style={{ color: "var(--muted)" }}>{data?.period_note}</p>
       </Panel>
       <Panel title="Record actual fill">
         <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-3">
@@ -51,16 +52,16 @@ export default function Portfolio() {
       </Panel>
       <Panel title="Positions">
         <table className="w-full text-left text-sm">
-          <thead className="text-[#8aa0c2]"><tr><th>Symbol</th><th>Status</th><th>Qty</th><th>Avg</th><th>Value</th><th>Net</th><th>Signal</th></tr></thead>
+          <thead style={{ color: "var(--muted)" }}><tr><th>Symbol</th><th>Status</th><th>Qty</th><th>Avg</th><th>Value</th><th>Net</th><th>Signal</th></tr></thead>
           <tbody>
             {(data?.positions || []).map((p: any) => (
-              <tr key={p.id} className="border-t border-[#1e2a44]">
-                <td className="py-2"><Link className="text-[#3ee0b4]" to={`/assets/${p.symbol}`}>{p.symbol}</Link></td>
+              <tr key={p.id} className="border-t" style={{ borderColor: "var(--border)" }}>
+                <td className="py-2"><Link style={{ color: "var(--accent)" }} to={`/assets/${p.symbol}`}>{p.symbol}</Link></td>
                 <td>{p.status}</td>
-                <td>{p.quantity}</td>
-                <td>{p.avg_cost}</td>
-                <td>{p.current_value ?? "UNKNOWN"}</td>
-                <td>{p.net_pnl ?? "UNKNOWN"}</td>
+                <td>{fmtNum(p.quantity, 6)}</td>
+                <td>{fmtNum(p.avg_cost, 2)}</td>
+                <td>{p.current_value != null ? fmtNum(p.current_value, 2) : "UNKNOWN"}</td>
+                <td>{p.net_pnl != null ? fmtNum(p.net_pnl, 2) : "UNKNOWN"}</td>
                 <td>{p.original_model_score ?? "—"}</td>
               </tr>
             ))}

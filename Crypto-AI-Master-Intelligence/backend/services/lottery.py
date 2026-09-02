@@ -9,6 +9,7 @@ import numpy as np
 from sqlalchemy.orm import Session
 
 from backend.core.logging import get_logger
+from backend.core.parsing import parse_timestamp
 from backend.data_sources.lottery import LotteryProvider
 from backend.data_sources.registry import get_provider
 from backend.database.orm import LotteryPrediction, LotteryResult
@@ -45,6 +46,7 @@ async def refresh(session: Session, game: str = "ssq") -> dict[str, Any]:
                 numbers=row["numbers"],
                 source=row.get("source") or "lottery",
                 data_quality="ok",
+                draw_time=parse_timestamp(row.get("draw_time")),
             )
         )
     freqs = _frequencies(env.payload, game)
@@ -134,3 +136,43 @@ def run_simulation(session: Session, game: str, paths: int, simulation_id: str) 
     result["out_of_sample_performance"] = None
     result["live_performance"] = None
     return result
+
+
+def latest(session: Session, game: str = "ssq") -> dict[str, Any]:
+    draws = (
+        session.query(LotteryResult)
+        .filter(LotteryResult.game == game)
+        .order_by(LotteryResult.retrieved_at.desc(), LotteryResult.id.desc())
+        .limit(50)
+        .all()
+    )
+    pred = (
+        session.query(LotteryPrediction)
+        .filter(LotteryPrediction.game == game)
+        .order_by(LotteryPrediction.created_at.desc())
+        .first()
+    )
+    payload = []
+    for row in draws:
+        payload.append(
+            {
+                "game": row.game,
+                "issue": row.issue,
+                "draw_time": row.draw_time.isoformat() if row.draw_time else None,
+                "numbers": row.numbers,
+                "source": row.source,
+            }
+        )
+    combos = (pred.combinations or {}).get("recommended") if pred else []
+    return {
+        "ok": bool(payload),
+        "from_cache": True,
+        "game": game,
+        "draws": payload,
+        "frequencies": pred.frequencies if pred else {},
+        "recommended_combinations": combos or [],
+        "risk": pred.risk if pred else "HIGH",
+        "disclaimer": DISCLAIMER,
+        "source_status": {"status": "ok" if payload else "missing", "n": len(payload), "meta": {"cached": True}},
+        "model_version": pred.model_version if pred else None,
+    }

@@ -4,6 +4,7 @@ import { api } from "../api";
 import CandleChart from "../components/CandleChart";
 import HoldingBadge from "../components/HoldingBadge";
 import { Button, Panel, Status } from "../components/ui";
+import { fmtNum, fmtUsd } from "../format";
 
 export default function AssetDetail() {
   const { symbol = "BTCUSDT" } = useParams();
@@ -47,9 +48,9 @@ export default function AssetDetail() {
         }
       >
         <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
-          <div>Last {ticker.last ?? ticker.close ?? "UNKNOWN"}</div>
-          <div>24h {ticker.change_pct ?? ticker.price_change_pct ?? "UNKNOWN"}%</div>
-          <div>Volume {ticker.quote_volume ?? "UNKNOWN"}</div>
+          <div>Last {fmtNum(ticker.last ?? ticker.close, 2)}</div>
+          <div>24h {ticker.price_change_pct != null ? `${Number(ticker.price_change_pct).toFixed(2)}%` : "UNKNOWN"}</div>
+          <div>Volume {ticker.quote_volume != null ? fmtUsd(ticker.quote_volume) : "UNKNOWN"}</div>
           <div>Source <Status value={data?.source_status?.status} /></div>
         </div>
         <HoldingBadge overlay={data?.holding} />

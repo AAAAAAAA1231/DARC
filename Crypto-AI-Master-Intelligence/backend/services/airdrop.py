@@ -93,3 +93,32 @@ async def scan(session: Session, limit: int = 40) -> dict[str, Any]:
         "source_status": {"defillama": {"status": env.status.value, "n": len(env.payload or [])}},
         "disclaimer": "Candidates are protocols with TVL and no listed token symbol on DefiLlama. Funding, valuation, and expected return are UNKNOWN unless a dedicated funding provider is configured. Nothing here is fabricated.",
     }
+
+
+def latest(session: Session, limit: int = 40) -> dict[str, Any]:
+    rows = session.query(AirdropProject).order_by(AirdropProject.created_at.desc()).limit(limit).all()
+    seen: set[str] = set()
+    projects = []
+    for row in rows:
+        if row.project_id in seen:
+            continue
+        seen.add(row.project_id)
+        fields = dict(row.fields or {})
+        projects.append(
+            {
+                "project_id": row.project_id,
+                "project": fields.get("project") or row.project_id,
+                "chain": row.chain or fields.get("chain") or "UNKNOWN",
+                "tvl": fields.get("tvl"),
+                "funding": row.funding,
+                "expected_roi": row.expected_roi,
+                "risk": row.risk,
+                **fields,
+            }
+        )
+    return {
+        "ok": True,
+        "from_cache": True,
+        "projects": projects,
+        "disclaimer": "Last stored DefiLlama scan. Funding/valuation remain UNKNOWN unless sourced.",
+    }

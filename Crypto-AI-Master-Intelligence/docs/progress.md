@@ -23,6 +23,8 @@
 - Simulation jobs start/pause/resume/cancel
 - Notification channel plugins
 - Scheduler: hourly BTC + portfolio; daily radar/airdrop/launch/lottery/football/review
+- Module pages hydrate from last stored scan on first open (radar/futures/spot/airdrop/launch/football/lottery)
+- Light/dark CSS variables; provider status on the header and Settings table
 - React quant terminal, FastAPI, PyInstaller scripts
 
 ## In progress

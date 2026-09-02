@@ -15,6 +15,8 @@ import ProjectDetail from "./pages/ProjectDetail";
 import AssetDetail from "./pages/AssetDetail";
 import SettingsPage from "./pages/Settings";
 import NotificationsPage from "./pages/Notifications";
+import { api } from "./api";
+import { Status } from "./components/ui";
 
 const LINKS = [
   ["/", "Dashboard"],
@@ -35,6 +37,7 @@ const LINKS = [
 export default function App() {
   const [dark, setDark] = useState(true);
   const [q, setQ] = useState("");
+  const [health, setHealth] = useState<any>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -42,29 +45,41 @@ export default function App() {
     document.documentElement.classList.toggle("light", !dark);
   }, [dark]);
 
+  useEffect(() => {
+    api("/api/health").then(setHealth).catch(() => setHealth(null));
+  }, []);
+
+  const providers = health?.providers || {};
+
   return (
-    <div className={dark ? "dark min-h-screen bg-[#0b1020] text-slate-100" : "min-h-screen bg-[#eef2f8] text-slate-900"}>
-      <aside className="fixed inset-y-0 left-0 w-56 border-r border-[#1e2a44] bg-[#121a2f] p-4">
-        <div className="mb-6 font-mono text-xs tracking-[0.2em] text-[#3ee0b4]">CAMI TERMINAL</div>
+    <div className="min-h-screen" style={{ background: "var(--bg)", color: "var(--text)" }}>
+      <aside className="fixed inset-y-0 left-0 w-56 border-r p-4" style={{ borderColor: "var(--border)", background: "var(--panel)" }}>
+        <div className="mb-6 font-mono text-xs tracking-[0.2em]" style={{ color: "var(--accent)" }}>CAMI TERMINAL</div>
         <nav className="flex flex-col gap-1 text-sm">
           {LINKS.map(([to, label]) => (
             <NavLink
               key={to}
               to={to}
               end={to === "/"}
-              className={({ isActive }) =>
-                `rounded px-3 py-2 ${isActive ? "bg-[#3ee0b4]/15 text-[#3ee0b4]" : "text-slate-300 hover:bg-white/5"}`
-              }
+              className={({ isActive }) => `rounded px-3 py-2 ${isActive ? "" : "opacity-80 hover:opacity-100"}`}
+              style={({ isActive }) => (isActive ? { background: "color-mix(in srgb, var(--accent) 18%, transparent)", color: "var(--accent)" } : undefined)}
             >
               {label}
             </NavLink>
           ))}
         </nav>
       </aside>
-      <header className="ml-56 flex items-center justify-between border-b border-[#1e2a44] px-6 py-3">
+      <header className="ml-56 flex items-center justify-between border-b px-6 py-3" style={{ borderColor: "var(--border)" }}>
         <div>
           <div className="text-lg font-semibold">Crypto AI Master Intelligence</div>
-          <div className="text-xs text-[#8aa0c2]">Statistical models only. Not financial, betting, or investment advice. No live orders. No private keys.</div>
+          <div className="text-xs" style={{ color: "var(--muted)" }}>Statistical models only. Not financial, betting, or investment advice. No live orders. No private keys.</div>
+          <div className="mt-1 flex flex-wrap gap-3 text-[11px]">
+            {["binance", "coingecko", "lottery", "mempool"].map((name) => (
+              <span key={name} className="font-mono">
+                {name} <Status value={providers[name]?.status} />
+              </span>
+            ))}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <input
@@ -79,9 +94,10 @@ export default function App() {
               }
             }}
             placeholder="Search / Enter BTCUSDT"
-            className="w-56 rounded border border-[#1e2a44] bg-transparent px-3 py-1 text-sm"
+            className="w-56 rounded border bg-transparent px-3 py-1 text-sm"
+            style={{ borderColor: "var(--border)" }}
           />
-          <button onClick={() => setDark((v) => !v)} className="rounded border border-[#1e2a44] px-3 py-1 text-xs">
+          <button onClick={() => setDark((v) => !v)} className="rounded border px-3 py-1 text-xs" style={{ borderColor: "var(--border)" }}>
             {dark ? "Light" : "Dark"}
           </button>
         </div>
@@ -90,11 +106,11 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/radar" element={<Radar query={q} />} />
-          <Route path="/futures" element={<Futures />} />
-          <Route path="/spot" element={<Spot />} />
-          <Route path="/airdrop" element={<Airdrop />} />
-          <Route path="/launch" element={<Launch />} />
-          <Route path="/football" element={<Football />} />
+          <Route path="/futures" element={<Futures query={q} />} />
+          <Route path="/spot" element={<Spot query={q} />} />
+          <Route path="/airdrop" element={<Airdrop query={q} />} />
+          <Route path="/launch" element={<Launch query={q} />} />
+          <Route path="/football" element={<Football query={q} />} />
           <Route path="/lottery" element={<Lottery />} />
           <Route path="/portfolio" element={<Portfolio />} />
           <Route path="/models" element={<Models />} />

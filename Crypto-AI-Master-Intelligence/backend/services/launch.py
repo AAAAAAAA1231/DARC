@@ -95,3 +95,21 @@ async def scan(session: Session) -> dict[str, Any]:
         "source_status": source_notes,
         "disclaimer": "Search hits from DexScreener public search. Funding/team/unlock remain UNKNOWN unless a dedicated source is wired. Class A is keyword-based, not a fake VC database.",
     }
+
+
+def latest(session: Session, limit: int = 40) -> dict[str, Any]:
+    rows = session.query(LaunchProject).order_by(LaunchProject.created_at.desc()).limit(limit).all()
+    seen: set[str] = set()
+    projects = []
+    for row in rows:
+        if row.project_id in seen:
+            continue
+        seen.add(row.project_id)
+        fields = dict(row.fields or {})
+        projects.append({"project_id": row.project_id, "launch_class": row.launch_class, "chain": fields.get("chain"), **fields})
+    return {
+        "ok": True,
+        "from_cache": True,
+        "projects": projects,
+        "disclaimer": "Last stored DexScreener search. Funding/team/unlock remain UNKNOWN unless sourced.",
+    }

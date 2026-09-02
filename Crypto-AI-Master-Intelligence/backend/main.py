@@ -130,7 +130,7 @@ async def market_klines(symbol: str = Query("BTCUSDT"), interval: str = Query("1
 async def radar_latest():
     session = SessionLocal()
     try:
-        return {"items": dashboard_svc._latest_radar(session)}
+        return radar_svc.latest_pool(session)
     finally:
         session.close()
 
@@ -139,7 +139,65 @@ async def radar_latest():
 async def futures_latest():
     session = SessionLocal()
     try:
-        return {"items": dashboard_svc._latest_futures(session)}
+        return futures_svc.latest_top3(session)
+    finally:
+        session.close()
+
+
+@app.get("/api/spot/latest")
+async def spot_latest(profile: str | None = None):
+    session = SessionLocal()
+    try:
+        return spot_svc.latest(session, profile=profile)
+    finally:
+        session.close()
+
+
+@app.get("/api/airdrop/latest")
+async def airdrop_latest():
+    session = SessionLocal()
+    try:
+        return airdrop_svc.latest(session)
+    finally:
+        session.close()
+
+
+@app.get("/api/launch/latest")
+async def launch_latest():
+    session = SessionLocal()
+    try:
+        return launch_svc.latest(session)
+    finally:
+        session.close()
+
+
+@app.get("/api/football/latest")
+async def football_latest():
+    session = SessionLocal()
+    try:
+        return football_svc.latest(session)
+    finally:
+        session.close()
+
+
+@app.get("/api/lottery/latest")
+async def lottery_latest(game: str = Query("ssq")):
+    session = SessionLocal()
+    try:
+        return lottery_svc.latest(session, game=game)
+    finally:
+        session.close()
+
+
+@app.get("/api/btc/cycle")
+async def btc_cycle(refresh: bool = False):
+    from backend.services import btc_cycle as btc_svc
+
+    session = SessionLocal()
+    try:
+        result = await (btc_svc.analyze(session) if refresh else btc_svc.latest_or_analyze(session))
+        session.commit()
+        return result
     finally:
         session.close()
 

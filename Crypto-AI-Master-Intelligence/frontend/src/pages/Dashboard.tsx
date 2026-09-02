@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { api } from "../api";
 import CandleChart from "../components/CandleChart";
 import { Button, Disclaimer, Panel, Status } from "../components/ui";
+import { fmtNum, fmtPct } from "../format";
 
 export default function Dashboard() {
   const [data, setData] = useState<any>(null);
@@ -49,9 +50,9 @@ export default function Dashboard() {
           <div>Bull {cycle.bull_score ?? "UNKNOWN"}</div>
           <div>Bear {cycle.bear_score ?? "UNKNOWN"}</div>
           <div>Confidence {cycle.confidence ?? "—"}</div>
-          <div>Price {cycle.current_price ?? "—"}</div>
-          <div>200D MA {cycle.ma200 ?? "UNKNOWN"}</div>
-          <div>ATH DD {cycle.drawdown != null ? `${(cycle.drawdown * 100).toFixed(1)}%` : "UNKNOWN"}</div>
+          <div>Price {fmtNum(cycle.current_price, 2)}</div>
+          <div>200D MA {cycle.ma200 != null ? fmtNum(cycle.ma200, 2) : "UNKNOWN"}</div>
+          <div>ATH DD {cycle.drawdown != null ? fmtPct(cycle.drawdown) : "UNKNOWN"}</div>
           <div>Hashrate {ind.hashrate?.current_hashrate ? Number(ind.hashrate.current_hashrate).toExponential(2) : "UNKNOWN"}</div>
           <div>Height {ind.block_height?.height ?? "UNKNOWN"}</div>
           <div>BTC.D {ind.btc_dominance ?? "UNKNOWN"}%</div>
@@ -64,13 +65,13 @@ export default function Dashboard() {
       </Panel>
       <Panel title="Portfolio">
         <div className="grid grid-cols-2 gap-2 text-sm">
-          <div>Invested {port.total_invested ?? "0"}</div>
-          <div>Value {port.current_value ?? "0"}</div>
-          <div>Net PnL {port.net_pnl ?? "0"}</div>
-          <div>ROI {port.roi != null ? `${(port.roi * 100).toFixed(2)}%` : "—"}</div>
-          <div>Today {port.today_pnl ?? "UNKNOWN"}</div>
-          <div>Week {port.week_pnl ?? "UNKNOWN"}</div>
-          <div>Month {port.month_pnl ?? "UNKNOWN"}</div>
+          <div>Invested {fmtNum(port.total_invested, 2)}</div>
+          <div>Value {fmtNum(port.current_value, 2)}</div>
+          <div>Net PnL {fmtNum(port.net_pnl, 2)}</div>
+          <div>ROI {port.roi != null ? fmtPct(port.roi) : "—"}</div>
+          <div>Today {port.today_pnl != null ? fmtNum(port.today_pnl, 2) : "UNKNOWN"}</div>
+          <div>Week {port.week_pnl != null ? fmtNum(port.week_pnl, 2) : "UNKNOWN"}</div>
+          <div>Month {port.month_pnl != null ? fmtNum(port.month_pnl, 2) : "UNKNOWN"}</div>
         </div>
         <p className="mt-2 text-xs text-[#8aa0c2]">{port.period_note}</p>
         <Link className="mt-3 inline-block text-xs text-[#3ee0b4]" to="/portfolio">Open tracking center →</Link>

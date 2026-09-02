@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "../api";
 import { Button, Disclaimer, Panel } from "../components/ui";
 
@@ -16,6 +16,9 @@ export default function Lottery() {
   const [sim, setSim] = useState<any>(null);
   const [busy, setBusy] = useState(false);
 
+  async function loadCached() {
+    try { setData(await api(`/api/lottery/latest?game=${game}`)); } catch { /* none yet */ }
+  }
   async function refresh() {
     setBusy(true);
     try { setData(await api(`/api/lottery/refresh?game=${game}`, { method: "POST" })); } finally { setBusy(false); }
@@ -24,6 +27,8 @@ export default function Lottery() {
     const created = await api<any>("/api/simulations", { method: "POST", body: JSON.stringify({ kind: "lottery", paths: 1000000, parameters: { game } }) });
     setSim(created);
   }
+
+  useEffect(() => { loadCached(); }, [game]);
 
   return (
     <Panel
@@ -46,14 +51,15 @@ export default function Lottery() {
       <Disclaimer text={data?.disclaimer || "Lottery is random. Nothing here guarantees a prize. Simulation count is not accuracy."} />
       <div className="mt-3 text-sm">
         Draws loaded: {data?.draws?.length ?? 0}
-        {data?.source_status?.meta?.failover && <span className="ml-2 text-xs text-[#f5c542]">failover {data.source_status.meta.failover}</span>}
-        {data?.ok === false && <span className="ml-2 text-[#ff5d73]">{data?.source_status?.error || "source down"}</span>}
+        {data?.source_status?.meta?.failover && <span className="ml-2 text-xs" style={{ color: "#c9a227" }}>failover {data.source_status.meta.failover}</span>}
+        {data?.from_cache && <span className="ml-2 text-xs" style={{ color: "var(--muted)" }}>(cached)</span>}
+        {data?.ok === false && <span className="ml-2" style={{ color: "var(--danger)" }}>{data?.source_status?.error || "source down"}</span>}
       </div>
       <table className="mt-3 w-full text-left text-xs">
-        <thead className="text-[#8aa0c2]"><tr><th>Issue</th><th>Time</th><th>Numbers</th><th>Source</th></tr></thead>
+        <thead style={{ color: "var(--muted)" }}><tr><th>Issue</th><th>Time</th><th>Numbers</th><th>Source</th></tr></thead>
         <tbody>
           {(data?.draws || []).slice(0, 12).map((d: any) => (
-            <tr key={d.issue} className="border-t border-[#1e2a44]">
+            <tr key={d.issue} className="border-t" style={{ borderColor: "var(--border)" }}>
               <td className="py-1 font-mono">{d.issue}</td>
               <td>{d.draw_time || "UNKNOWN"}</td>
               <td className="font-mono">{fmtNumbers(d.numbers)}</td>
@@ -62,7 +68,12 @@ export default function Lottery() {
           ))}
         </tbody>
       </table>
-      <pre className="mt-2 overflow-auto text-xs text-[#8aa0c2]">{JSON.stringify(data?.recommended_combinations || [], null, 2)}</pre>
+      <div className="mt-3 text-xs" style={{ color: "var(--muted)" }}>Frequency sample combinations (still random going forward)</div>
+      <ul className="mt-1 list-disc pl-5 text-sm">
+        {(data?.recommended_combinations || []).map((c: any, i: number) => (
+          <li key={i} className="font-mono">{fmtNumbers(c)}</li>
+        ))}
+      </ul>
       {sim && <div className="text-xs">Job {sim.simulation_id} status {sim.status}</div>}
     </Panel>
   );

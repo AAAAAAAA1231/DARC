@@ -115,3 +115,43 @@ async def scan(session: Session, profile: RiskProfile = RiskProfile.BALANCED, an
         "disclaimer": "Spot zones from live OHLCV + strategy ensemble. Not a guaranteed buy.",
         "model_version": version.version,
     }
+
+
+def latest(session: Session, profile: str | None = None) -> dict[str, Any]:
+    q = session.query(SpotPrediction)
+    if profile:
+        q = q.filter(SpotPrediction.profile == profile.upper())
+    rows = q.order_by(SpotPrediction.created_at.desc()).limit(40).all()
+    seen: set[str] = set()
+    opportunities = []
+    for row in rows:
+        if row.symbol in seen:
+            continue
+        seen.add(row.symbol)
+        zone = (row.buy_zone or {}).get("zone") if isinstance(row.buy_zone, dict) else None
+        tps = row.take_profits or {}
+        opportunities.append(
+            {
+                "project_id": row.project_id,
+                "symbol": row.symbol,
+                "current_price": float(row.current_price) if row.current_price is not None else None,
+                "buy_zone": zone,
+                "stop_loss": float(row.stop_loss) if row.stop_loss is not None else None,
+                "tp1": tps.get("tp1"),
+                "tp2": tps.get("tp2"),
+                "tp3": tps.get("tp3"),
+                "score": float(row.score) if row.score is not None else None,
+                "confidence": float(row.confidence) if row.confidence is not None else None,
+                "risk": row.risk,
+                "reasons": (row.reasons or {}).get("for"),
+                "invalidation": None,
+                "model_version": row.model_version,
+            }
+        )
+    return {
+        "ok": True,
+        "from_cache": True,
+        "profile": profile or "ALL",
+        "opportunities": opportunities,
+        "disclaimer": "Last stored spot scan. Click Scan for a fresh live universe.",
+    }

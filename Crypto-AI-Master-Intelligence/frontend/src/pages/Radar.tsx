@@ -21,6 +21,15 @@ export default function Radar({ query }: { query: string }) {
     }
   }
 
+  async function loadCached() {
+    try {
+      const cached = await api<any>("/api/radar/latest");
+      if ((cached.recommended || []).length) setData(cached);
+    } catch {
+      /* empty until first scan */
+    }
+  }
+
   async function scan() {
     setBusy(true);
     try {
@@ -32,6 +41,7 @@ export default function Radar({ query }: { query: string }) {
   }
 
   useEffect(() => {
+    loadCached();
     loadOverlay();
   }, []);
 
@@ -64,23 +74,23 @@ export default function Radar({ query }: { query: string }) {
           </div>
         }
       >
-        <p className="text-sm text-[#8aa0c2]">Security is a hard filter. MALICIOUS / HIGH_RISK / UNKNOWN cannot enter Top 10/20. Held assets show cost/PnL vs the model — never a live order.</p>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>Security is a hard filter. MALICIOUS / HIGH_RISK / UNKNOWN cannot enter Top 10/20. Held assets show cost/PnL vs the model — never a live order.{data?.from_cache ? " Showing last stored scan." : ""}</p>
         <Disclaimer text={data?.disclaimer} />
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="text-[#8aa0c2]">
+            <thead style={{ color: "var(--muted)" }}>
               <tr>
                 <th>Project</th><th>Score</th><th>Security</th><th>MCap</th><th>Eligible</th><th>Holding</th>
               </tr>
             </thead>
             <tbody>
               {slice.map((r: any) => (
-                <tr key={r.project_id} className="border-t border-[#1e2a44]">
+                <tr key={r.project_id} className="border-t" style={{ borderColor: "var(--border)" }}>
                   <td className="py-2">
-                    <Link className="text-[#3ee0b4]" to={`/projects/${r.project_id}`}>{r.symbol} {r.name}</Link>
+                    <Link style={{ color: "var(--accent)" }} to={`/projects/${r.project_id}`}>{r.symbol} {r.name}</Link>
                     {r.symbol && (
                       <div>
-                        <Link className="text-[11px] text-[#8aa0c2]" to={`/assets/${String(r.symbol).toUpperCase()}`}>chart</Link>
+                        <Link className="text-[11px]" style={{ color: "var(--muted)" }} to={`/assets/${String(r.symbol).toUpperCase()}`}>chart</Link>
                       </div>
                     )}
                   </td>

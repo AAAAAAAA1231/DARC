@@ -213,3 +213,30 @@ def latest_scans(session: Session, limit: int = 20) -> list[dict[str, Any]]:
         }
         for r in rows
     ]
+
+
+def latest_pool(session: Session) -> dict[str, Any]:
+    from backend.services.dashboard import _latest_radar
+
+    items = _latest_radar(session)
+    recommended = []
+    for row in items:
+        recommended.append(
+            {
+                "project_id": row["project_id"],
+                "name": row["name"],
+                "symbol": row["symbol"],
+                "scores": {"score_50x": row.get("score"), "grade": row.get("grade")},
+                "security": {"verdict": row.get("security")},
+                "eligible_for_pool": True,
+                "market_cap": "UNKNOWN",
+                "signal": row.get("signal"),
+            }
+        )
+    return {
+        "ok": True,
+        "from_cache": True,
+        "recommended": recommended,
+        "candidates": [],
+        "disclaimer": "Last stored 50X scores that passed the security gate. Click Scan for a fresh CoinGecko + GoPlus run.",
+    }

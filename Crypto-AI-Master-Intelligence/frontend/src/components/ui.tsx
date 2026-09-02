@@ -2,9 +2,9 @@ import { ReactNode } from "react";
 
 export function Panel({ title, children, action, className }: { title: string; children: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <section className={`rounded-lg border border-[#1e2a44] bg-[#121a2f]/80 p-4 ${className || ""}`}>
+    <section className={`rounded-lg border p-4 ${className || ""}`} style={{ borderColor: "var(--border)", background: "color-mix(in srgb, var(--panel) 90%, transparent)" }}>
       <div className="mb-3 flex items-center justify-between">
-        <h2 className="font-mono text-sm tracking-wide text-[#3ee0b4]">{title}</h2>
+        <h2 className="font-mono text-sm tracking-wide" style={{ color: "var(--accent)" }}>{title}</h2>
         {action}
       </div>
       {children}
@@ -15,16 +15,16 @@ export function Panel({ title, children, action, className }: { title: string; c
 export function Status({ value }: { value?: string | null }) {
   const v = (value || "UNKNOWN").toUpperCase();
   const color =
-    v === "OK" || v === "SAFE" || v === "LOW_RISK" || v === "BULL"
-      ? "text-[#3ee0b4]"
+    v === "OK" || v === "SAFE" || v === "LOW_RISK" || v === "BULL" || v === "NATIVE_PROTOCOL"
+      ? "var(--accent)"
       : v === "MALICIOUS" || v === "HIGH_RISK" || v === "ERROR"
-        ? "text-[#ff5d73]"
-        : "text-[#f5c542]";
-  return <span className={`font-mono text-xs ${color}`}>{v}</span>;
+        ? "var(--danger)"
+        : "#c9a227";
+  return <span className="font-mono text-xs" style={{ color }}>{v}</span>;
 }
 
 export function Disclaimer({ text }: { text?: string }) {
-  return <p className="mt-3 text-xs leading-relaxed text-[#8aa0c2]">{text || "Statistical output, not a certainty."}</p>;
+  return <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>{text || "Statistical output, not a certainty."}</p>;
 }
 
 export function Button({ children, onClick, disabled }: { children: ReactNode; onClick?: () => void; disabled?: boolean }) {
@@ -32,7 +32,8 @@ export function Button({ children, onClick, disabled }: { children: ReactNode; o
     <button
       disabled={disabled}
       onClick={onClick}
-      className="rounded bg-[#3ee0b4] px-3 py-1 text-xs font-semibold text-[#0b1020] disabled:opacity-40"
+      className="rounded px-3 py-1 text-xs font-semibold disabled:opacity-40"
+      style={{ background: "var(--accent)", color: "#0b1020" }}
     >
       {children}
     </button>

@@ -197,3 +197,46 @@ async def scan(session: Session, top_n: int = 100, analyze_n: int = 15) -> dict[
         "model_version": weights.version,
         "disclaimer": "Ensemble of technical plugins on live Binance USDT-M data. Not a 100% direction forecast. No live orders are placed.",
     }
+
+
+def latest_top3(session: Session) -> dict[str, Any]:
+    rows = session.query(FuturesPrediction).order_by(FuturesPrediction.created_at.desc()).limit(12).all()
+    seen: set[int] = set()
+    top3 = []
+    for row in rows:
+        if row.rank is None or row.rank in seen:
+            continue
+        seen.add(row.rank)
+        tps = row.take_profits or {}
+        reasons = row.reasons or {}
+        entry = row.entry_zone or {}
+        top3.append(
+            {
+                "rank": row.rank,
+                "symbol": row.symbol,
+                "direction": row.direction,
+                "confidence": float(row.confidence) if row.confidence is not None else None,
+                "current_price": float(row.current_price) if row.current_price is not None else None,
+                "ideal_entry": entry.get("ideal"),
+                "entry_zone": entry.get("zone"),
+                "stop_loss": float(row.stop_loss) if row.stop_loss is not None else None,
+                "tp1": tps.get("tp1"),
+                "tp2": tps.get("tp2"),
+                "tp3": tps.get("tp3"),
+                "risk_reward": float(row.risk_reward) if row.risk_reward is not None else None,
+                "main_reasons": reasons.get("for") or [],
+                "against": reasons.get("against") or [],
+                "invalidation": row.invalidation,
+                "model_version": row.model_version,
+            }
+        )
+        if len(top3) >= 3:
+            break
+    top3.sort(key=lambda x: x.get("rank") or 99)
+    return {
+        "ok": True,
+        "from_cache": True,
+        "universe_count": None,
+        "top3": top3,
+        "disclaimer": "Last stored futures analysis. Click Scan for a fresh live volume universe.",
+    }

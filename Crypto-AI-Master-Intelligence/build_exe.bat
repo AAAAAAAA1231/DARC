@@ -12,6 +12,8 @@ pyinstaller --noconfirm --clean ^
   --add-data "frontend/dist;frontend/dist" ^
   --add-data "config;config" ^
   --hidden-import backend.main ^
+  --hidden-import backend.services.dashboard ^
+  --hidden-import backend.data_sources.onchain ^
   --hidden-import uvicorn.logging ^
   --hidden-import uvicorn.protocols.http.auto ^
   --collect-all sklearn ^

@@ -290,6 +290,57 @@ async def refresh(session: Session) -> dict[str, Any]:
     }
 
 
+def latest(session: Session, limit: int = 30) -> dict[str, Any]:
+    rows = session.query(FootballPrediction).order_by(FootballPrediction.created_at.desc()).limit(limit).all()
+    seen: set[str] = set()
+    predictions = []
+    for row in rows:
+        if row.match_external_id in seen:
+            continue
+        seen.add(row.match_external_id)
+        match = session.query(FootballMatch).filter(FootballMatch.external_id == row.match_external_id).one_or_none()
+        expl = row.explanation or {}
+        predictions.append(
+            {
+                "external_id": row.match_external_id,
+                "home": match.home if match else expl.get("home"),
+                "away": match.away if match else expl.get("away"),
+                "competition": match.competition if match else expl.get("competition"),
+                "kickoff": match.kickoff.isoformat() if match and match.kickoff else None,
+                "home_win": float(row.home_win),
+                "draw": float(row.draw),
+                "away_win": float(row.away_win),
+                "over_25": float(row.over_25) if row.over_25 is not None else expl.get("over_25"),
+                "btts": float(row.btts) if row.btts is not None else expl.get("btts"),
+                "confidence": float(row.confidence),
+                "top_scorelines": row.top_scorelines,
+                "injuries": expl.get("injuries", "UNKNOWN"),
+                "xg": expl.get("xg", "UNKNOWN"),
+                "model_version": row.model_version,
+            }
+        )
+    bets = session.query(FootballBet).order_by(FootballBet.created_at.desc()).limit(20).all()
+    return {
+        "ok": True,
+        "from_cache": True,
+        "predictions": predictions,
+        "tracked": [
+            {
+                "id": b.id,
+                "match": b.match_external_id,
+                "user_placed_bet": b.user_placed_bet,
+                "selection": b.selection,
+                "stake": str(b.stake) if b.stake is not None else None,
+                "odds": str(b.odds) if b.odds is not None else None,
+                "result": b.result or "PENDING",
+                "profit": str(b.profit) if b.profit is not None else None,
+            }
+            for b in bets
+        ],
+        "disclaimer": "Last stored football model run. Injuries/xG stay UNKNOWN without a dedicated feed.",
+    }
+
+
 def track_bet(
     session: Session,
     match_external_id: str,
