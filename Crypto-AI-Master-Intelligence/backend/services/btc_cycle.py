@@ -2,15 +2,19 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 import numpy as np
+from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from backend.core.parsing import ensure_aware, utcnow
 
 from backend.core.enums import MarketRegime
 from backend.core.logging import get_logger
 from backend.data_sources.binance import BinanceProvider
+from backend.data_sources.onchain import BlockchainInfoProvider, CoinPaprikaProvider, MempoolProvider
 from backend.data_sources.registry import get_provider
 from backend.database.orm import BtcCycle, BtcCycleHistory
 from backend.services.model_center import ensure_default_version
@@ -32,11 +36,57 @@ def _last_halving(now: datetime) -> datetime:
     return past[-1] if past else HALVINGS[0]
 
 
+async def latest_or_analyze(session: Session, max_age_minutes: int = 90) -> dict[str, Any]:
+    """Serve the last persisted cycle if fresh so Dashboard is not blocked on 800 daily klines."""
+    hist = session.execute(select(BtcCycleHistory).order_by(BtcCycleHistory.created_at.desc()).limit(1)).scalar_one_or_none()
+    if hist and hist.snapshot and hist.created_at:
+        created = ensure_aware(hist.created_at)
+        if created is not None:
+            age = utcnow() - created
+            if age <= timedelta(minutes=max_age_minutes):
+                snap = dict(hist.snapshot)
+                snap.pop("klines", None)
+                snap["cached"] = True
+                snap["cached_age_seconds"] = int(age.total_seconds())
+                return snap
+    payload = await analyze(session)
+    slim = dict(payload)
+    slim.pop("klines", None)
+    slim["cached"] = False
+    return slim
+
+
 async def analyze(session: Session) -> dict[str, Any]:
     version = ensure_default_version(session, "BTC_CYCLE")
     provider = get_provider("binance")
     assert isinstance(provider, BinanceProvider)
     kl = await provider.klines("BTCUSDT", "1d", 800, futures=False)
+    extras: dict[str, Any] = {}
+    extra_status: dict[str, Any] = {}
+    try:
+        mempool: MempoolProvider = get_provider("mempool")  # type: ignore[assignment]
+        chain: BlockchainInfoProvider = get_provider("blockchain_info")  # type: ignore[assignment]
+        paprika: CoinPaprikaProvider = get_provider("coinpaprika")  # type: ignore[assignment]
+        h = await mempool.hashrate()
+        tip = await mempool.health()
+        tx = await chain.chart("n-transactions", "7days")
+        glob = await paprika.global_market()
+        extra_status = {
+            "mempool": {"status": h.status.value, "error": h.error},
+            "blockchain_info": {"status": tx.status.value, "error": tx.error},
+            "coinpaprika": {"status": glob.status.value, "error": glob.error},
+        }
+        if h.ok:
+            extras["hashrate"] = h.payload
+        if tip.ok:
+            extras["block_height"] = tip.payload
+        if tx.ok:
+            extras["confirmed_tx"] = tx.payload
+        if glob.ok:
+            extras["btc_dominance"] = glob.payload.get("btc_dominance")
+            extras["global_mcap"] = glob.payload.get("market_cap_usd")
+    except KeyError:
+        extra_status = {"onchain": "providers_not_registered"}
     missing = {
         "mvrv": "UNKNOWN — no on-chain provider configured",
         "nupl": "UNKNOWN — no on-chain provider configured",
@@ -128,6 +178,9 @@ async def analyze(session: Session) -> dict[str, Any]:
         "to": (last_h.replace(year=last_h.year + 5)).date().isoformat(),
         "note": "Wide probabilistic zone. A specific bottom date is not produced.",
     }
+    if extras.get("btc_dominance"):
+        reasons.append(f"BTC dominance {extras['btc_dominance']}% (CoinPaprika live)")
+        confidence += 0.05
     payload = {
         "ok": True,
         "as_of": now.isoformat(),
@@ -135,7 +188,7 @@ async def analyze(session: Session) -> dict[str, Any]:
         "phase": phase,
         "bull_score": round(bull, 2),
         "bear_score": round(bear, 2),
-        "confidence": round(confidence, 4),
+        "confidence": round(min(0.7, confidence), 4),
         "current_price": last,
         "ath": ath,
         "drawdown": drawdown,
@@ -145,18 +198,20 @@ async def analyze(session: Session) -> dict[str, Any]:
         "last_halving": last_h.date().isoformat(),
         "top_window": top_window,
         "bottom_window": bottom_window,
+        "klines": kl.payload[-180:] if kl.payload else [],
         "indicators": {
             "price": last,
             "ma200": ma_now,
             "ath": ath,
             "drawdown": drawdown,
             "halving": last_h.isoformat(),
+            **extras,
         },
         "missing_indicators": missing,
         "reasons": reasons,
-        "source_status": {"binance": {"status": kl.status.value, "n": len(kl.payload)}},
+        "source_status": {"binance": {"status": kl.status.value, "n": len(kl.payload)}, **extra_status},
         "model_version": version.version,
-        "disclaimer": "Statistical regime sketch from price/MA/halving calendar. On-chain cycle metrics are UNKNOWN until a provider is keyed. This is not a date-certain top or bottom call.",
+        "disclaimer": "Statistical regime sketch from live price/MA/halving plus optional mempool/blockchain.info/paprika metrics. MVRV/NUPL/SOPR remain UNKNOWN without a dedicated on-chain valuation provider. Not a date-certain top or bottom call.",
     }
     row = BtcCycle(
         as_of=now,

@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Route, Routes, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Dashboard from "./pages/Dashboard";
 import Radar from "./pages/Radar";
@@ -12,6 +12,7 @@ import Portfolio from "./pages/Portfolio";
 import Models from "./pages/Models";
 import Simulations from "./pages/Simulations";
 import ProjectDetail from "./pages/ProjectDetail";
+import AssetDetail from "./pages/AssetDetail";
 import SettingsPage from "./pages/Settings";
 import NotificationsPage from "./pages/Notifications";
 
@@ -34,6 +35,7 @@ const LINKS = [
 export default function App() {
   const [dark, setDark] = useState(true);
   const [q, setQ] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     document.documentElement.classList.toggle("dark", dark);
@@ -68,7 +70,15 @@ export default function App() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search projects"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && q.trim()) {
+                const token = q.trim().toUpperCase();
+                if (/^[A-Z0-9]{2,20}(USDT)?$/.test(token)) {
+                  navigate(`/assets/${token.endsWith("USDT") ? token : `${token}USDT`}`);
+                }
+              }
+            }}
+            placeholder="Search / Enter BTCUSDT"
             className="w-56 rounded border border-[#1e2a44] bg-transparent px-3 py-1 text-sm"
           />
           <button onClick={() => setDark((v) => !v)} className="rounded border border-[#1e2a44] px-3 py-1 text-xs">
@@ -92,6 +102,7 @@ export default function App() {
           <Route path="/notifications" element={<NotificationsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/projects/:id" element={<ProjectDetail />} />
+          <Route path="/assets/:symbol" element={<AssetDetail />} />
         </Routes>
       </main>
     </div>

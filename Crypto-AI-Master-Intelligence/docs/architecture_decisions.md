@@ -36,9 +36,16 @@ Binance REST may return HTTP 451 from some cloud regions. The Binance adapter fa
 | TVL / tokenless protocols | DefiLlama | None |
 | Repo activity | GitHub | Optional token |
 | Football (BL/SA/PD) | TheSportsDB (public demo key) + football-data.org | football-data requires key |
-| Lottery SSQ/DLT | cwl.gov.cn / sporttery.cn | None |
+| Lottery SSQ/DLT/3D/PL3/PL5/QXC | Official cwl.gov.cn / sporttery.cn first; live failover to kaijiang.500.com XML then data.17500.cn text | None |
+| BTC hashrate / tip height | mempool.space | None |
+| Confirmed tx count | blockchain.info charts | None |
+| BTC dominance / global mcap | CoinPaprika | None |
 
-On-chain cycle metrics (MVRV, NUPL, SOPR, Puell, ETF flow) stay `UNKNOWN` until a dedicated provider is keyed. UNKNOWN is displayed, never filled with invented numbers.
+On-chain cycle valuation metrics (MVRV, NUPL, SOPR, Puell, ETF flow) stay `UNKNOWN` until a dedicated valuation provider is keyed. mempool.space / blockchain.info / CoinPaprika supply hashrate, height, tx count, and dominance only — they are not used as fake MVRV. UNKNOWN is displayed, never filled with invented numbers.
+
+Lottery official hosts often return HTTP 403/WAF from cloud IPs. The adapter then reads **live historical draw files** from kaijiang.500.com (XML) and data.17500.cn (text). Those are still published draw records, not generated numbers.
+
+Dashboard BTC cycle reuses a persisted snapshot for 90 minutes so the homepage is not blocked on 800 daily klines + on-chain extras. Charts load independently via `/api/market/klines`. Period PnL is current net minus the earliest `portfolio_snapshots` row in that window; `None` until a prior snapshot exists (not a fabricated zero).
 
 ## A6. No live trading, no private keys
 

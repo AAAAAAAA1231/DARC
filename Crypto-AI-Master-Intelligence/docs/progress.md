@@ -4,20 +4,25 @@
 
 - Project tree, Cursor rules, config, logging, identity, parsing
 - SQLAlchemy schema for all core tables (SQLite, PostgreSQL-ready URL)
-- Provider registry: Binance, CoinGecko, GoPlus, DexScreener, DefiLlama, GitHub, football-data.org, TheSportsDB, lottery
+- Provider registry: Binance, CoinGecko, GoPlus, DexScreener, DefiLlama, GitHub, football-data.org, TheSportsDB, lottery, mempool.space, blockchain.info, CoinPaprika
 - 50X radar with security hard-gate and multi-factor score
 - Futures live Top 100 + 14 strategy plugins + Top 3
-- BTC cycle from live klines + halving calendar; on-chain metrics marked UNKNOWN
+- BTC cycle from live klines + halving calendar; MVRV/NUPL/SOPR remain UNKNOWN
+- Optional live extras: hashrate, block height, confirmed tx, BTC dominance
 - Spot (Conservative/Balanced/Aggressive)
 - Airdrop (DefiLlama tokenless TVL protocols; funding UNKNOWN)
 - Launch/presale (DexScreener search; Class A is keyword-based, not a fake VC DB)
 - Football Poisson+Elo+Monte Carlo for Bundesliga/Serie A/La Liga
-- Lottery history + Monte Carlo disclaimer
+- Lottery history with official-host-first + 500.com / 17500 failover; Monte Carlo disclaimer
 - Portfolio fills with fees/gas/funding/slippage; project status independent of position
+- Portfolio snapshots for today/week/month PnL (None until history exists)
+- Holdings overlay on radar/spot/asset pages (cost / PnL vs model; never live orders)
+- Dashboard live volume Top 3, last radar/futures/football, BTC candlesticks
+- Asset detail `/assets/:symbol` with live klines
 - Model versions, self-review, walk-forward backtest
 - Simulation jobs start/pause/resume/cancel
 - Notification channel plugins
-- Scheduler (disabled in tests)
+- Scheduler: hourly BTC + portfolio; daily radar/airdrop/launch/lottery/football/review
 - React quant terminal, FastAPI, PyInstaller scripts
 
 ## In progress
@@ -26,19 +31,12 @@
 
 ## Test results
 
-- `pytest backend/tests`: 25 passed after Binance geo-failover (`www.binance.com` when `api.binance.com` returns HTTP 451)
-- `vitest`: 1 passed
-- Live health: Binance, CoinGecko, GoPlus, DexScreener, DefiLlama, TheSportsDB = ok
-- football-data.org = missing_key (expected without FOOTBALL_DATA_API_KEY)
-- Lottery official SSQ host may return HTTP 403 from some cloud IPs; the provider reports the error instead of fabricating draws
-- Frontend production build: `frontend/dist`
+See the latest pytest / vitest run after this revision.
+
+## Known limits
 
 - CoinGecko free rate limits restrict per-scan `coin_detail` calls; radar therefore security-scans a budgeted subset and leaves other contracts UNKNOWN (excluded from the pool)
 - football-data.org stays `missing_key` until `FOOTBALL_DATA_API_KEY` is set; TheSportsDB is the default live fixture source
-- MVRV/NUPL/SOPR/ETF flow remain UNKNOWN without a paid on-chain provider
+- MVRV/NUPL/SOPR/ETF flow remain UNKNOWN without a paid on-chain valuation provider
 - Intraday/week/month PnL series are not invented when snapshot history does not exist
-- `pl3`/`pl5`/`3d` lottery games are architected; live history is wired for SSQ and DLT first
-
-## Test results
-
-See the latest pytest / vitest run in the agent session after dependencies install.
+- `www.cwl.gov.cn` / `webapi.sporttery.cn` may 403/WAF from cloud IPs; 500.com XML and 17500 text are live historical failovers

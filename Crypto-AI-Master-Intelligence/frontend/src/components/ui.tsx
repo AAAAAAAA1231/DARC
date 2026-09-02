@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
 
-export function Panel({ title, children, action }: { title: string; children: ReactNode; action?: ReactNode }) {
+export function Panel({ title, children, action, className }: { title: string; children: ReactNode; action?: ReactNode; className?: string }) {
   return (
-    <section className="rounded-lg border border-[#1e2a44] bg-[#121a2f]/80 p-4">
+    <section className={`rounded-lg border border-[#1e2a44] bg-[#121a2f]/80 p-4 ${className || ""}`}>
       <div className="mb-3 flex items-center justify-between">
         <h2 className="font-mono text-sm tracking-wide text-[#3ee0b4]">{title}</h2>
         {action}

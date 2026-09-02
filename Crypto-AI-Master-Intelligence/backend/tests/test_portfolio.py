@@ -1,8 +1,11 @@
+from datetime import timedelta
 from decimal import Decimal
 
 from backend.core.enums import PositionStatus
+from backend.core.parsing import utcnow
+from backend.database.orm import PortfolioSnapshot
 from backend.database.session import SessionLocal
-from backend.services.portfolio import record_fill, summarize_position
+from backend.services.portfolio import _period_delta, record_fill, summarize_position
 
 
 def test_average_cost_and_fees():
@@ -48,3 +51,77 @@ def test_average_cost_and_fees():
         assert pos.status == PositionStatus.CLOSED.value
     finally:
         session.close()
+
+
+def test_period_pnl_none_without_snapshots():
+    session = SessionLocal()
+    try:
+        today, week, month = _period_delta(session, None, Decimal("10"))
+        assert today is None
+        assert week is None
+        assert month is None
+    finally:
+        session.close()
+
+
+def test_period_pnl_uses_earliest_snapshot_in_window():
+    session = SessionLocal()
+    try:
+        session.add(
+            PortfolioSnapshot(
+                as_of=utcnow() - timedelta(hours=3),
+                module=None,
+                invested=Decimal("100"),
+                current_value=Decimal("110"),
+                net_pnl=Decimal("10"),
+                roi=0.1,
+            )
+        )
+        session.add(
+            PortfolioSnapshot(
+                as_of=utcnow() - timedelta(minutes=5),
+                module=None,
+                invested=Decimal("100"),
+                current_value=Decimal("112"),
+                net_pnl=Decimal("12"),
+                roi=0.12,
+            )
+        )
+        session.flush()
+        today, week, month = _period_delta(session, None, Decimal("15"))
+        assert today == Decimal("5")
+        assert week == Decimal("5")
+        assert month == Decimal("5")
+    finally:
+        session.close()
+
+
+def test_period_windows_are_independent():
+    session = SessionLocal()
+    try:
+        session.add(
+            PortfolioSnapshot(
+                as_of=utcnow() - timedelta(days=10),
+                module=None,
+                invested=Decimal("100"),
+                current_value=Decimal("101"),
+                net_pnl=Decimal("1"),
+            )
+        )
+        session.add(
+            PortfolioSnapshot(
+                as_of=utcnow() - timedelta(hours=1),
+                module=None,
+                invested=Decimal("100"),
+                current_value=Decimal("104"),
+                net_pnl=Decimal("4"),
+            )
+        )
+        session.flush()
+        today, week, month = _period_delta(session, None, Decimal("10"))
+        assert today == Decimal("6")
+        assert week == Decimal("6")
+        assert month == Decimal("9")
+    finally:
+        session.close()
+

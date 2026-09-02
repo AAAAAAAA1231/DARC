@@ -28,7 +28,7 @@ from backend.database.orm import Notification, Project
 from backend.database.session import SessionLocal, get_session, init_db
 from backend.schedulers.jobs import start_scheduler
 from backend.services import airdrop as airdrop_svc
-from backend.services import btc_cycle as btc_svc
+from backend.services import dashboard as dashboard_svc
 from backend.services import football as football_svc
 from backend.services import futures as futures_svc
 from backend.services import holdings as holdings_svc
@@ -108,17 +108,38 @@ async def health():
 async def dashboard():
     session = SessionLocal()
     try:
-        cycle = await btc_svc.analyze(session)
-        port = await portfolio_svc.dashboard(session)
-        notes = notify_svc.list_unread(session)
+        result = await dashboard_svc.build(session)
         session.commit()
-        return {
-            "market_regime": cycle.get("regime"),
-            "btc_cycle": cycle,
-            "portfolio": port,
-            "notifications": [{"id": n.id, "title": n.title, "body": n.body, "kind": n.kind} for n in notes],
-            "disclaimer": settings.disclaimer,
-        }
+        return result
+    finally:
+        session.close()
+
+
+@app.get("/api/market/klines")
+async def market_klines(symbol: str = Query("BTCUSDT"), interval: str = Query("1d"), futures: bool = False, limit: int = Query(180, ge=20, le=1000)):
+    from backend.data_sources.binance import BinanceProvider
+    from backend.data_sources.registry import get_provider
+
+    provider = get_provider("binance")
+    assert isinstance(provider, BinanceProvider)
+    env = await provider.klines(symbol, interval, limit, futures=futures)
+    return {"ok": env.ok, "source_status": env.as_dict() if not env.ok else {"status": env.status.value, "n": len(env.payload or [])}, "candles": env.payload or []}
+
+
+@app.get("/api/radar/latest")
+async def radar_latest():
+    session = SessionLocal()
+    try:
+        return {"items": dashboard_svc._latest_radar(session)}
+    finally:
+        session.close()
+
+
+@app.get("/api/futures/latest")
+async def futures_latest():
+    session = SessionLocal()
+    try:
+        return {"items": dashboard_svc._latest_futures(session)}
     finally:
         session.close()
 
@@ -256,6 +277,46 @@ async def holdings_reeval():
         return {"positions": await holdings_svc.reevaluate_open(session)}
     finally:
         session.close()
+
+
+@app.get("/api/holdings/overlay")
+async def holdings_overlay():
+    session = SessionLocal()
+    try:
+        return {"overlay": await holdings_svc.overlay_map(session)}
+    finally:
+        session.close()
+
+
+@app.get("/api/assets/{symbol}")
+async def asset_detail(symbol: str, interval: str = Query("1d"), futures: bool = False, limit: int = Query(180, ge=20, le=1000)):
+    from backend.data_sources.binance import BinanceProvider
+    from backend.data_sources.registry import get_provider
+
+    pair = symbol.upper()
+    if not pair.endswith("USDT"):
+        pair = f"{pair}USDT"
+    provider = get_provider("binance")
+    assert isinstance(provider, BinanceProvider)
+    env = await provider.klines(pair, interval, limit, futures=futures)
+    ticker = None
+    ticks = await (provider.futures_ticker_24h() if futures else provider.spot_ticker_24h())
+    if ticks.ok:
+        ticker = next((r for r in ticks.payload if r.get("symbol") == pair), None)
+    session = SessionLocal()
+    try:
+        overlay = await holdings_svc.overlay_map(session)
+    finally:
+        session.close()
+    holding = overlay.get(pair) or overlay.get(symbol.upper())
+    return {
+        "symbol": pair,
+        "ok": env.ok,
+        "source_status": {"status": env.status.value, "error": env.error, "n": len(env.payload or [])},
+        "candles": env.payload or [],
+        "ticker": ticker,
+        "holding": holding,
+    }
 
 
 @app.get("/api/projects")

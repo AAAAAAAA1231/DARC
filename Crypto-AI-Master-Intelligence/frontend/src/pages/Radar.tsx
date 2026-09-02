@@ -1,22 +1,39 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { api } from "../api";
+import HoldingBadge from "../components/HoldingBadge";
 import { Button, Disclaimer, Panel, Status } from "../components/ui";
+import { holdingFor, HoldingOverlay } from "../holdings";
 
 export default function Radar({ query }: { query: string }) {
   const [data, setData] = useState<any>(null);
+  const [overlay, setOverlay] = useState<Record<string, HoldingOverlay>>({});
   const [busy, setBusy] = useState(false);
   const [sort, setSort] = useState("score");
   const [page, setPage] = useState(0);
+
+  async function loadOverlay() {
+    try {
+      const res = await api<{ overlay: Record<string, HoldingOverlay> }>("/api/holdings/overlay");
+      setOverlay(res.overlay || {});
+    } catch {
+      setOverlay({});
+    }
+  }
 
   async function scan() {
     setBusy(true);
     try {
       setData(await api("/api/radar/scan?limit=20", { method: "POST" }));
+      await loadOverlay();
     } finally {
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    loadOverlay();
+  }, []);
 
   const rows = useMemo(() => {
     let list = [...(data?.recommended || []), ...(data?.candidates || []).filter((c: any) => !c.eligible_for_pool)];
@@ -47,23 +64,31 @@ export default function Radar({ query }: { query: string }) {
           </div>
         }
       >
-        <p className="text-sm text-[#8aa0c2]">Security is a hard filter. MALICIOUS / HIGH_RISK / UNKNOWN cannot enter Top 10/20.</p>
+        <p className="text-sm text-[#8aa0c2]">Security is a hard filter. MALICIOUS / HIGH_RISK / UNKNOWN cannot enter Top 10/20. Held assets show cost/PnL vs the model — never a live order.</p>
         <Disclaimer text={data?.disclaimer} />
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead className="text-[#8aa0c2]">
               <tr>
-                <th>Project</th><th>Score</th><th>Security</th><th>MCap</th><th>Eligible</th>
+                <th>Project</th><th>Score</th><th>Security</th><th>MCap</th><th>Eligible</th><th>Holding</th>
               </tr>
             </thead>
             <tbody>
               {slice.map((r: any) => (
                 <tr key={r.project_id} className="border-t border-[#1e2a44]">
-                  <td className="py-2"><Link className="text-[#3ee0b4]" to={`/projects/${r.project_id}`}>{r.symbol} {r.name}</Link></td>
+                  <td className="py-2">
+                    <Link className="text-[#3ee0b4]" to={`/projects/${r.project_id}`}>{r.symbol} {r.name}</Link>
+                    {r.symbol && (
+                      <div>
+                        <Link className="text-[11px] text-[#8aa0c2]" to={`/assets/${String(r.symbol).toUpperCase()}`}>chart</Link>
+                      </div>
+                    )}
+                  </td>
                   <td className="font-mono">{r.scores?.score_50x ?? "UNKNOWN"}</td>
                   <td><Status value={r.security?.verdict} /></td>
                   <td className="font-mono">{r.market_cap ?? "UNKNOWN"}</td>
                   <td>{r.eligible_for_pool ? "YES" : "NO"}</td>
+                  <td><HoldingBadge overlay={holdingFor(overlay, r.symbol)} /></td>
                 </tr>
               ))}
             </tbody>

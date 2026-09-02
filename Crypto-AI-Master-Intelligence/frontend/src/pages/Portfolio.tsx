@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import { Button, Panel } from "../components/ui";
 
@@ -26,6 +27,9 @@ export default function Portfolio() {
           <div>Gross {data?.gross_pnl}</div>
           <div>Costs {data?.total_cost}</div>
           <div>Net {data?.net_pnl}</div>
+          <div>Today {data?.today_pnl ?? "UNKNOWN"}</div>
+          <div>Week {data?.week_pnl ?? "UNKNOWN"}</div>
+          <div>Month {data?.month_pnl ?? "UNKNOWN"}</div>
           <div>ROI {data?.roi != null ? `${(data.roi * 100).toFixed(2)}%` : "—"}</div>
           <div>Realized {data?.realized_pnl}</div>
           <div>Unrealized {data?.unrealized_pnl}</div>
@@ -51,7 +55,7 @@ export default function Portfolio() {
           <tbody>
             {(data?.positions || []).map((p: any) => (
               <tr key={p.id} className="border-t border-[#1e2a44]">
-                <td className="py-2">{p.symbol}</td>
+                <td className="py-2"><Link className="text-[#3ee0b4]" to={`/assets/${p.symbol}`}>{p.symbol}</Link></td>
                 <td>{p.status}</td>
                 <td>{p.quantity}</td>
                 <td>{p.avg_cost}</td>

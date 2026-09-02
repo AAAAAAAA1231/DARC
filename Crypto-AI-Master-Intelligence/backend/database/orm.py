@@ -372,6 +372,18 @@ class PortfolioTransaction(Base):
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
+class PortfolioSnapshot(Base):
+    __tablename__ = "portfolio_snapshots"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    as_of: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, index=True)
+    module: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    invested: Mapped[Decimal] = mapped_column(Numeric(28, 12), default=0)
+    current_value: Mapped[Decimal] = mapped_column(Numeric(28, 12), default=0)
+    net_pnl: Mapped[Decimal] = mapped_column(Numeric(28, 12), default=0)
+    roi: Mapped[float | None] = mapped_column(Numeric(12, 8), nullable=True)
+
+
 class ModelVersion(Base):
     __tablename__ = "model_versions"
 

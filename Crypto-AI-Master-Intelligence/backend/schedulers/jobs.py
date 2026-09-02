@@ -40,6 +40,36 @@ async def _football(session) -> None:  # noqa: ANN001
     settle_bets(session)
 
 
+async def _radar(session) -> None:  # noqa: ANN001
+    from backend.services.radar import scan_radar
+
+    await scan_radar(session, limit=12)
+
+
+async def _airdrop(session) -> None:  # noqa: ANN001
+    from backend.services.airdrop import scan
+
+    await scan(session, limit=20)
+
+
+async def _launch(session) -> None:  # noqa: ANN001
+    from backend.services.launch import scan
+
+    await scan(session)
+
+
+async def _lottery(session) -> None:  # noqa: ANN001
+    from backend.services.lottery import refresh
+
+    await refresh(session, game="ssq")
+
+
+async def _portfolio(session) -> None:  # noqa: ANN001
+    from backend.services.portfolio import dashboard
+
+    await dashboard(session)
+
+
 async def _review(session) -> None:  # noqa: ANN001
     from backend.services.review import review_module
 
@@ -57,6 +87,11 @@ def start_scheduler() -> None:
         return
     _scheduler = BackgroundScheduler()
     _scheduler.add_job(lambda: _run("btc_cycle", _btc), "interval", hours=1, id="hourly_btc")
+    _scheduler.add_job(lambda: _run("portfolio", _portfolio), "interval", hours=1, id="hourly_portfolio")
+    _scheduler.add_job(lambda: _run("radar", _radar), "cron", hour=1, id="daily_radar")
+    _scheduler.add_job(lambda: _run("airdrop", _airdrop), "cron", hour=2, id="daily_airdrop")
+    _scheduler.add_job(lambda: _run("launch", _launch), "cron", hour=3, id="daily_launch")
+    _scheduler.add_job(lambda: _run("lottery", _lottery), "cron", hour=5, id="daily_lottery")
     _scheduler.add_job(lambda: _run("football", _football), "cron", hour=6, id="daily_football")
     _scheduler.add_job(lambda: _run("review", _review), "cron", hour=7, id="daily_review")
     _scheduler.start()

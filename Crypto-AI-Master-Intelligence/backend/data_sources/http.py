@@ -81,6 +81,40 @@ class HttpClient:
             meta={"status_code": response.status_code, "url": url},
         )
 
+    async def get_text(
+        self,
+        url: str,
+        *,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+    ) -> QualityEnvelope:
+        merged = {**self.headers, **(headers or {})}
+        try:
+            async with httpx.AsyncClient(timeout=self.timeout_sec, headers=merged, follow_redirects=True) as client:
+                response = await client.get(url, params=params)
+        except httpx.TimeoutException as exc:
+            return envelope(self.source, status=SourceStatus.TIMEOUT, data_quality=DataQuality.ERROR, error=str(exc))
+        except httpx.HTTPError as exc:
+            return envelope(self.source, status=SourceStatus.NETWORK_ERROR, data_quality=DataQuality.ERROR, error=str(exc))
+        if response.status_code == 429:
+            return envelope(self.source, status=SourceStatus.RATE_LIMITED, data_quality=DataQuality.ERROR, error="HTTP 429", meta={"status_code": 429})
+        if response.status_code >= 400:
+            return envelope(
+                self.source,
+                status=SourceStatus.UNKNOWN_ERROR,
+                data_quality=DataQuality.ERROR,
+                error=f"HTTP {response.status_code}",
+                meta={"status_code": response.status_code, "body": response.text[:400], "url": url},
+            )
+        return envelope(
+            self.source,
+            status=SourceStatus.OK,
+            payload=response.text,
+            data_quality=DataQuality.OK,
+            confidence=1.0,
+            meta={"status_code": response.status_code, "url": url, "content_type": response.headers.get("content-type")},
+        )
+
     async def get_json_failover(
         self,
         urls: list[str],

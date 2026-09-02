@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { api } from "../api";
 import { Button, Disclaimer, Panel, Status } from "../components/ui";
 
@@ -25,6 +26,7 @@ export default function Futures() {
         {(data?.top3 || []).map((t: any) => (
           <Panel key={t.symbol} title={`#${t.rank} ${t.symbol}`}>
             <div className="space-y-1 text-sm">
+              <div><Link className="text-[#3ee0b4] font-mono" to={`/assets/${t.symbol}`}>{t.symbol} chart</Link></div>
               <div>Direction <Status value={t.direction} /></div>
               <div>Confidence {t.confidence}</div>
               <div>Price {t.current_price}</div>

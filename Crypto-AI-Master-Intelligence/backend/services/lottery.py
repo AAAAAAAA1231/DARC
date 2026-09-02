@@ -68,7 +68,12 @@ async def refresh(session: Session, game: str = "ssq") -> dict[str, Any]:
         "recommended_combinations": recs,
         "risk": "HIGH",
         "disclaimer": DISCLAIMER,
-        "source_status": {"status": env.status.value, "n": len(env.payload)},
+        "source_status": {
+            "status": env.status.value,
+            "n": len(env.payload),
+            "error": env.error,
+            "meta": {k: v for k, v in (env.meta or {}).items() if k != "body"},
+        },
         "model_version": version.version,
     }
 
@@ -88,6 +93,11 @@ def _frequencies(draws: list[dict[str, Any]], game: str) -> dict[str, Any]:
             front.extend(d["numbers"].get("front") or [])
             back.extend(d["numbers"].get("back") or [])
         return {"front": Counter(front).most_common(), "back": Counter(back).most_common()}
+    if game in {"3d", "pl3", "pl5", "qxc"}:
+        digits: list[str] = []
+        for d in draws:
+            digits.extend(d["numbers"].get("digits") or d["numbers"].get("numbers") or [])
+        return {"digits": Counter(digits).most_common()}
     return {}
 
 
@@ -104,6 +114,10 @@ def _recommend(freqs: dict[str, Any], game: str) -> list[dict[str, Any]]:
         front = [n for n, _ in freqs["front"][:10]]
         back = [n for n, _ in freqs["back"][:4]]
         return [{"front": front[:5], "back": back[:2]}]
+    if freqs.get("digits"):
+        width = {"3d": 3, "pl3": 3, "pl5": 5, "qxc": 7}.get(game, 3)
+        pool = [n for n, _ in freqs["digits"][: max(width, 6)]]
+        return [{"digits": pool[:width], "note": "frequency sample only — lottery remains random"}]
     return []
 
 

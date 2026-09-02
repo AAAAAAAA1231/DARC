@@ -29,6 +29,42 @@ def holding_signal(unrealized_roi: float | None, security_verdict: str | None) -
     return "HOLD"
 
 
+def from_summaries(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Map open positions by BTCUSDT and BTC so radar/spot/asset pages can overlay cost and PnL."""
+    out: dict[str, Any] = {}
+    for summary in rows:
+        status = (summary.get("status") or "").upper()
+        if status not in {PositionStatus.OPEN.value, PositionStatus.PARTIAL_EXIT.value}:
+            continue
+        roi = summary.get("roi")
+        payload = {
+            "held": True,
+            "position_id": summary.get("id"),
+            "symbol": summary.get("symbol"),
+            "quantity": summary.get("quantity"),
+            "avg_cost": summary.get("avg_cost"),
+            "net_pnl": summary.get("net_pnl"),
+            "unrealized_pnl": summary.get("unrealized_pnl"),
+            "current_price": summary.get("current_price"),
+            "roi": roi,
+            "signal": summary.get("current_model_signal") or holding_signal(roi if isinstance(roi, float) else None, None),
+            "status": summary.get("status"),
+        }
+        symbol = (summary.get("symbol") or "").upper()
+        if not symbol:
+            continue
+        out[symbol] = payload
+        if symbol.endswith("USDT"):
+            out[symbol[:-4]] = payload
+        elif not symbol.endswith("USDT"):
+            out[f"{symbol}USDT"] = payload
+    return out
+
+
+async def overlay_map(session: Session) -> dict[str, Any]:
+    return from_summaries(await reevaluate_open(session))
+
+
 async def reevaluate_open(session: Session) -> list[dict[str, Any]]:
     rows = (
         session.query(PortfolioPosition)

@@ -31,8 +31,6 @@ def all_providers() -> dict[str, DataProvider]:
 
 
 def bootstrap_providers() -> None:
-    if _PROVIDERS:
-        return
     from backend.data_sources.binance import BinanceProvider
     from backend.data_sources.coingecko import CoinGeckoProvider
     from backend.data_sources.defillama import DefiLlamaProvider
@@ -40,6 +38,7 @@ def bootstrap_providers() -> None:
     from backend.data_sources.football import FootballDataProvider, TheSportsDbProvider
     from backend.data_sources.github import GitHubProvider
     from backend.data_sources.goplus import GoPlusProvider
+    from backend.data_sources.onchain import BlockchainInfoProvider, CoinPaprikaProvider, MempoolProvider
     from backend.data_sources.lottery import LotteryProvider
 
     for provider in (
@@ -52,5 +51,9 @@ def bootstrap_providers() -> None:
         FootballDataProvider(),
         TheSportsDbProvider(),
         LotteryProvider(),
+        MempoolProvider(),
+        BlockchainInfoProvider(),
+        CoinPaprikaProvider(),
     ):
-        register(provider)
+        if provider.name not in _PROVIDERS:
+            register(provider)

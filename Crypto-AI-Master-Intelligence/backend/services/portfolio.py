@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -11,7 +11,7 @@ from sqlalchemy.orm import Session
 from backend.core.enums import ModuleName, PositionStatus
 from backend.core.logging import get_logger
 from backend.core.parsing import parse_decimal, parse_timestamp, utcnow, ensure_aware
-from backend.database.orm import PortfolioPosition, PortfolioTransaction, UserAction
+from backend.database.orm import PortfolioPosition, PortfolioSnapshot, PortfolioTransaction, UserAction
 from backend.data_sources.binance import BinanceProvider
 from backend.data_sources.registry import get_provider
 
@@ -222,6 +222,8 @@ async def dashboard(session: Session, module: str | None = None) -> dict[str, An
     gross = realized + unrealized
     net = gross - costs
     roi = float(net / (invested + costs)) if (invested + costs) > 0 else None
+    today, week, month = _period_delta(session, module, net)
+    _maybe_snapshot(session, module, invested, current, net, roi)
     return {
         "total_invested": str(invested),
         "current_value": str(current),
@@ -231,11 +233,63 @@ async def dashboard(session: Session, module: str | None = None) -> dict[str, An
         "total_cost": str(costs),
         "net_pnl": str(net),
         "roi": roi,
-        "today_pnl": None,
-        "week_pnl": None,
-        "month_pnl": None,
-        "period_note": "Intraday/week/month PnL requires marked snapshots; those series are not invented when absent.",
+        "today_pnl": str(today) if today is not None else None,
+        "week_pnl": str(week) if week is not None else None,
+        "month_pnl": str(month) if month is not None else None,
+        "period_note": "Period PnL is current net minus the earliest snapshot in that window. None means no prior snapshot yet — not a fabricated zero.",
         "positions": items,
         "missing_prices": missing_prices,
         "modules": [m.value for m in ModuleName],
     }
+
+
+def _maybe_snapshot(
+    session: Session,
+    module: str | None,
+    invested: Decimal,
+    current_value: Decimal,
+    net_pnl: Decimal,
+    roi: float | None,
+) -> None:
+    q = session.query(PortfolioSnapshot)
+    if module:
+        q = q.filter(PortfolioSnapshot.module == module)
+    else:
+        q = q.filter(PortfolioSnapshot.module.is_(None))
+    last = q.order_by(PortfolioSnapshot.as_of.desc()).first()
+    if last is not None:
+        last_ts = ensure_aware(last.as_of)
+        if last_ts is not None and utcnow() - last_ts < timedelta(minutes=10):
+            return
+    session.add(
+        PortfolioSnapshot(
+            as_of=utcnow(),
+            module=module,
+            invested=invested,
+            current_value=current_value,
+            net_pnl=net_pnl,
+            roi=roi,
+        )
+    )
+    session.flush()
+
+
+def _period_delta(session: Session, module: str | None, current_net: Decimal) -> tuple[Decimal | None, Decimal | None, Decimal | None]:
+    now = utcnow()
+    q = session.query(PortfolioSnapshot)
+    if module:
+        q = q.filter(PortfolioSnapshot.module == module)
+    else:
+        q = q.filter(PortfolioSnapshot.module.is_(None))
+
+    def _at(start: datetime) -> Decimal | None:
+        row = q.filter(PortfolioSnapshot.as_of >= start).order_by(PortfolioSnapshot.as_of.asc()).first()
+        if row is None:
+            return None
+        return current_net - (row.net_pnl or ZERO)
+
+    return (
+        _at(now.replace(hour=0, minute=0, second=0, microsecond=0)),
+        _at(now - timedelta(days=7)),
+        _at(now - timedelta(days=30)),
+    )
