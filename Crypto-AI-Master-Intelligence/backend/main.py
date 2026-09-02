@@ -79,6 +79,12 @@ def _session():
     return next(get_session())
 
 
+@app.get("/api/ready")
+async def ready():
+    """Local process liveness only. Does not probe vendors (those belong on /api/health)."""
+    return {"ok": True, "app": settings.app_name}
+
+
 @app.get("/api/health")
 async def health():
     bootstrap_providers()

@@ -36,7 +36,7 @@ def test_pick_listen_port_skips_occupied():
 def test_wait_for_health_true_then_false(tmp_path: Path):
     class Health(BaseHTTPRequestHandler):
         def do_GET(self) -> None:  # noqa: N802
-            if self.path == "/api/health":
+            if self.path == "/api/ready":
                 self.send_response(200)
                 self.end_headers()
                 self.wfile.write(b'{"ok":true}')
@@ -63,7 +63,7 @@ def test_splash_and_error_html_point_at_ported_url(tmp_path: Path):
     log = tmp_path / "desktop.log"
     splash = splash_html("http://127.0.0.1:8787", log)
     assert "http://127.0.0.1:8787" in splash
-    assert "/api/health" in splash
+    assert "/api/ready" in splash
     assert "127.0.0.1" in splash
     err = error_html("http://127.0.0.1:8787", log, "boom")
     assert "ERR_CONNECTION_REFUSED" in err

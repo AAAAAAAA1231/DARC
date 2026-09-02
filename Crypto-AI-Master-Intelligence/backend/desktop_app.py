@@ -105,7 +105,7 @@ def wait_for_health(
     abort: Callable[[], bool] | None = None,
 ) -> bool:
     deadline = time.monotonic() + timeout_s
-    health = url.rstrip("/") + "/api/health"
+    health = url.rstrip("/") + "/api/ready"
     last_note = 0.0
     while time.monotonic() < deadline:
         if abort and abort():
@@ -150,13 +150,13 @@ def splash_html(url: str, log_path: Path) -> str:
     <p>首次打开可能需要 1–3 分钟（解压模型库）。就绪后会自动进入终端。</p>
     <p>请等待本窗口跳转。不要在 Edge 里单独打开 <code>127.0.0.1</code>（没有端口会连不上）。正确地址是 <code>{safe_url}</code>。</p>
     <p>日志：<code>{safe_log}</code></p>
-    <p id="st">正在检测 /api/health …</p>
+    <p id="st">正在检测 /api/ready …</p>
   </div>
   <script>
     const base = {js_url};
     async function poll() {{
       try {{
-        const res = await fetch(base + "/api/health", {{ cache: "no-store" }});
+        const res = await fetch(base + "/api/ready", {{ cache: "no-store" }});
         if (res.ok) {{ location.replace(base + "/"); return; }}
       }} catch (e) {{}}
       setTimeout(poll, 500);
@@ -171,7 +171,7 @@ def splash_html(url: str, log_path: Path) -> str:
 def error_html(url: str, log_path: Path, detail: str) -> str:
     safe_url = html.escape(url)
     safe_log = html.escape(str(log_path))
-    safe_detail = html.escape(detail or "本地 API 没有在时限内响应 /api/health。")
+    safe_detail = html.escape(detail or "本地 API 没有在时限内响应 /api/ready。")
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
 <head>

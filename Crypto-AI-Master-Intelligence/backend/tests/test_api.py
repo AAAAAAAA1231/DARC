@@ -6,6 +6,12 @@ from backend.main import app
 client = TestClient(app)
 
 
+def test_ready_is_local_liveness():
+    res = client.get("/api/ready")
+    assert res.status_code == 200
+    assert res.json()["ok"] is True
+
+
 def test_health_lists_providers():
     bootstrap_providers()
     res = client.get("/api/health")
