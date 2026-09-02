@@ -14,4 +14,5 @@ reports/*
 /dist/
 /build/
 *.spec
+!Crypto-AI-Master-Intelligence.spec
 .venv/
