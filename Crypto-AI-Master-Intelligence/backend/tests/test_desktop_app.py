@@ -1,21 +1,23 @@
 from __future__ import annotations
 
+import os
 import socket
 import threading
-import urllib.error
-import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
 from backend.desktop_app import (
     build_uvicorn_server,
     close_boot_splash,
+    configure_loopback_access,
     error_html,
     health_timeout_seconds,
+    local_http_get,
     pick_listen_port,
     splash_html,
     start_boot_http,
     stop_boot_http,
+    tcp_is_open,
     wait_for_health,
     wait_for_http_ok,
     window_url,
@@ -79,15 +81,12 @@ def test_boot_http_serves_splash_and_not_ready():
         assert port > 0
         url = f"http://127.0.0.1:{port}"
         assert wait_for_http_ok(url + "/", timeout_s=3)
-        with urllib.request.urlopen(url + "/") as response:
-            body = response.read().decode("utf-8")
-            assert "正在启动" in body
-            assert "8787" in body
-        try:
-            urllib.request.urlopen(url + "/api/ready")
-            raise AssertionError("boot /api/ready should be 503")
-        except urllib.error.HTTPError as exc:
-            assert exc.code == 503
+        code, body = local_http_get("127.0.0.1", port, "/")
+        assert code == 200
+        assert "正在启动" in body.decode("utf-8")
+        assert "8787" in body.decode("utf-8")
+        ready_code, _ready_body = local_http_get("127.0.0.1", port, "/api/ready")
+        assert ready_code == 503
         assert wait_for_health(url, timeout_s=0.4, interval_s=0.1) is False
     finally:
         stop_boot_http(httpd)
@@ -103,6 +102,29 @@ def test_splash_and_error_html_point_at_ported_url(tmp_path: Path):
     assert "拒绝连接" in err
     assert "8787" in err
     assert "boom" in err
+
+
+def test_wait_for_http_ok_ignores_http_proxy(monkeypatch):
+    monkeypatch.setenv("HTTP_PROXY", "http://127.0.0.1:1")
+    monkeypatch.setenv("http_proxy", "http://127.0.0.1:1")
+    monkeypatch.setenv("HTTPS_PROXY", "http://127.0.0.1:1")
+    httpd, port = start_boot_http("127.0.0.1", 0, "<html>proxy-bypass</html>")
+    try:
+        assert tcp_is_open("127.0.0.1", port)
+        assert wait_for_http_ok(f"http://127.0.0.1:{port}/", timeout_s=3)
+        code, body = local_http_get("127.0.0.1", port, "/")
+        assert code == 200
+        assert b"proxy-bypass" in body
+    finally:
+        stop_boot_http(httpd)
+
+
+def test_configure_loopback_access_sets_no_proxy(monkeypatch):
+    monkeypatch.setenv("NO_PROXY", "")
+    monkeypatch.delenv("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", raising=False)
+    configure_loopback_access()
+    assert "127.0.0.1" in os.environ["NO_PROXY"]
+    assert "direct://" in os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"]
 
 
 def test_close_boot_splash_is_safe_without_pyinstaller():

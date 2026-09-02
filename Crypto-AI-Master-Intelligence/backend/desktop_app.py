@@ -10,17 +10,17 @@ from __future__ import annotations
 
 import html
 import multiprocessing
+import os
 import socket
 import sys
 import threading
 import time
 import traceback
-import urllib.error
-import urllib.request
 from datetime import datetime, timezone
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
+from urllib.parse import urlparse
 
 from backend.core.paths import DATA_ROOT, prepare_runtime
 
@@ -29,6 +29,8 @@ DEFAULT_PORT = 8787
 FROZEN_HEALTH_TIMEOUT_S = 180.0
 DEV_HEALTH_TIMEOUT_S = 60.0
 HEALTH_POLL_S = 0.5
+LOOPBACK_NO_PROXY = "127.0.0.1,localhost,::1"
+WEBVIEW2_DIRECT_ARGS = "--proxy-server=direct:// --proxy-bypass-list=<-loopback>;127.0.0.1;localhost"
 
 
 def desktop_log_path() -> Path:
@@ -67,6 +69,56 @@ def health_timeout_seconds(frozen: bool | None = None) -> float:
 def window_url(host: str, port: int) -> str:
     """Always include the port. Bare 127.0.0.1 is port 80 and will refuse."""
     return f"http://{host}:{int(port)}"
+
+
+def configure_loopback_access() -> None:
+    """Clash/V2Ray system proxy must not intercept 127.0.0.1 or WebView2."""
+    for key in ("NO_PROXY", "no_proxy"):
+        parts = [item.strip() for item in os.environ.get(key, "").split(",") if item.strip()]
+        for item in LOOPBACK_NO_PROXY.split(","):
+            if item not in parts:
+                parts.append(item)
+        os.environ[key] = ",".join(parts)
+    existing = os.environ.get("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", "")
+    if "proxy-server" not in existing:
+        os.environ["WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS"] = f"{existing} {WEBVIEW2_DIRECT_ARGS}".strip()
+    append_desktop_log(
+        "proxy_env HTTP_PROXY=%s HTTPS_PROXY=%s NO_PROXY=%s WEBVIEW2=%s"
+        % (
+            os.environ.get("HTTP_PROXY") or os.environ.get("http_proxy") or "",
+            os.environ.get("HTTPS_PROXY") or os.environ.get("https_proxy") or "",
+            os.environ.get("NO_PROXY", ""),
+            os.environ.get("WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", ""),
+        )
+    )
+
+
+def tcp_is_open(host: str, port: int, timeout_s: float = 0.3) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(timeout_s)
+        return sock.connect_ex((host, port)) == 0
+
+
+def local_http_get(host: str, port: int, path: str = "/", timeout_s: float = 2.0) -> tuple[int, bytes]:
+    """Raw TCP HTTP GET. urllib honors HTTP_PROXY and will miss loopback."""
+    if not path.startswith("/"):
+        path = "/" + path
+    payload = (
+        f"GET {path} HTTP/1.1\r\nHost: {host}:{port}\r\nConnection: close\r\n\r\n"
+    ).encode("ascii")
+    with socket.create_connection((host, port), timeout=timeout_s) as sock:
+        sock.settimeout(timeout_s)
+        sock.sendall(payload)
+        chunks: list[bytes] = []
+        while True:
+            piece = sock.recv(65536)
+            if not piece:
+                break
+            chunks.append(piece)
+    header, _sep, body = b"".join(chunks).partition(b"\r\n\r\n")
+    parts = header.split(b"\r\n", 1)[0].split()
+    code = int(parts[1]) if len(parts) >= 2 else 0
+    return code, body
 
 
 def pick_listen_port(host: str, preferred: int, span: int = 20) -> int:
@@ -130,18 +182,32 @@ class _BootHandler(BaseHTTPRequestHandler):
         return
 
 
+class BootServer(ThreadingHTTPServer):
+    allow_reuse_address = True
+    daemon_threads = True
+
+
 def start_boot_http(host: str, preferred: int, page: str, span: int = 20) -> tuple[ThreadingHTTPServer, int]:
     handler = type("BootHandler", (_BootHandler,), {"page": page.encode("utf-8")})
     last_err: Exception | None = None
     ports = [preferred, *range(preferred + 1, preferred + span)] if preferred else [0]
     for port in ports:
         try:
-            httpd = ThreadingHTTPServer((host, port), handler)
+            httpd = BootServer((host, port), handler)
         except OSError as exc:
             last_err = exc
             continue
         bound = int(httpd.server_address[1])
-        thread = threading.Thread(target=httpd.serve_forever, daemon=True, name="cami-boot-http")
+
+        def _serve(server: ThreadingHTTPServer = httpd) -> None:
+            try:
+                append_desktop_log(f"boot_http_serve_forever {server.server_address}")
+                server.serve_forever()
+                append_desktop_log("boot_http_serve_stopped")
+            except Exception as exc:  # noqa: BLE001
+                append_desktop_log(f"boot_http_serve_failed {exc}\n{traceback.format_exc()}")
+
+        thread = threading.Thread(target=_serve, daemon=True, name="cami-boot-http")
         thread.start()
         append_desktop_log(f"boot_http_listening {host}:{bound}")
         return httpd, bound
@@ -163,15 +229,18 @@ def stop_boot_http(httpd: ThreadingHTTPServer | None) -> None:
 
 
 def wait_for_http_ok(url: str, timeout_s: float, interval_s: float = 0.1) -> bool:
+    parsed = urlparse(url)
+    host = parsed.hostname or "127.0.0.1"
+    port = int(parsed.port or 80)
+    path = parsed.path or "/"
     deadline = time.monotonic() + timeout_s
     while time.monotonic() < deadline:
         try:
-            with urllib.request.urlopen(url, timeout=2) as response:
-                if 200 <= response.status < 300:
-                    return True
-        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
-            time.sleep(interval_s)
-            continue
+            code, _body = local_http_get(host, port, path, timeout_s=2)
+            if 200 <= code < 300:
+                return True
+        except (OSError, ValueError, TimeoutError):
+            pass
         time.sleep(interval_s)
     return False
 
@@ -182,25 +251,30 @@ def wait_for_health(
     interval_s: float = HEALTH_POLL_S,
     abort: Callable[[], bool] | None = None,
 ) -> bool:
+    parsed = urlparse(url.rstrip("/") + "/api/ready")
+    host = parsed.hostname or "127.0.0.1"
+    port = int(parsed.port or 80)
+    path = parsed.path or "/api/ready"
     deadline = time.monotonic() + timeout_s
-    health = url.rstrip("/") + "/api/ready"
     last_note = 0.0
     while time.monotonic() < deadline:
         if abort and abort():
             append_desktop_log("health_wait_aborted")
             return False
         try:
-            with urllib.request.urlopen(health, timeout=2) as response:
-                if 200 <= response.status < 300:
-                    append_desktop_log(f"health_ok {health}")
-                    return True
-        except (urllib.error.URLError, TimeoutError, OSError, ValueError) as exc:
-            now = time.monotonic()
-            if now - last_note >= 10:
-                append_desktop_log(f"health_wait {health} still_down {exc}")
-                last_note = now
+            code, _body = local_http_get(host, port, path, timeout_s=2)
+            if 200 <= code < 300:
+                append_desktop_log(f"health_ok {host}:{port}{path}")
+                return True
+            exc: object = f"http_{code}"
+        except (OSError, ValueError, TimeoutError) as err:
+            exc = err
+        now = time.monotonic()
+        if now - last_note >= 10:
+            append_desktop_log(f"health_wait {host}:{port}{path} still_down {exc}")
+            last_note = now
         time.sleep(interval_s)
-    append_desktop_log(f"health_timeout {health} after {timeout_s}s")
+    append_desktop_log(f"health_timeout {host}:{port}{path} after {timeout_s}s")
     return False
 
 
@@ -395,6 +469,7 @@ def _run_inner() -> None:
     from backend.core.logging import get_logger
 
     get_logger("desktop")
+    configure_loopback_access()
     host, preferred = resolve_host_port()
     app_name = get_settings().app_name
     httpd, port = start_boot_http(host, preferred, splash_html(window_url(host, preferred), log_path))
@@ -402,9 +477,18 @@ def _run_inner() -> None:
     if port != preferred:
         append_desktop_log(f"port_in_use preferred={preferred} using={port}")
         httpd.RequestHandlerClass.page = splash_html(url, log_path).encode("utf-8")  # type: ignore[attr-defined]
-    if not wait_for_http_ok(url + "/", timeout_s=5):
+    tcp_ok = tcp_is_open(host, port, timeout_s=1)
+    http_ok = wait_for_http_ok(url + "/", timeout_s=8)
+    append_desktop_log(f"boot_probe tcp={tcp_ok} http={http_ok}")
+    if not tcp_ok and not http_ok:
         stop_boot_http(httpd)
-        raise RuntimeError(f"boot page did not listen on {url}")
+        raise RuntimeError(
+            f"无法在 {url} 上启动本地页。\n"
+            "若开了 Clash / V2Ray 系统代理，请开启「绕过局域网 / 回环地址」。\n"
+            f"日志：{log_path}"
+        )
+    if tcp_ok and not http_ok:
+        append_desktop_log("boot_tcp_open_http_failed continuing")
 
     errors: list[str] = []
     boot_holder: dict[str, ThreadingHTTPServer | None] = {"httpd": httpd}
