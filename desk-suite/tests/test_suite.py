@@ -64,7 +64,9 @@ class HubHttpTests(unittest.TestCase):
         self.assertIn("三大联赛", page)
         self.assertIn("合约分析", page)
         self.assertIn("四年周期", page)
-        self.assertIn("持 U 还是持币", page)
+        self.assertIn("刷新开单", page)
+        self.assertIn("持仓时长", page)
+        self.assertNotIn("历史四轮周期", page)
 
     def test_contract_module_is_mounted(self):
         payload = self.client.get("/chain/api/health").json()
@@ -88,7 +90,8 @@ class HubHttpTests(unittest.TestCase):
             payload = self.client.get("/api/cycle").json()
         self.assertEqual(payload["phase"], "熊市中期")
         self.assertEqual(payload["hold"], "持U为主")
-        self.assertTrue(payload["allocations"])
+        self.assertTrue(payload["hold_days"] > 0)
+        self.assertTrue(payload["hold_until"])
 
 
 if __name__ == "__main__":

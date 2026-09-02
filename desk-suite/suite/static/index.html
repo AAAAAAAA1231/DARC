@@ -64,38 +64,14 @@
     </section>
 
     <section id="view-contracts" class="view hidden">
-      <section id="cycleBoard" class="cycle-board">
-        <div class="cycle-head">
-          <div>
-            <p class="cycle-kicker">四年周期 · 先看位置，再看信号</p>
-            <h3 id="cyclePhase">正在判断牛熊…</h3>
-            <p id="cycleNarrative" class="muted">先按减半周期和历史牛熊长度判断现在处在哪一段，再决定持 U 还是持币。</p>
-          </div>
-          <div id="cycleHold" class="cycle-hold">—</div>
-        </div>
-        <div class="cycle-stats">
-          <div><span class="muted">BTC</span><strong id="cyclePrice">—</strong></div>
-          <div><span class="muted">距 ATH</span><strong id="cycleDrawdown">—</strong></div>
-          <div><span class="muted">距本次减半</span><strong id="cycleHalving">—</strong></div>
-          <div><span class="muted">历史牛/熊中位</span><strong id="cycleTypical">—</strong></div>
-        </div>
-        <p id="cycleNext" class="muted cycle-next"></p>
-        <div class="cycle-alloc" id="cycleAlloc"></div>
-        <div class="table-wrap cycle-history">
-          <table>
-            <thead>
-              <tr>
-                <th>周期</th><th>减半</th><th>牛市顶</th><th>熊市底</th><th>牛市长度</th><th>熊市长度</th>
-              </tr>
-            </thead>
-            <tbody id="cycleHistory">
-              <tr><td colspan="6" class="muted">加载历史四轮周期…</td></tr>
-            </tbody>
-          </table>
-        </div>
+      <section id="cycleBoard" class="cycle-strip">
+        <span class="cycle-kicker">四年周期</span>
+        <strong id="cyclePhase">判断中…</strong>
+        <span id="cycleHold" class="cycle-hold">—</span>
+        <span id="cycleHorizon" class="muted">持仓时长 —</span>
       </section>
       <div class="toolbar">
-        <button class="btn primary" id="analyzeAll">刷新信号</button>
+        <button class="btn primary" id="analyzeAll">刷新开单</button>
         <button class="btn" id="refitWeights">重新拟合权重</button>
         <label>周期
           <select id="klineInterval">
@@ -105,6 +81,7 @@
           </select>
         </label>
         <input id="contractFilter" placeholder="筛选币种 / 结论"/>
+        <span class="pill" id="tradeCount">开单推荐</span>
         <span class="pill" id="simBadge">先校准一次指标权重，之后刷新只出涨跌</span>
       </div>
       <div class="progress hidden" id="analyzeProgress"><div></div></div>
@@ -117,7 +94,7 @@
             </tr>
           </thead>
           <tbody id="contractRows">
-            <tr><td colspan="11" class="muted">点「刷新信号」加载永续合约名单。</td></tr>
+            <tr><td colspan="11" class="muted">点「刷新开单」加载永续合约名单。</td></tr>
           </tbody>
         </table>
       </div>

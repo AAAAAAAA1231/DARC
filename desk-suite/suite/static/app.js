@@ -1,7 +1,7 @@
 const views = {
   radar: ["50 倍雷达", "新场子刚开张 + 独占叙事 + 极浅开盘。不是买卖信号。"],
   football: ["三大联赛胜负", "西甲 / 德甲 / 意甲，打开后可预测近期未赛。仅供观赛参考。"],
-  contracts: ["合约分析", "先看四年周期：现在是牛是熊、持 U 还是持币、拿什么、拿多久。下面才是市值前 100 永续信号。"],
+  contracts: ["合约分析", "主体是永续开单推荐。四年周期只给大方向和持仓时长。"],
 };
 
 const $ = (id) => document.getElementById(id);
@@ -141,7 +141,7 @@ function contractRow(r) {
   const tradable = !!r.tradable;
   const size = tradable && r.suggested_notional_pct ? `${Number(r.suggested_notional_pct).toFixed(1)}% 权益` : "-";
   const manage = tradable ? `${fmtPx(r.partial_tp)} / ${fmtPx(r.breakeven)}` : "-";
-  return `<tr>
+  return `<tr class="${tradable ? "trade-row" : ""}">
     <td><strong>${esc(r.symbol)}</strong><div class="muted">${esc(r.name || "")}</div></td>
     <td>${r.market_cap_rank || "-"}</td>
     <td><span class="tag ${tagClass(r.decision)}">${esc(r.decision || "观望")}</span>${tradable ? ' <span class="tag seed">可做</span>' : ""}</td>
@@ -179,33 +179,42 @@ function showDetail(id) {
     </div>`;
 }
 
+function decisionRank(r) {
+  if (r.tradable) return 0;
+  if (r.decision === "涨") return 1;
+  if (r.decision === "跌") return 2;
+  return 3;
+}
+
+function sortedRows(rows) {
+  return [...rows].sort((a, b) => {
+    const rank = decisionRank(a) - decisionRank(b);
+    if (rank) return rank;
+    return (Number(b.score) || 0) - (Number(a.score) || 0);
+  });
+}
+
+function paintContracts(rows) {
+  const list = sortedRows(rows.filter((r) => r.symbol && r.symbol !== "?"));
+  const tradable = list.filter((r) => r.tradable).length;
+  if ($("tradeCount")) $("tradeCount").textContent = tradable ? `开单推荐 ${tradable} 单` : "开单推荐";
+  if (!list.length) {
+    $("contractRows").innerHTML = `<tr><td colspan="12" class="muted">点「刷新开单」加载永续合约名单。</td></tr>`;
+    return;
+  }
+  $("contractRows").innerHTML = list.map(contractRow).join("");
+}
+
 function renderCycle(view) {
   if (!view || !view.phase) return;
   $("cyclePhase").textContent = view.phase;
-  $("cycleNarrative").textContent = view.narrative || view.hold_detail || "";
   $("cycleHold").textContent = view.hold || "—";
   $("cycleHold").className = "cycle-hold " + (view.regime === "熊市" ? "bear" : "bull");
-  $("cyclePrice").textContent = view.price ? "$" + Number(view.price).toLocaleString() : "—";
-  $("cycleDrawdown").textContent = view.drawdown_pct != null ? "-" + Number(view.drawdown_pct).toFixed(1) + "%" : "—";
-  $("cycleHalving").textContent = view.days_since_halving != null ? view.days_since_halving + " 天" : "—";
-  $("cycleTypical").textContent = `${view.typical_bull_days || "—"} / ${view.typical_bear_days || "—"} 天`;
-  $("cycleNext").textContent = view.next_event || "";
-  const cards = view.allocations || [];
-  $("cycleAlloc").innerHTML = cards.map((a) => `
-    <article class="alloc-card">
-      <div class="muted">${esc(a.name)} · 建议持有 ${a.hold_days} 天</div>
-      <div><strong>${esc(a.symbol)}</strong> <span class="weight">${a.weight_pct}%</span></div>
-      <p class="muted">拿到 ${esc(a.hold_until)}。${esc(a.reason)}</p>
-    </article>`).join("") || "";
-  const rows = view.history || [];
-  $("cycleHistory").innerHTML = rows.map((r) => `<tr>
-    <td>${esc(r.label)}</td>
-    <td>${esc(r.halving)}</td>
-    <td>${esc(r.peak)}</td>
-    <td>${esc(r.bottom)}</td>
-    <td>${r.bull_days != null ? r.bull_days + " 天" : "—"}</td>
-    <td>${r.bear_days != null ? r.bear_days + " 天" : "—"}</td>
-  </tr>`).join("") || `<tr><td colspan="6" class="muted">没有历史周期数据</td></tr>`;
+  if (view.hold_days) {
+    $("cycleHorizon").textContent = `建议持仓 ${view.hold_days} 天${view.hold_until ? "（至 " + view.hold_until + "）" : ""}`;
+  } else {
+    $("cycleHorizon").textContent = "持仓时长 —";
+  }
 }
 
 async function loadCycle() {
@@ -217,8 +226,8 @@ async function loadCycle() {
       const view = await api("/api/cycle");
       renderCycle(view);
     } catch (inner) {
-      $("cyclePhase").textContent = "四年周期暂时拉不到行情";
-      $("cycleNarrative").textContent = inner.message || err.message;
+      $("cyclePhase").textContent = "四年周期暂时拉不到";
+      $("cycleHorizon").textContent = inner.message || err.message;
     }
   }
 }
@@ -234,14 +243,14 @@ async function loadContracts() {
     }
     (last.results || []).forEach((r) => { if (r.symbol) store.contracts[r.symbol] = r; });
     const rows = (last.results || []).filter((r) => r.symbol && r.symbol !== "?");
-    if (rows.length) $("contractRows").innerHTML = rows.map(contractRow).join("");
+    if (rows.length) paintContracts(rows);
     else {
       const uni = await api("/chain/api/contracts/universe");
       $("contractRows").innerHTML = (uni.items || []).slice(0, 40).map((u) => {
         const row = { symbol: u.binance_symbol || u.symbol, name: u.name, market_cap_rank: u.market_cap_rank, decision: "待分析" };
         store.contracts[row.symbol] = row;
         return contractRow(row);
-      }).join("") || `<tr><td colspan="12" class="muted">名单为空，请检查网络后点刷新信号。</td></tr>`;
+      }).join("") || `<tr><td colspan="12" class="muted">名单为空，请检查网络后点刷新开单。</td></tr>`;
     }
     setStatus(last.fitted_note || "合约模块就绪");
   } catch (err) {
@@ -275,7 +284,7 @@ async function pollAnalyze() {
     $("analyzeProgress").querySelector("div").style.width = pct + "%";
     (data.results || []).forEach((r) => { if (r.symbol) store.contracts[r.symbol] = r; });
     const rows = (data.results || []).filter((r) => r.symbol && r.symbol !== "?");
-    if (rows.length) $("contractRows").innerHTML = rows.map(contractRow).join("");
+    if (rows.length) paintContracts(rows);
     const phase = data.phase ? " · " + data.phase : "";
     setStatus(`${data.kind === "fit" ? "校准权重" : "套用模型"} ${data.done || 0}/${data.total || 0}${phase}`);
     if (data.status === "running") setTimeout(pollAnalyze, 1200);

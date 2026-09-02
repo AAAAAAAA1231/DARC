@@ -81,6 +81,8 @@ class CycleView:
     next_event: str
     typical_bull_days: int
     typical_bear_days: int
+    hold_days: int = 0
+    hold_until: str = ""
     allocations: list[Allocation] = field(default_factory=list)
     history: list[CycleHistoryRow] = field(default_factory=list)
     source: str = ""
@@ -317,6 +319,7 @@ def assess_cycle(snapshot: MarketSnapshot, now: Optional[datetime] = None) -> Cy
         f"建议先{hold}：{hold_detail}"
     )
 
+    primary = allocs[0] if allocs else None
     return CycleView(
         as_of=now.astimezone(timezone.utc).isoformat(),
         regime=regime,
@@ -335,6 +338,8 @@ def assess_cycle(snapshot: MarketSnapshot, now: Optional[datetime] = None) -> Cy
         next_event=next_event,
         typical_bull_days=typical_bull,
         typical_bear_days=typical_bear,
+        hold_days=primary.hold_days if primary else 0,
+        hold_until=primary.hold_until if primary else "",
         allocations=allocs,
         history=history,
         source=snapshot.source,

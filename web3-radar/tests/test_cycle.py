@@ -56,8 +56,8 @@ def test_mid_bear_in_2026_if_off_cycle_highs():
     assert view.regime == "熊市"
     assert view.phase == "熊市中期"
     assert view.hold == "持U为主"
-    assert any(a.symbol == "BTC" for a in view.allocations)
-    assert all(a.hold_days > 0 and a.hold_until for a in view.allocations)
+    assert view.hold_days > 0
+    assert view.hold_until
     assert view.history
     assert view.typical_bull_days > 400
     assert view.typical_bear_days > 300
