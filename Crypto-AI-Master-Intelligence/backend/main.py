@@ -648,8 +648,14 @@ async def serve_ui(full_path: str):
     if frontend_dir.exists():
         candidate = frontend_dir / full_path
         if full_path and candidate.is_file():
-            return FileResponse(candidate)
+            headers = {}
+            if candidate.suffix.lower() in {".html", ".htm", ".js"}:
+                headers = {"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"}
+            return FileResponse(candidate, headers=headers)
         index = frontend_dir / "index.html"
         if index.is_file():
-            return FileResponse(index)
+            return FileResponse(
+                index,
+                headers={"Cache-Control": "no-store, no-cache, must-revalidate", "Pragma": "no-cache"},
+            )
     return JSONResponse(status_code=404, content={"ok": False, "error": "frontend dist missing — run npm run build"})

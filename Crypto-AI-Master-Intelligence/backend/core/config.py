@@ -26,7 +26,7 @@ def load_yaml_config() -> dict[str, Any]:
 
 
 class Settings(BaseSettings):
-    app_name: str = "Crypto-AI-Master-Intelligence"
+    app_name: str = "加密智能终端"
     host: str = "127.0.0.1"
     port: int = 8787
     timezone: str = "UTC"
@@ -79,7 +79,7 @@ def get_settings() -> Settings:
     sim_cfg = yaml_cfg.get("simulation", {})
     sched_cfg = yaml_cfg.get("scheduler", {})
     settings = Settings(
-        app_name=app_cfg.get("name", "Crypto-AI-Master-Intelligence"),
+        app_name=app_cfg.get("name", "加密智能终端"),
         host=os.getenv("CAMI_HOST", app_cfg.get("host", "127.0.0.1")),
         port=int(os.getenv("CAMI_PORT", app_cfg.get("port", 8787))),
         timezone=app_cfg.get("timezone", "UTC"),

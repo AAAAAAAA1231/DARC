@@ -308,7 +308,7 @@ def splash_html(url: str, log_path: Path) -> str:
     async function poll() {{
       try {{
         const res = await fetch({json.dumps(url.rstrip("/") + "/api/ready")}, {{ cache: "no-store" }});
-        if (res.ok) {{ location.replace({json.dumps(url.rstrip("/") + "/")}); return; }}
+        if (res.ok) {{ location.replace({json.dumps(url.rstrip("/") + "/?v=zhcn")}); return; }}
       }} catch (e) {{}}
       setTimeout(poll, 400);
     }}
@@ -498,11 +498,11 @@ def _run_inner() -> None:
             append_desktop_log(f"engine_ready {target}")
             if window is not None:
                 try:
-                    window.load_url(target + "/")
+                    window.load_url(target + "/?v=zhcn")
                     return
                 except Exception as exc:  # noqa: BLE001
                     append_desktop_log(f"load_url_failed {exc}")
-            open_in_browser(target + "/")
+            open_in_browser(target + "/?v=zhcn")
             return
         detail = errors[0] if errors else "health check timed out"
         append_desktop_log(f"startup_failed {detail}")
@@ -529,7 +529,7 @@ def _run_inner() -> None:
             width=1440,
             height=900,
         )
-        webview.start(lambda: after_ready(window))
+        webview.start(lambda: after_ready(window), private_mode=True, storage_path=str(DATA_ROOT / "webview-zh"))
         return
     except Exception as exc:  # noqa: BLE001
         append_desktop_log(f"webview_failed {exc}\n{traceback.format_exc()}")

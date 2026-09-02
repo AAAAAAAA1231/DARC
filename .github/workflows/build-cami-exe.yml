@@ -37,6 +37,8 @@ jobs:
           npm run build
       - name: PyInstaller
         run: pyinstaller --noconfirm --clean Crypto-AI-Master-Intelligence.spec
+      - name: Stage Chinese download name
+        run: copy /Y dist\Crypto-AI-Master-Intelligence.exe dist\CAMI-zhongwen.exe
       - name: Publish Crypto-AI-Master-Intelligence.exe
         uses: softprops/action-gh-release@v2
         with:
@@ -44,9 +46,12 @@ jobs:
           name: Crypto-AI-Master-Intelligence.exe
           body: |
             Direct Windows EXE (not a zip).
+            Chinese UI build: CAMI-zhongwen.exe
             Put `.env` next to the EXE if you have keys. Missing keys are fine.
             SQLite and logs are created beside the EXE. No live trading. No private keys in the binary.
-          files: Crypto-AI-Master-Intelligence/dist/Crypto-AI-Master-Intelligence.exe
+          files: |
+            Crypto-AI-Master-Intelligence/dist/Crypto-AI-Master-Intelligence.exe
+            Crypto-AI-Master-Intelligence/dist/CAMI-zhongwen.exe
           fail_on_unmatched_files: true
           prerelease: true
           make_latest: false
