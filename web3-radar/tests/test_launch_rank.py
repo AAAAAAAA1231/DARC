@@ -53,6 +53,12 @@ def test_rank_orders_vc_then_kol_and_drops_old_and_cex():
                 "created_at": NOW - timedelta(days=40),
             },
             {
+                "id": "rocket",
+                "handle": "spacefan",
+                "text": "今晚文昌发射场，长征7号升空后飞行过程出现异常",
+                "created_at": NOW - timedelta(hours=4),
+            },
+            {
                 "id": "listing",
                 "handle": "binancezh",
                 "text": "Binance will list FOO/USDT spot listing tomorrow",
@@ -82,7 +88,16 @@ def test_rank_orders_vc_then_kol_and_drops_old_and_cex():
     )
     ids = [r["id"] for r in rows]
     assert "old" not in ids
+    assert "rocket" not in ids
     assert "listing" not in ids
     assert ids[0] == "vc"
     assert rows[0]["score"] >= rows[1]["score"]
     assert "kol" in ids and "plain" in ids
+
+
+def test_drops_rocket_and_profile_chrome():
+    from web3_radar.engine.launch_rank import looks_like_crypto_launch
+
+    assert looks_like_crypto_launch("Fair Launch (@FairLaunch) / Posts / X") is False
+    assert looks_like_crypto_launch("今晚文昌发射场，长征7号升空") is False
+    assert looks_like_crypto_launch("新项目预售今晚开启") is True

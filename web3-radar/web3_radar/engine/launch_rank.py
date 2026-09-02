@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 from typing import Any
+import re
 
 # Institutions / funds whose mention is a strong launch signal.
 INSTITUTION_ALIASES: dict[str, tuple[str, ...]] = {
@@ -116,6 +117,70 @@ CEX_HINTS = (
     "announcement",
 )
 
+CRYPTO_HINTS = (
+    "crypto",
+    "web3",
+    "token",
+    "代币",
+    "空投",
+    "airdrop",
+    "defi",
+    "blockchain",
+    "solana",
+    "ethereum",
+    "memecoin",
+    "meme coin",
+    "ido",
+    "ico",
+    "ieo",
+    "tge",
+    "whitelist",
+    "白名单",
+    "fair launch",
+    "presale",
+    "pre-sale",
+    "打新",
+    "链上",
+    "公链",
+    "erc-20",
+    "bep20",
+    "pump.fun",
+    "pumpfun",
+)
+
+NOISE_HINTS = (
+    "火箭",
+    "卫星",
+    "长征",
+    "spacex",
+    "starship",
+    "运载",
+    "发射场",
+    "航天",
+    "文昌",
+    "娃娃",
+    "玩偶",
+    "手办",
+    "盲盒",
+    "演唱会",
+    "门票",
+    "楼盘",
+    "房产预售",
+)
+
+STRONG_LAUNCH = (
+    "presale",
+    "pre-sale",
+    "pre sale",
+    "ido",
+    "tge",
+    "fair launch",
+    "token launch",
+    "token generation",
+    "打新",
+    "白名单",
+)
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
@@ -136,6 +201,34 @@ def within_lookback(created_at: datetime | None, now: datetime | None = None, da
         return True
     now = _as_aware(now) or _now()
     return ts >= now - timedelta(days=days)
+
+
+def looks_like_crypto_launch(text: str) -> bool:
+    blob = (text or "").lower()
+    if not blob:
+        return False
+    if looks_like_profile_chrome(text):
+        return False
+    if any(n in blob for n in ("火箭", "卫星", "spacex", "starship", "运载火箭", "发射场", "航天")):
+        return False
+    if any(n in blob for n in NOISE_HINTS) and not any(c in blob for c in CRYPTO_HINTS):
+        return False
+    if any(k in blob for k in STRONG_LAUNCH):
+        return True
+    crypto = any(c in blob for c in CRYPTO_HINTS)
+    launch = any(k in blob for k in LAUNCH_KEYWORDS)
+    chinese_pair = ("新项目" in blob or "新平台" in blob or "打新" in blob) and (
+        "预售" in blob or "发射" in blob or "ido" in blob or "launch" in blob
+    )
+    ticker = "$" in blob and any(ch.isalpha() for ch in blob)
+    return (crypto and launch) or chinese_pair or (ticker and launch)
+
+
+def looks_like_profile_chrome(text: str) -> bool:
+    t = (text or "").strip()
+    if " / posts" in t.lower():
+        return True
+    return bool(re.search(r" on X:\s*$", t))
 
 
 def looks_like_cex_listing(text: str) -> bool:
@@ -269,6 +362,8 @@ def rank_launch_items(items: list[dict[str, Any]], now: datetime | None = None, 
             except ValueError:
                 created = None
         if not within_lookback(created if isinstance(created, datetime) else None, now, lookback_days):
+            continue
+        if not looks_like_crypto_launch(str(item.get("text") or "")):
             continue
         scored = score_launch_item(
             text=str(item.get("text") or ""),

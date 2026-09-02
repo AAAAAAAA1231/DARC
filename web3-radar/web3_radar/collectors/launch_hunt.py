@@ -21,16 +21,17 @@ from web3_radar.http_util import DEFAULT_HEADERS
 log = logging.getLogger(__name__)
 
 HUNT_QUERIES = (
-    "发射",
-    "预售",
-    "新平台",
-    "新项目",
-    "launch",
-    "presale",
-    '"new project"',
-    "newproject",
-    '"fair launch"',
+    "发射 新项目",
+    "预售 代币",
+    "预售 crypto",
+    "新平台 web3",
+    "新项目 预售",
+    "token launch",
+    "crypto presale",
+    "fair launch crypto",
     "IDO presale",
+    "newproject crypto",
+    "打新 预售",
 )
 
 RSSHUB_HOSTS = (
@@ -49,7 +50,12 @@ _TWEET_URL_RE = re.compile(
     r"https?://(?:www\.)?(?:twitter\.com|x\.com)/([^/\s\"'<>]+)/status/(\d+)",
     re.I,
 )
+_PROFILE_URL_RE = re.compile(
+    r"https?://(?:www\.)?(?:twitter\.com|x\.com)/([^/\s\"'<>#?]+)/?(?:\?.*)?$",
+    re.I,
+)
 _STATUS_ID_RE = re.compile(r"/status/(\d+)")
+_RESERVED_PATHS = {"home", "search", "i", "intent", "explore", "settings", "compose", "messages", "hashtag", "share"}
 _HANDLE_RE = re.compile(r"@([A-Za-z0-9_]{2,30})")
 _ITEM_RE = re.compile(r"<item>(.*?)</item>", re.I | re.S)
 _TITLE_RE = re.compile(r"<title>(.*?)</title>", re.I | re.S)
@@ -218,10 +224,8 @@ async def _from_nitter_rss(client: httpx.AsyncClient, lookback_days: int) -> tup
 
 
 async def _from_duckduckgo(client: httpx.AsyncClient, since: datetime) -> tuple[list[dict[str, Any]], str]:
-    since_day = since.date().isoformat()
-
     async def one(query: str) -> list[dict[str, Any]]:
-        q = f"{query} (site:x.com OR site:twitter.com) after:{since_day}"
+        q = f"{query} (site:x.com OR site:twitter.com)"
         items: list[dict[str, Any]] = []
         html_text = await _get_text(client, "https://html.duckduckgo.com/html/?q=" + quote_plus(q))
         if html_text:
@@ -232,7 +236,7 @@ async def _from_duckduckgo(client: httpx.AsyncClient, since: datetime) -> tuple[
                 items.extend(parse_ddg_lite(lite))
         return items
 
-    batches = await asyncio.gather(*[one(q) for q in HUNT_QUERIES[:5]], return_exceptions=True)
+    batches = await asyncio.gather(*[one(q) for q in HUNT_QUERIES], return_exceptions=True)
     items: list[dict[str, Any]] = []
     for batch in batches:
         if isinstance(batch, Exception):
@@ -242,14 +246,12 @@ async def _from_duckduckgo(client: httpx.AsyncClient, since: datetime) -> tuple[
 
 
 async def _from_bing(client: httpx.AsyncClient, since: datetime) -> tuple[list[dict[str, Any]], str]:
-    since_day = since.date().isoformat()
-
     async def one(query: str) -> list[dict[str, Any]]:
-        q = f"{query} site:x.com after:{since_day}"
+        q = f"{query} site:x.com"
         page = await _get_text(client, "https://www.bing.com/search?q=" + quote_plus(q) + "&count=20")
         return parse_bing(page) if page else []
 
-    batches = await asyncio.gather(*[one(q) for q in HUNT_QUERIES[:4]], return_exceptions=True)
+    batches = await asyncio.gather(*[one(q) for q in HUNT_QUERIES[:6]], return_exceptions=True)
     items: list[dict[str, Any]] = []
     for batch in batches:
         if isinstance(batch, Exception):
@@ -328,11 +330,13 @@ def parse_bing(page: str) -> list[dict[str, Any]]:
 
 
 def _from_search_hit(url: str, title: str, source: str) -> dict[str, Any] | None:
-    if not is_tweet_url(url):
-        return None
     handle, tweet_id = handle_id_from_url(url)
+    if not handle:
+        handle = handle_from_profile(url)
+    if not handle:
+        return None
     return {
-        "id": tweet_id or url,
+        "id": tweet_id or f"profile:{handle}:{title[:40]}",
         "handle": handle,
         "text": title,
         "url": canonicalize_tweet_url(url, handle, tweet_id),
@@ -369,16 +373,28 @@ def handle_id_from_url(url: str) -> tuple[str, str]:
     return "", m2.group(1) if m2 else ""
 
 
+def handle_from_profile(url: str) -> str:
+    cleaned = (url or "").split("?")[0].rstrip("/")
+    if "/status/" in cleaned.lower():
+        return ""
+    m = _PROFILE_URL_RE.search(cleaned)
+    if not m:
+        return ""
+    handle = m.group(1)
+    if handle.lower() in _RESERVED_PATHS:
+        return ""
+    return handle
+
+
 def is_tweet_url(url: str) -> bool:
-    u = (url or "").lower()
-    return bool(_TWEET_URL_RE.search(url or "")) or (
-        ("x.com/" in u or "twitter.com/" in u) and "/status/" in u
-    )
+    return bool(_TWEET_URL_RE.search(url or "")) or bool(handle_from_profile(url))
 
 
 def canonicalize_tweet_url(url: str, handle: str, tweet_id: str) -> str:
     if handle and tweet_id:
         return f"https://x.com/{handle}/status/{tweet_id}"
+    if handle:
+        return f"https://x.com/{handle}"
     return url
 
 

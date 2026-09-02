@@ -49,6 +49,11 @@ def test_parse_duckduckgo_and_bing_tweet_links():
     assert lite_rows[0]["handle"] == "cobie"
     assert len(lite_rows) == 1
     assert bing_rows[0]["handle"] == "justinsuntron"
+    profile = parse_duckduckgo(
+        '<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fx.com%2FKamiraiOfficial">token presale live</a>'
+    )
+    assert profile[0]["handle"] == "KamiraiOfficial"
+    assert "/status/" not in profile[0]["url"]
 
 
 def test_unwrap_ddg_and_rfc822_date():
