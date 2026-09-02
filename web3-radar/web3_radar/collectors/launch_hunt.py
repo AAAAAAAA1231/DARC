@@ -372,7 +372,7 @@ def _from_search_hit(url: str, title: str, source: str) -> dict[str, Any] | None
     handle, tweet_id = handle_id_from_url(url)
     if not handle:
         handle = handle_from_profile(url)
-    if not handle:
+    if not handle or not tweet_id:
         return None
     text = clean_search_title(title)
     return {

@@ -52,8 +52,7 @@ def test_parse_duckduckgo_and_bing_tweet_links():
     profile = parse_duckduckgo(
         '<a class="result__a" href="//duckduckgo.com/l/?uddg=https%3A%2F%2Fx.com%2FKamiraiOfficial">token presale live</a>'
     )
-    assert profile[0]["handle"] == "KamiraiOfficial"
-    assert "/status/" not in profile[0]["url"]
+    assert profile == []
 
 
 def test_unwrap_ddg_and_rfc822_date():
