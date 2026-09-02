@@ -1,0 +1,42 @@
+name: Build Windows EXE
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - cursor/crypto-ai-master-intelligence-11d9
+    paths:
+      - "Crypto-AI-Master-Intelligence/**"
+      - ".github/workflows/build-cami-exe.yml"
+
+jobs:
+  windows-exe:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: Crypto-AI-Master-Intelligence
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Python deps
+        run: |
+          python -m pip install -U pip
+          python -m pip install -r requirements.txt pyinstaller pywebview
+      - name: Frontend
+        working-directory: Crypto-AI-Master-Intelligence/frontend
+        run: |
+          npm install
+          npm run build
+      - name: PyInstaller
+        run: pyinstaller --noconfirm --clean Crypto-AI-Master-Intelligence.spec
+      - name: Upload EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Crypto-AI-Master-Intelligence-windows
+          path: Crypto-AI-Master-Intelligence/dist/Crypto-AI-Master-Intelligence.exe
+          if-no-files-found: error

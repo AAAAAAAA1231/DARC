@@ -99,13 +99,15 @@ Live provider tests hit real endpoints. If a vendor is down, they assert structu
 
 ## EXE (Windows)
 
+Double-click `dist\Crypto-AI-Master-Intelligence.exe` after building. The window starts the local API and the built UI. SQLite (`data\cami.db`), logs, and `.env` are created **next to the EXE**. Missing API keys do not block launch.
+
 ```bat
 build_exe.bat
 ```
 
 Output: `dist\Crypto-AI-Master-Intelligence.exe`
 
-Place `.env` next to the EXE. Do not bake API keys into the binary.
+This cloud/Linux environment cannot emit a PE `.exe`; GitHub Actions (`Build Windows EXE`) builds it on `windows-latest`. Place `.env` beside the EXE for optional keys. Never bake secrets into the binary.
 
 ## Security
 

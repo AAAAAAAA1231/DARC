@@ -19,7 +19,8 @@ from backend.api.schemas import (
     SimulationIn,
     StatusUpdate,
 )
-from backend.core.config import PROJECT_ROOT, get_settings
+from backend.core.config import get_settings
+from backend.core.paths import frontend_dist
 from backend.core.enums import ProjectStatus, RiskProfile
 from backend.core.logging import get_logger, setup_logging
 from backend.data_sources.registry import all_providers, bootstrap_providers
@@ -630,7 +631,7 @@ async def api_settings():
     }
 
 
-frontend_dir = PROJECT_ROOT / "frontend" / "dist"
+frontend_dir = frontend_dist()
 
 
 @app.get("/{full_path:path}")

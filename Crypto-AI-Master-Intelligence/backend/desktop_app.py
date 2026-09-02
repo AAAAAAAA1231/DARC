@@ -2,30 +2,35 @@
 
 from __future__ import annotations
 
+import multiprocessing
 import threading
 import time
-import webview
-import uvicorn
 
-from backend.core.config import get_settings
-from backend.core.logging import get_logger
-from backend.main import app
-
-log = get_logger("desktop")
+from backend.core.paths import DATA_ROOT, prepare_runtime
 
 
 def _serve() -> None:
+    import uvicorn
+
+    from backend.core.config import get_settings
+    from backend.main import app
+
     settings = get_settings()
     uvicorn.run(app, host=settings.host, port=settings.port, log_level="info")
 
 
 def run() -> None:
+    prepare_runtime()
+    from backend.core.config import get_settings
+    from backend.core.logging import get_logger
+
+    log = get_logger("desktop")
     settings = get_settings()
     thread = threading.Thread(target=_serve, daemon=True)
     thread.start()
     url = f"http://{settings.host}:{settings.port}"
-    for _ in range(50):
-        time.sleep(0.2)
+    for _ in range(80):
+        time.sleep(0.25)
         try:
             import urllib.request
 
@@ -33,10 +38,13 @@ def run() -> None:
             break
         except Exception:  # noqa: BLE001
             continue
-    log.info("opening_window %s", url)
+    log.info("opening_window %s data_root=%s", url, DATA_ROOT)
+    import webview
+
     webview.create_window(settings.app_name, url, width=1440, height=900)
     webview.start()
 
 
 if __name__ == "__main__":
+    multiprocessing.freeze_support()
     run()

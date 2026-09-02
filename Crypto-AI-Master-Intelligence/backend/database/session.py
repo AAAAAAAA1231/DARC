@@ -8,7 +8,8 @@ from pathlib import Path
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
-from backend.core.config import PROJECT_ROOT, get_settings
+from backend.core.config import get_settings
+from backend.core.paths import PROJECT_ROOT
 from backend.core.logging import get_logger
 
 logger = get_logger("database")

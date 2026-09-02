@@ -4,15 +4,15 @@ from __future__ import annotations
 
 import os
 from functools import lru_cache
-from pathlib import Path
 from typing import Any
 
 import yaml
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-CONFIG_PATH = PROJECT_ROOT / "config" / "config.yaml"
+from backend.core.paths import DATA_ROOT, PROJECT_ROOT, config_path
+
+CONFIG_PATH = config_path()
 
 
 def load_yaml_config() -> dict[str, Any]:
@@ -63,7 +63,7 @@ class Settings(BaseSettings):
 
     model_config = SettingsConfigDict(
         env_prefix="CAMI_",
-        env_file=str(PROJECT_ROOT / ".env"),
+        env_file=str(DATA_ROOT / ".env"),
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,

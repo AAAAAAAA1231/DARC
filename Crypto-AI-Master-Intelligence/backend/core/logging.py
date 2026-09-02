@@ -9,7 +9,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from backend.core.config import PROJECT_ROOT, get_settings
+from backend.core.paths import DATA_ROOT
+from backend.core.config import get_settings
 
 _SECRET_PATTERN = re.compile(
     r"(api[_-]?key|api[_-]?secret|token|password|private[_-]?key|seed|mnemonic|authorization)",
@@ -27,7 +28,7 @@ def setup_logging() -> logging.Logger:
     settings = get_settings()
     log_dir = Path(settings.log_dir)
     if not log_dir.is_absolute():
-        log_dir = PROJECT_ROOT / log_dir
+        log_dir = DATA_ROOT / log_dir
     log_dir.mkdir(parents=True, exist_ok=True)
     logger = logging.getLogger("cami")
     if logger.handlers:
