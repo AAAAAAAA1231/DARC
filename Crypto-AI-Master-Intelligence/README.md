@@ -99,7 +99,7 @@ Live provider tests hit real endpoints. If a vendor is down, they assert structu
 
 ## EXE (Windows)
 
-Double-click `dist\Crypto-AI-Master-Intelligence.exe` after building. A **boot splash** appears while the onefile EXE unpacks (first launch 1–3 minutes — this is not a freeze). Then a window loads the local API and the built UI at `http://127.0.0.1:8787` (port is required — opening `127.0.0.1` alone is `ERR_CONNECTION_REFUSED`). If the window component fails, the engine still starts and the default browser is opened. Failures write `logs\desktop.log` **next to the EXE**. SQLite (`data\cami.db`), logs, and `.env` are also created there. Missing API keys do not block launch.
+Double-click `dist\Crypto-AI-Master-Intelligence.exe` after building. A **boot splash** appears while the onefile EXE unpacks (first launch 1–3 minutes — this is not a freeze). The window then opens **`http://127.0.0.1:8787/`** (the port is required; bare `127.0.0.1` is port 80 and shows Edge `ERR_CONNECTION_REFUSED`). A local boot page holds that port until the API is imported. If the window component fails, the engine stays up and the system browser is opened. Failures write `logs\desktop.log` **next to the EXE**. SQLite (`data\cami.db`), logs, and `.env` are also created there. Missing API keys do not block launch.
 
 ```bat
 build_exe.bat
