@@ -19,19 +19,20 @@ from web3_radar.engine.launch_rank import rank_launch_items, within_lookback
 from web3_radar.http_util import DEFAULT_HEADERS
 
 log = logging.getLogger(__name__)
+TWITTER_EPOCH_MS = 1_288_834_974_657
 
 HUNT_QUERIES = (
-    "发射 新项目",
-    "预售 代币",
-    "预售 crypto",
-    "新平台 web3",
-    "新项目 预售",
-    "token launch",
     "crypto presale",
+    "token launch",
     "fair launch crypto",
     "IDO presale",
     "newproject crypto",
+    "预售 代币",
+    "发射 新项目",
+    "新平台 web3",
+    "新项目 预售",
     "打新 预售",
+    "预售 crypto",
 )
 
 RSSHUB_HOSTS = (
@@ -87,7 +88,7 @@ async def hunt_launches(lookback_days: int = 30) -> dict[str, Any]:
     async with httpx.AsyncClient(
         timeout=10.0,
         follow_redirects=True,
-        headers={**DEFAULT_HEADERS, "User-Agent": "Mozilla/5.0 GongZuoTaiLaunchHunt/1.0"},
+        headers={**DEFAULT_HEADERS, "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"},
     ) as client:
         batches = await asyncio.gather(
             _from_twitter_api(bearer),
@@ -96,10 +97,11 @@ async def hunt_launches(lookback_days: int = 30) -> dict[str, Any]:
             _from_nitter_rss(client, lookback_days),
             _from_duckduckgo(client, since),
             _from_bing(client, since),
+            _from_brave(client),
             return_exceptions=True,
         )
 
-    labels = ("twitter-api", "nitter", "rsshub", "nitter-rss", "duckduckgo", "bing")
+    labels = ("twitter-api", "nitter", "rsshub", "nitter-rss", "duckduckgo", "bing", "brave")
     for label, batch in zip(labels, batches, strict=True):
         if isinstance(batch, Exception):
             errors.append(f"{label}: {batch}")
@@ -117,7 +119,9 @@ async def hunt_launches(lookback_days: int = 30) -> dict[str, Any]:
         created = item.get("created_at")
         if isinstance(created, str):
             created = parse_time(created)
-            item["created_at"] = created
+        if not isinstance(created, datetime):
+            created = created_from_snowflake(str(item.get("id") or ""))
+        item["created_at"] = created
         if not within_lookback(created if isinstance(created, datetime) else None, now, lookback_days):
             continue
         windowed.append(item)
@@ -228,15 +232,15 @@ async def _from_duckduckgo(client: httpx.AsyncClient, since: datetime) -> tuple[
         q = f"{query} (site:x.com OR site:twitter.com)"
         items: list[dict[str, Any]] = []
         html_text = await _get_text(client, "https://html.duckduckgo.com/html/?q=" + quote_plus(q))
-        if html_text:
+        if html_text and not _ddg_blocked(html_text):
             items.extend(parse_duckduckgo(html_text))
-        if not html_text or "result__a" not in html_text:
+        if not items:
             lite = await _get_text(client, "https://lite.duckduckgo.com/lite/?q=" + quote_plus(q))
-            if lite:
+            if lite and not _ddg_blocked(lite):
                 items.extend(parse_ddg_lite(lite))
         return items
 
-    batches = await asyncio.gather(*[one(q) for q in HUNT_QUERIES], return_exceptions=True)
+    batches = await asyncio.gather(*[one(q) for q in HUNT_QUERIES[:4]], return_exceptions=True)
     items: list[dict[str, Any]] = []
     for batch in batches:
         if isinstance(batch, Exception):
@@ -251,7 +255,22 @@ async def _from_bing(client: httpx.AsyncClient, since: datetime) -> tuple[list[d
         page = await _get_text(client, "https://www.bing.com/search?q=" + quote_plus(q) + "&count=20")
         return parse_bing(page) if page else []
 
-    batches = await asyncio.gather(*[one(q) for q in HUNT_QUERIES[:6]], return_exceptions=True)
+    batches = await asyncio.gather(*[one(q) for q in HUNT_QUERIES[:3]], return_exceptions=True)
+    items: list[dict[str, Any]] = []
+    for batch in batches:
+        if isinstance(batch, Exception):
+            continue
+        items.extend(batch)
+    return items, ""
+
+
+async def _from_brave(client: httpx.AsyncClient) -> tuple[list[dict[str, Any]], str]:
+    async def one(query: str) -> list[dict[str, Any]]:
+        q = f"{query} (site:x.com OR site:twitter.com)"
+        page = await _get_text(client, "https://search.brave.com/search?q=" + quote_plus(q))
+        return parse_brave(page) if page else []
+
+    batches = await asyncio.gather(*[one(q) for q in HUNT_QUERIES[:8]], return_exceptions=True)
     items: list[dict[str, Any]] = []
     for batch in batches:
         if isinstance(batch, Exception):
@@ -263,9 +282,12 @@ async def _from_bing(client: httpx.AsyncClient, since: datetime) -> tuple[list[d
 async def _get_text(client: httpx.AsyncClient, url: str) -> str:
     try:
         resp = await client.get(url)
-        if resp.status_code >= 400:
+        if resp.status_code >= 400 or resp.status_code == 202:
             return ""
-        return resp.text or ""
+        text = resp.text or ""
+        if _ddg_blocked(text):
+            return ""
+        return text
     except Exception as exc:  # noqa: BLE001
         log.info("fetch %s failed: %s", url, exc)
         return ""
@@ -319,9 +341,26 @@ def parse_ddg_lite(page: str) -> list[dict[str, Any]]:
     return out
 
 
+def parse_brave(page: str) -> list[dict[str, Any]]:
+    out: list[dict[str, Any]] = []
+    for href, title_html in _LITE_A_RE.findall(page or ""):
+        url = html.unescape(href)
+        if "search.brave.com" in url:
+            continue
+        row = _from_search_hit(url, _strip(title_html), source="brave")
+        if row:
+            out.append(row)
+    return out
+
+
+def _ddg_blocked(page: str) -> bool:
+    blob = (page or "").lower()
+    return "anomaly" in blob or "unfortunately, we cannot serve" in blob or "if you are not a bot" in blob
+
+
 def parse_bing(page: str) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
-    for href, title_html in _BING_A_RE.findall(page):
+    for href, title_html in _BING_A_RE.findall(page or ""):
         url = html.unescape(href)
         row = _from_search_hit(url, _strip(title_html), source="bing")
         if row:
@@ -335,12 +374,13 @@ def _from_search_hit(url: str, title: str, source: str) -> dict[str, Any] | None
         handle = handle_from_profile(url)
     if not handle:
         return None
+    text = clean_search_title(title)
     return {
-        "id": tweet_id or f"profile:{handle}:{title[:40]}",
+        "id": tweet_id or f"profile:{handle}:{text[:40]}",
         "handle": handle,
-        "text": title,
+        "text": text,
         "url": canonicalize_tweet_url(url, handle, tweet_id),
-        "created_at": None,
+        "created_at": created_from_snowflake(tweet_id),
         "metrics": {},
         "source": source,
     }
@@ -396,6 +436,28 @@ def canonicalize_tweet_url(url: str, handle: str, tweet_id: str) -> str:
     if handle:
         return f"https://x.com/{handle}"
     return url
+
+
+def created_from_snowflake(tweet_id: str) -> datetime | None:
+    try:
+        n = int(tweet_id)
+    except (TypeError, ValueError):
+        return None
+    if n < 10_000_000_000:
+        return None
+    ms = (n >> 22) + TWITTER_EPOCH_MS
+    try:
+        return datetime.fromtimestamp(ms / 1000, tz=timezone.utc)
+    except (OSError, OverflowError, ValueError):
+        return None
+
+
+def clean_search_title(title: str) -> str:
+    t = title or ""
+    t = re.sub(r"^X\s+x\.com\s*›.*?status\s*›\s*\d+\s*", "", t, flags=re.I)
+    t = re.sub(r"^X\s+x\.com\s*›\s*", "", t, flags=re.I)
+    t = re.sub(r"\s+on X:\s*", ": ", t)
+    return re.sub(r"\s+", " ", t).strip()
 
 
 def _normalize_social(tw: dict[str, Any], source: str) -> dict[str, Any]:

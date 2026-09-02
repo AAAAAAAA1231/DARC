@@ -99,5 +99,7 @@ def test_drops_rocket_and_profile_chrome():
     from web3_radar.engine.launch_rank import looks_like_crypto_launch
 
     assert looks_like_crypto_launch("Fair Launch (@FairLaunch) / Posts / X") is False
+    assert looks_like_crypto_launch("presale1000x Crypto Pre-Sale 1000X (@Presale1000x) / X") is False
+    assert looks_like_crypto_launch("LaunchXToken LaunchX (@LaunchXToken) on X") is False
     assert looks_like_crypto_launch("今晚文昌发射场，长征7号升空") is False
     assert looks_like_crypto_launch("新项目预售今晚开启") is True

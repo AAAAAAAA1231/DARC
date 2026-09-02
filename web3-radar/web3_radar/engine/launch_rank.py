@@ -226,9 +226,16 @@ def looks_like_crypto_launch(text: str) -> bool:
 
 def looks_like_profile_chrome(text: str) -> bool:
     t = (text or "").strip()
-    if " / posts" in t.lower():
+    low = t.lower()
+    if " / posts" in low:
         return True
-    return bool(re.search(r" on X:\s*$", t))
+    if re.search(r" on X:\s*$", t):
+        return True
+    if re.search(r"\(@\w+\)\s*/\s*(posts\s*/\s*)?X\s*$", t, re.I):
+        return True
+    if re.search(r"^@?\w+.+\(@\w+\)\s+on X\s*$", t, re.I):
+        return True
+    return False
 
 
 def looks_like_cex_listing(text: str) -> bool:

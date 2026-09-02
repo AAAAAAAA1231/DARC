@@ -63,3 +63,24 @@ def test_unwrap_ddg_and_rfc822_date():
     assert dt is not None
     assert dt.year == 2026
     assert dt.month == 9
+
+
+def test_brave_parse_and_snowflake_window():
+    from datetime import datetime, timezone
+
+    from web3_radar.collectors.launch_hunt import created_from_snowflake, parse_brave
+
+    html = """
+    <a href="https://x.com/CoinGapeMedia/status/2084887516784509259">CoinGape on X: "$MELON token presale is live"</a>
+    <a href="https://x.com/oldcoin/status/1634222253327142912">old tweet presale</a>
+    <a href="https://search.brave.com/search?q=x">ignore</a>
+    """
+    rows = parse_brave(html)
+    ids = {r["id"] for r in rows}
+    assert "2084887516784509259" in ids
+    assert "1634222253327142912" in ids
+    fresh = created_from_snowflake("2084887516784509259")
+    old = created_from_snowflake("1634222253327142912")
+    assert fresh is not None and fresh.year == 2026
+    assert old is not None and old.year == 2023
+    assert fresh > datetime(2026, 8, 1, tzinfo=timezone.utc)
