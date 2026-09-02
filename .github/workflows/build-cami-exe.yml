@@ -9,6 +9,9 @@ on:
       - "Crypto-AI-Master-Intelligence/**"
       - ".github/workflows/build-cami-exe.yml"
 
+permissions:
+  contents: write
+
 jobs:
   windows-exe:
     runs-on: windows-latest
@@ -34,9 +37,18 @@ jobs:
           npm run build
       - name: PyInstaller
         run: pyinstaller --noconfirm --clean Crypto-AI-Master-Intelligence.spec
-      - name: Upload EXE
-        uses: actions/upload-artifact@v4
+      - name: Publish Crypto-AI-Master-Intelligence.exe
+        uses: softprops/action-gh-release@v2
         with:
-          name: Crypto-AI-Master-Intelligence-windows
-          path: Crypto-AI-Master-Intelligence/dist/Crypto-AI-Master-Intelligence.exe
-          if-no-files-found: error
+          tag_name: cami-windows-exe
+          name: Crypto-AI-Master-Intelligence.exe
+          body: |
+            Direct Windows EXE (not a zip).
+            Put `.env` next to the EXE if you have keys. Missing keys are fine.
+            SQLite and logs are created beside the EXE. No live trading. No private keys in the binary.
+          files: Crypto-AI-Master-Intelligence/dist/Crypto-AI-Master-Intelligence.exe
+          fail_on_unmatched_files: true
+          prerelease: true
+          make_latest: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
