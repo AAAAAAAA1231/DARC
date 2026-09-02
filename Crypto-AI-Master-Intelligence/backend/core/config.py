@@ -40,8 +40,8 @@ class Settings(BaseSettings):
     allow_gpu: bool = True
     scheduler_enabled: bool = True
     disclaimer: str = (
-        "All outputs are statistical model results, not deterministic forecasts. "
-        "Not financial, betting, or investment advice."
+        "所有输出均为统计模型结果，不是确定性预测。"
+        "不是财经、投注或投资建议。"
     )
 
     binance_api_key: str = Field(default="", alias="BINANCE_API_KEY")

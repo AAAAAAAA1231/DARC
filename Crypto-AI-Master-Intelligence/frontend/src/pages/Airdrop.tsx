@@ -25,16 +25,16 @@ export default function Airdrop({ query }: { query: string }) {
   const slice = rows.slice(page * 12, page * 12 + 12);
 
   return (
-    <Panel title="Airdrop hunter" action={<Button disabled={busy} onClick={scan}>{busy ? "Scanning DefiLlama…" : "Scan"}</Button>}>
+    <Panel title="空投猎手" action={<Button disabled={busy} onClick={scan}>{busy ? "正在扫描 DefiLlama…" : "扫描"}</Button>}>
       <Disclaimer text={data?.disclaimer} />
       <table className="mt-3 w-full text-left text-sm">
-        <thead style={{ color: "var(--muted)" }}><tr><th>Project</th><th>Chain</th><th>TVL</th><th>Funding</th><th>Expected ROI</th><th>Risk</th></tr></thead>
+        <thead style={{ color: "var(--muted)" }}><tr><th>项目</th><th>链</th><th>锁仓</th><th>融资</th><th>预期收益</th><th>风险</th></tr></thead>
         <tbody>
           {slice.map((p: any) => (
             <tr key={p.project_id} className="border-t" style={{ borderColor: "var(--border)" }}>
               <td className="py-2"><Link style={{ color: "var(--accent)" }} to={`/projects/${p.project_id}`}>{p.project}</Link></td>
               <td>{p.chain}</td>
-              <td>{p.tvl != null ? fmtUsd(p.tvl) : "UNKNOWN"}</td>
+              <td>{p.tvl != null ? fmtUsd(p.tvl) : "未知"}</td>
               <td>{p.funding}</td>
               <td>{p.expected_roi}</td>
               <td>{p.risk}</td>
@@ -43,8 +43,8 @@ export default function Airdrop({ query }: { query: string }) {
         </tbody>
       </table>
       <div className="mt-2 flex gap-2 text-xs">
-        <Button onClick={() => setPage((n) => Math.max(0, n - 1))}>Prev</Button>
-        <Button onClick={() => setPage((n) => n + 1)}>Next</Button>
+        <Button onClick={() => setPage((n) => Math.max(0, n - 1))}>上一页</Button>
+        <Button onClick={() => setPage((n) => n + 1)}>下一页</Button>
       </div>
     </Panel>
   );

@@ -93,7 +93,7 @@ async def scan(session: Session) -> dict[str, Any]:
         "ok": True,
         "projects": collected,
         "source_status": source_notes,
-        "disclaimer": "Search hits from DexScreener public search. Funding/team/unlock remain UNKNOWN unless a dedicated source is wired. Class A is keyword-based, not a fake VC database.",
+        "disclaimer": "来自 DexScreener 公开搜索。融资/团队/解锁在未接入专用数据源时保持未知。A级按关键词，不是伪造的VC库。",
     }
 
 
@@ -111,5 +111,5 @@ def latest(session: Session, limit: int = 40) -> dict[str, Any]:
         "ok": True,
         "from_cache": True,
         "projects": projects,
-        "disclaimer": "Last stored DexScreener search. Funding/team/unlock remain UNKNOWN unless sourced.",
+        "disclaimer": "上次保存的 DexScreener 搜索。融资/团队/解锁在未取源时保持未知。",
     }

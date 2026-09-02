@@ -112,7 +112,7 @@ async def analyze(session: Session) -> dict[str, Any]:
             "indicators": {},
             "missing_indicators": missing,
             "source_status": {"binance": kl.as_dict()},
-            "disclaimer": "Cycle output withheld because BTC daily candles were not retrieved. No date is invented.",
+            "disclaimer": "因未能取得 BTC 日线，周期输出暂缺。不会编造日期。",
         }
         return result
 
@@ -171,7 +171,7 @@ async def analyze(session: Session) -> dict[str, Any]:
     top_window = {
         "from": (last_h.replace(year=last_h.year + 2)).date().isoformat(),
         "to": (last_h.replace(year=last_h.year + 4)).date().isoformat(),
-        "note": "Historical post-halving window only. Not a prediction that price must top inside it.",
+        "note": "仅表示历史减半后窗口。不是价格必须在窗口内见顶的预测。",
     }
     bottom_window = {
         "from": (last_h.replace(year=last_h.year + 3)).date().isoformat(),
@@ -211,7 +211,7 @@ async def analyze(session: Session) -> dict[str, Any]:
         "reasons": reasons,
         "source_status": {"binance": {"status": kl.status.value, "n": len(kl.payload)}, **extra_status},
         "model_version": version.version,
-        "disclaimer": "Statistical regime sketch from live price/MA/halving plus optional mempool/blockchain.info/paprika metrics. MVRV/NUPL/SOPR remain UNKNOWN without a dedicated on-chain valuation provider. Not a date-certain top or bottom call.",
+        "disclaimer": "基于实时价格/均线/减半及可选 mempool/blockchain.info/paprika 指标的统计状态草图。没有专用链上估值数据源时 MVRV/NUPL/SOPR 保持未知。不是某个确定日期的顶部或底部判断。",
     }
     row = BtcCycle(
         as_of=now,

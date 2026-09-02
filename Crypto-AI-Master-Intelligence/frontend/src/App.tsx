@@ -19,19 +19,19 @@ import { api } from "./api";
 import { Status } from "./components/ui";
 
 const LINKS = [
-  ["/", "Dashboard"],
-  ["/radar", "50X Radar"],
-  ["/futures", "Futures"],
-  ["/spot", "Spot"],
-  ["/airdrop", "Airdrop"],
-  ["/launch", "Launch"],
-  ["/football", "Football"],
-  ["/lottery", "Lottery"],
-  ["/portfolio", "Portfolio"],
-  ["/models", "Models"],
-  ["/simulations", "Simulations"],
-  ["/notifications", "Alerts"],
-  ["/settings", "Settings"],
+  ["/", "总览"],
+  ["/radar", "五十倍雷达"],
+  ["/futures", "合约"],
+  ["/spot", "现货"],
+  ["/airdrop", "空投"],
+  ["/launch", "新盘"],
+  ["/football", "足球"],
+  ["/lottery", "彩票"],
+  ["/portfolio", "组合"],
+  ["/models", "模型"],
+  ["/simulations", "模拟"],
+  ["/notifications", "提醒"],
+  ["/settings", "设置"],
 ];
 
 export default function App() {
@@ -54,7 +54,7 @@ export default function App() {
   return (
     <div className="min-h-screen" style={{ background: "var(--bg)", color: "var(--text)" }}>
       <aside className="fixed inset-y-0 left-0 w-56 border-r p-4" style={{ borderColor: "var(--border)", background: "var(--panel)" }}>
-        <div className="mb-6 font-mono text-xs tracking-[0.2em]" style={{ color: "var(--accent)" }}>CAMI TERMINAL</div>
+        <div className="mb-6 font-mono text-xs tracking-[0.2em]" style={{ color: "var(--accent)" }}>加密智能终端</div>
         <nav className="flex flex-col gap-1 text-sm">
           {LINKS.map(([to, label]) => (
             <NavLink
@@ -71,8 +71,8 @@ export default function App() {
       </aside>
       <header className="ml-56 flex items-center justify-between border-b px-6 py-3" style={{ borderColor: "var(--border)" }}>
         <div>
-          <div className="text-lg font-semibold">Crypto AI Master Intelligence</div>
-          <div className="text-xs" style={{ color: "var(--muted)" }}>Statistical models only. Not financial, betting, or investment advice. No live orders. No private keys.</div>
+          <div className="text-lg font-semibold">加密智能终端</div>
+          <div className="text-xs" style={{ color: "var(--muted)" }}>仅统计模型结果，不是财经、投注或投资建议。不下单，不保存私钥。</div>
           <div className="mt-1 flex flex-wrap gap-3 text-[11px]">
             {["binance", "coingecko", "lottery", "mempool"].map((name) => (
               <span key={name} className="font-mono">
@@ -93,12 +93,12 @@ export default function App() {
                 }
               }
             }}
-            placeholder="Search / Enter BTCUSDT"
+            placeholder="搜索 / 回车跳转 BTCUSDT"
             className="w-56 rounded border bg-transparent px-3 py-1 text-sm"
             style={{ borderColor: "var(--border)" }}
           />
           <button onClick={() => setDark((v) => !v)} className="rounded border px-3 py-1 text-xs" style={{ borderColor: "var(--border)" }}>
-            {dark ? "Light" : "Dark"}
+            {dark ? "浅色" : "深色"}
           </button>
         </div>
       </header>

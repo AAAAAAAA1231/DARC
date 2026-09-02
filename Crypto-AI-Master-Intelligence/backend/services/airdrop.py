@@ -91,7 +91,7 @@ async def scan(session: Session, limit: int = 40) -> dict[str, Any]:
         "ok": True,
         "projects": out,
         "source_status": {"defillama": {"status": env.status.value, "n": len(env.payload or [])}},
-        "disclaimer": "Candidates are protocols with TVL and no listed token symbol on DefiLlama. Funding, valuation, and expected return are UNKNOWN unless a dedicated funding provider is configured. Nothing here is fabricated.",
+        "disclaimer": "候选为 DefiLlama 上有锁仓且未列出代币符号的协议。融资、估值和预期收益在未配置专用融资数据源时为未知。这里没有编造。",
     }
 
 
@@ -120,5 +120,5 @@ def latest(session: Session, limit: int = 40) -> dict[str, Any]:
         "ok": True,
         "from_cache": True,
         "projects": projects,
-        "disclaimer": "Last stored DefiLlama scan. Funding/valuation remain UNKNOWN unless sourced.",
+        "disclaimer": "上次保存的 DefiLlama 扫描。融资/估值在未取源时保持未知。",
     }

@@ -19,8 +19,8 @@ from backend.simulations.monte_carlo import lottery_coverage_sim
 logger = get_logger("lottery")
 
 DISCLAIMER = (
-    "Lottery draws are random. Historical frequency and Monte Carlo coverage are descriptive statistics, "
-    "not a method that guarantees a prize. Simulation count is not accuracy."
+    "彩票开奖是随机的。历史频率和蒙特卡洛覆盖率只是描述性统计，"
+    "不能保证中奖。模拟次数不等于准确率。"
 )
 
 

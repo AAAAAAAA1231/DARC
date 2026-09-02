@@ -1,4 +1,5 @@
 import { ReactNode } from "react";
+import { statusZh } from "../zh";
 
 export function Panel({ title, children, action, className }: { title: string; children: ReactNode; action?: ReactNode; className?: string }) {
   return (
@@ -20,11 +21,11 @@ export function Status({ value }: { value?: string | null }) {
       : v === "MALICIOUS" || v === "HIGH_RISK" || v === "ERROR"
         ? "var(--danger)"
         : "#c9a227";
-  return <span className="font-mono text-xs" style={{ color }}>{v}</span>;
+  return <span className="font-mono text-xs" style={{ color }}>{statusZh(v)}</span>;
 }
 
 export function Disclaimer({ text }: { text?: string }) {
-  return <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>{text || "Statistical output, not a certainty."}</p>;
+  return <p className="mt-3 text-xs leading-relaxed" style={{ color: "var(--muted)" }}>{text || "统计结果，不是确定性结论。"}</p>;
 }
 
 export function Button({ children, onClick, disabled }: { children: ReactNode; onClick?: () => void; disabled?: boolean }) {

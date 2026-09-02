@@ -236,7 +236,7 @@ async def dashboard(session: Session, module: str | None = None) -> dict[str, An
         "today_pnl": str(today) if today is not None else None,
         "week_pnl": str(week) if week is not None else None,
         "month_pnl": str(month) if month is not None else None,
-        "period_note": "Period PnL is current net minus the earliest snapshot in that window. None means no prior snapshot yet — not a fabricated zero.",
+        "period_note": "区间盈亏 = 当前净值减去该窗口内最早快照。没有快照就是没有，不会编成零。",
         "positions": items,
         "missing_prices": missing_prices,
         "modules": [m.value for m in ModuleName],

@@ -10,7 +10,7 @@ type Candle = {
 
 export default function CandleChart({ candles, height = 280 }: { candles?: Candle[] | null; height?: number }) {
   if (!candles?.length) {
-    return <div className="text-sm text-[#8aa0c2]">No candles yet — source down or empty. Nothing is invented.</div>;
+    return <div className="text-sm text-[#8aa0c2]">暂无K线 — 数据源不可用或为空。不会编造价格。</div>;
   }
   const option = {
     backgroundColor: "transparent",

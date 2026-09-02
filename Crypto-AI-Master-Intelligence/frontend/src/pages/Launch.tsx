@@ -29,22 +29,22 @@ export default function Launch({ query }: { query: string }) {
 
   return (
     <Panel
-      title="Launch / Presale hunter"
+      title="新盘 / 预售猎手"
       action={
         <div className="flex gap-2">
           <select value={klass} onChange={(e) => { setKlass(e.target.value); setPage(0); }} className="bg-transparent text-xs">
-            <option value="">All classes</option>
+            <option value="">全部级别</option>
             <option value="A">A</option>
             <option value="B">B</option>
             <option value="C">C</option>
           </select>
-          <Button disabled={busy} onClick={scan}>{busy ? "Searching DexScreener…" : "Scan"}</Button>
+          <Button disabled={busy} onClick={scan}>{busy ? "正在搜索 DexScreener…" : "扫描"}</Button>
         </div>
       }
     >
       <Disclaimer text={data?.disclaimer} />
       <table className="mt-3 w-full text-left text-sm">
-        <thead style={{ color: "var(--muted)" }}><tr><th>Name</th><th>Class</th><th>Chain</th><th>Funding</th><th>Security</th></tr></thead>
+        <thead style={{ color: "var(--muted)" }}><tr><th>名称</th><th>级别</th><th>链</th><th>融资</th><th>安全</th></tr></thead>
         <tbody>
           {slice.map((p: any) => (
             <tr key={p.project_id} className="border-t" style={{ borderColor: "var(--border)" }}>
@@ -58,8 +58,8 @@ export default function Launch({ query }: { query: string }) {
         </tbody>
       </table>
       <div className="mt-2 flex gap-2 text-xs">
-        <Button onClick={() => setPage((n) => Math.max(0, n - 1))}>Prev</Button>
-        <Button onClick={() => setPage((n) => n + 1)}>Next</Button>
+        <Button onClick={() => setPage((n) => Math.max(0, n - 1))}>上一页</Button>
+        <Button onClick={() => setPage((n) => n + 1)}>下一页</Button>
       </div>
     </Panel>
   );

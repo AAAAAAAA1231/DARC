@@ -556,7 +556,7 @@ async def sim_get(simulation_id: str):
             "results": job.results,
             "confidence_interval": job.confidence_interval,
             "error": job.error,
-            "disclaimer": "Simulation confidence is not live accuracy.",
+            "disclaimer": "模拟置信度不是实盘准确率。",
         }
     finally:
         session.close()

@@ -43,21 +43,21 @@ export default function Spot({ query }: { query: string }) {
 
   return (
     <Panel
-      title="Spot opportunities"
+      title="现货机会"
       action={
         <div className="flex gap-2">
           <select value={profile} onChange={(e) => setProfile(e.target.value)} className="bg-transparent text-xs">
-            <option>CONSERVATIVE</option>
-            <option>BALANCED</option>
-            <option>AGGRESSIVE</option>
+            <option value="CONSERVATIVE">保守</option>
+            <option value="BALANCED">均衡</option>
+            <option value="AGGRESSIVE">进取</option>
           </select>
-          <Button disabled={busy} onClick={scan}>{busy ? "Scanning…" : "Scan"}</Button>
+          <Button disabled={busy} onClick={scan}>{busy ? "扫描中…" : "扫描"}</Button>
         </div>
       }
     >
       <Disclaimer text={data?.disclaimer} />
       <table className="mt-3 w-full text-left text-sm">
-        <thead style={{ color: "var(--muted)" }}><tr><th>Symbol</th><th>Price</th><th>Buy zone</th><th>SL</th><th>TP1</th><th>Score</th><th>Holding</th></tr></thead>
+        <thead style={{ color: "var(--muted)" }}><tr><th>交易对</th><th>价格</th><th>买入区间</th><th>止损</th><th>止盈1</th><th>分数</th><th>持仓</th></tr></thead>
         <tbody>
           {rows.map((r: any) => (
             <tr key={r.symbol} className="border-t" style={{ borderColor: "var(--border)" }}>
@@ -66,7 +66,7 @@ export default function Spot({ query }: { query: string }) {
               <td>{fmtNum(r.buy_zone?.[0])} – {fmtNum(r.buy_zone?.[1])}</td>
               <td>{fmtNum(r.stop_loss)}</td>
               <td>{fmtNum(r.tp1)}</td>
-              <td>{r.score ?? "UNKNOWN"}</td>
+              <td>{r.score ?? "未知"}</td>
               <td><HoldingBadge overlay={holdingFor(overlay, r.symbol)} /></td>
             </tr>
           ))}

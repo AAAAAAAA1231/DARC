@@ -91,7 +91,7 @@ async def scan(session: Session, top_n: int = 100, analyze_n: int = 15) -> dict[
             "universe": [],
             "top3": [],
             "source_status": tickers.as_dict(),
-            "disclaimer": "Futures universe not fetched. No hardcoded symbol list is substituted.",
+            "disclaimer": "未能拉取合约宇宙。不会用写死的交易对列表顶替。",
         }
     universe = tickers.payload[:top_n]
     analyzed: list[dict[str, Any]] = []
@@ -195,7 +195,7 @@ async def scan(session: Session, top_n: int = 100, analyze_n: int = 15) -> dict[
         "analyzed": analyzed,
         "top3": [{**t, "rank": i} for i, t in enumerate(top3, start=1)],
         "model_version": weights.version,
-        "disclaimer": "Ensemble of technical plugins on live Binance USDT-M data. Not a 100% direction forecast. No live orders are placed.",
+        "disclaimer": "基于币安 USDT 本位实时数据的技术插件集成。不是100%方向预测。不会实盘下单。",
     }
 
 
@@ -238,5 +238,5 @@ def latest_top3(session: Session) -> dict[str, Any]:
         "from_cache": True,
         "universe_count": None,
         "top3": top3,
-        "disclaimer": "Last stored futures analysis. Click Scan for a fresh live volume universe.",
+        "disclaimer": "上次保存的合约分析。点击扫描可拉取新的实时成交额宇宙。",
     }

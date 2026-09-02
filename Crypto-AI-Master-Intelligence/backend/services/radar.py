@@ -68,7 +68,7 @@ async def scan_radar(session: Session, limit: int = 40) -> dict[str, Any]:
             "source_status": {"coingecko": markets.as_dict()},
             "candidates": [],
             "recommended": [],
-            "disclaimer": "Live market data unavailable. No fabricated ranking is shown.",
+            "disclaimer": "实时行情不可用。不会展示编造的排名。",
         }
 
     dex: DexScreenerProvider = get_provider("dexscreener")  # type: ignore[assignment]
@@ -145,7 +145,7 @@ async def scan_radar(session: Session, limit: int = 40) -> dict[str, Any]:
             "for": [k for k, v in parts.items() if v[0] is not None and v[0] >= 60],
             "against": [k for k, v in parts.items() if v[0] is not None and v[0] < 45] + combined["unknown_factors"],
             "risks": [security["verdict"]],
-            "invalidation": "Any MALICIOUS/HIGH_RISK/UNKNOWN security result, or collapse in liquidity/volume quality.",
+            "invalidation": "出现恶意/高风险/未知的安全结论，或流动性/成交质量崩溃。",
             "not_a_certainty": True,
         }
         record_score(
@@ -193,7 +193,7 @@ async def scan_radar(session: Session, limit: int = 40) -> dict[str, Any]:
     return {
         "ok": True,
         "source_status": source_status,
-        "disclaimer": "Statistical ranking from live data. Not a promise of 10x/50x. UNKNOWN security never enters the pool.",
+        "disclaimer": "基于实时数据的统计排名。不是10倍/50倍承诺。安全状态为未知的永不入池。",
         "candidates": visible,
         "recommended": recommended[:20],
         "top10": recommended[:10],
@@ -238,5 +238,5 @@ def latest_pool(session: Session) -> dict[str, Any]:
         "from_cache": True,
         "recommended": recommended,
         "candidates": [],
-        "disclaimer": "Last stored 50X scores that passed the security gate. Click Scan for a fresh CoinGecko + GoPlus run.",
+        "disclaimer": "上次保存的、已通过安全门槛的五十倍分数。点击扫描可重新跑 CoinGecko + GoPlus。",
     }

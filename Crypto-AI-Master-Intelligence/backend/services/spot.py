@@ -112,7 +112,7 @@ async def scan(session: Session, profile: RiskProfile = RiskProfile.BALANCED, an
         "profile": profile.value,
         "universe_count": len(usdt),
         "opportunities": out,
-        "disclaimer": "Spot zones from live OHLCV + strategy ensemble. Not a guaranteed buy.",
+        "disclaimer": "现货区间来自实时K线与策略集成。不是保证买入。",
         "model_version": version.version,
     }
 
@@ -153,5 +153,5 @@ def latest(session: Session, profile: str | None = None) -> dict[str, Any]:
         "from_cache": True,
         "profile": profile or "ALL",
         "opportunities": opportunities,
-        "disclaimer": "Last stored spot scan. Click Scan for a fresh live universe.",
+        "disclaimer": "上次保存的现货扫描。点击扫描可拉取新的实时宇宙。",
     }

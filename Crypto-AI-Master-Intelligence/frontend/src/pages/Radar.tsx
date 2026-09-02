@@ -63,24 +63,24 @@ export default function Radar({ query }: { query: string }) {
   return (
     <div className="space-y-4">
       <Panel
-        title="50X Opportunity Radar"
+        title="五十倍机会雷达"
         action={
           <div className="flex gap-2">
             <select value={sort} onChange={(e) => setSort(e.target.value)} className="bg-transparent text-xs">
-              <option value="score">Score</option>
-              <option value="name">Name</option>
+              <option value="score">分数</option>
+              <option value="name">名称</option>
             </select>
-            <Button disabled={busy} onClick={scan}>{busy ? "Scanning live APIs…" : "Scan live market"}</Button>
+            <Button disabled={busy} onClick={scan}>{busy ? "正在扫描实时接口…" : "扫描实时市场"}</Button>
           </div>
         }
       >
-        <p className="text-sm" style={{ color: "var(--muted)" }}>Security is a hard filter. MALICIOUS / HIGH_RISK / UNKNOWN cannot enter Top 10/20. Held assets show cost/PnL vs the model — never a live order.{data?.from_cache ? " Showing last stored scan." : ""}</p>
+        <p className="text-sm" style={{ color: "var(--muted)" }}>安全是硬门槛。恶意 / 高风险 / 未知不能进入前 10/20。已持仓会显示成本与盈亏对照模型，绝不是实盘下单。{data?.from_cache ? " 当前为上次保存的扫描。" : ""}</p>
         <Disclaimer text={data?.disclaimer} />
         <div className="mt-3 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead style={{ color: "var(--muted)" }}>
               <tr>
-                <th>Project</th><th>Score</th><th>Security</th><th>MCap</th><th>Eligible</th><th>Holding</th>
+                <th>项目</th><th>分数</th><th>安全</th><th>市值</th><th>入池</th><th>持仓</th>
               </tr>
             </thead>
             <tbody>
@@ -90,14 +90,14 @@ export default function Radar({ query }: { query: string }) {
                     <Link style={{ color: "var(--accent)" }} to={`/projects/${r.project_id}`}>{r.symbol} {r.name}</Link>
                     {r.symbol && (
                       <div>
-                        <Link className="text-[11px]" style={{ color: "var(--muted)" }} to={`/assets/${String(r.symbol).toUpperCase()}`}>chart</Link>
+                        <Link className="text-[11px]" style={{ color: "var(--muted)" }} to={`/assets/${String(r.symbol).toUpperCase()}`}>K线</Link>
                       </div>
                     )}
                   </td>
-                  <td className="font-mono">{r.scores?.score_50x ?? "UNKNOWN"}</td>
+                    <td className="font-mono">{r.scores?.score_50x ?? "未知"}</td>
                   <td><Status value={r.security?.verdict} /></td>
-                  <td className="font-mono">{r.market_cap ?? "UNKNOWN"}</td>
-                  <td>{r.eligible_for_pool ? "YES" : "NO"}</td>
+                  <td className="font-mono">{r.market_cap ?? "未知"}</td>
+                  <td>{r.eligible_for_pool ? "是" : "否"}</td>
                   <td><HoldingBadge overlay={holdingFor(overlay, r.symbol)} /></td>
                 </tr>
               ))}
@@ -105,8 +105,8 @@ export default function Radar({ query }: { query: string }) {
           </table>
         </div>
         <div className="mt-2 flex gap-2 text-xs">
-          <Button onClick={() => setPage((p) => Math.max(0, p - 1))}>Prev</Button>
-          <Button onClick={() => setPage((p) => p + 1)}>Next</Button>
+          <Button onClick={() => setPage((p) => Math.max(0, p - 1))}>上一页</Button>
+          <Button onClick={() => setPage((p) => p + 1)}>下一页</Button>
         </div>
       </Panel>
     </div>

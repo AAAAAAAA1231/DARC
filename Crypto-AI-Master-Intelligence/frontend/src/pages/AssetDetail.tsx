@@ -48,10 +48,10 @@ export default function AssetDetail() {
         }
       >
         <div className="grid grid-cols-2 gap-2 text-sm md:grid-cols-4">
-          <div>Last {fmtNum(ticker.last ?? ticker.close, 2)}</div>
-          <div>24h {ticker.price_change_pct != null ? `${Number(ticker.price_change_pct).toFixed(2)}%` : "UNKNOWN"}</div>
-          <div>Volume {ticker.quote_volume != null ? fmtUsd(ticker.quote_volume) : "UNKNOWN"}</div>
-          <div>Source <Status value={data?.source_status?.status} /></div>
+          <div>最新价 {fmtNum(ticker.last ?? ticker.close, 2)}</div>
+          <div>24小时 {ticker.price_change_pct != null ? `${Number(ticker.price_change_pct).toFixed(2)}%` : "未知"}</div>
+          <div>成交额 {ticker.quote_volume != null ? fmtUsd(ticker.quote_volume) : "未知"}</div>
+          <div>来源 <Status value={data?.source_status?.status} /></div>
         </div>
         <HoldingBadge overlay={data?.holding} />
         <div className="mt-3">

@@ -285,7 +285,7 @@ async def refresh(session: Session) -> dict[str, Any]:
         "upcoming_count": len(upcoming),
         "predictions": predictions,
         "source_status": source_status,
-        "disclaimer": "Probabilities from statistical models on historical scores. Not a guaranteed result. Injuries/xG marked UNKNOWN when not sourced.",
+        "disclaimer": "概率来自历史比分上的统计模型。不是保证赛果。伤病/预期进球在未取源时标记为未知。",
         "model_version": version.version,
     }
 
@@ -337,7 +337,7 @@ def latest(session: Session, limit: int = 30) -> dict[str, Any]:
             }
             for b in bets
         ],
-        "disclaimer": "Last stored football model run. Injuries/xG stay UNKNOWN without a dedicated feed.",
+        "disclaimer": "上次保存的足球模型结果。没有专用数据源时伤病/预期进球保持未知。",
     }
 
 
