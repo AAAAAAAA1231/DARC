@@ -2,11 +2,17 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import { Button, Disclaimer, Panel } from "../components/ui";
 
+function balls(v: any) {
+  if (Array.isArray(v)) return v.join(" ");
+  if (v == null) return "";
+  return String(v);
+}
+
 function fmtNumbers(n: any) {
   if (!n) return "—";
-  if (n.red) return `R ${n.red.join(" ")} + B ${n.blue?.join(" ") || ""}`;
-  if (n.front) return `F ${n.front.join(" ")} + B ${n.back?.join(" ") || ""}`;
-  if (n.digits) return n.digits.join(" ");
+  if (n.red) return `R ${balls(n.red)} + B ${balls(n.blue)}`;
+  if (n.front) return `F ${balls(n.front)} + B ${balls(n.back)}`;
+  if (n.digits) return balls(n.digits);
   return JSON.stringify(n);
 }
 

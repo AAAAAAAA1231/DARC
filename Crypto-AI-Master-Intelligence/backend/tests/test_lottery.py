@@ -1,4 +1,5 @@
 from backend.data_sources.lottery import parse_17500_txt, parse_500_xml
+from backend.services.lottery import _recommend
 
 
 SSQ_XML = """<?xml version="1.0" encoding="utf-8"?>
@@ -42,3 +43,14 @@ def test_parse_17500_ssq_newest_first():
     assert rows[0]["issue"] == "2025090"
     assert rows[0]["numbers"]["blue"] == ["12"]
     assert rows[0]["source"] == "data.17500.cn"
+
+
+def test_ssq_recommend_blue_is_list():
+    rec = _recommend(
+        {"red": [(f"{i:02d}", 1) for i in range(1, 13)], "blue": [("12", 3), ("01", 2)]},
+        "ssq",
+    )
+    assert rec
+    assert isinstance(rec[0]["blue"], list)
+    assert rec[0]["blue"][0] in {"12", "01"}
+

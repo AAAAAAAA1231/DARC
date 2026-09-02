@@ -110,7 +110,7 @@ def _recommend(freqs: dict[str, Any], game: str) -> list[dict[str, Any]]:
         blue = [n for n, _ in freqs["blue"][:4]]
         combos = []
         for i in range(0, min(6, max(0, len(red) - 5))):
-            combos.append({"red": sorted(red[i : i + 6], key=lambda x: int(x)), "blue": blue[i % len(blue)]})
+            combos.append({"red": sorted(red[i : i + 6], key=lambda x: int(x)), "blue": [blue[i % len(blue)]]})
         return combos
     if game == "dlt" and freqs.get("front") and freqs.get("back"):
         front = [n for n, _ in freqs["front"][:10]]
