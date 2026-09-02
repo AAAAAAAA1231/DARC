@@ -47,7 +47,7 @@ if exist dist\Crypto-AI-Master-Intelligence.exe (
   echo Built: dist\Crypto-AI-Master-Intelligence.exe
   echo Put .env next to the EXE if you have API keys. Missing keys are OK.
   echo SQLite and logs are created beside the EXE on first launch.
-  echo First open can take 1-3 minutes. If Edge says connection refused, read logs\desktop.log.
+  echo First open shows a splash while the EXE unpacks (1-3 minutes). If nothing appears, read logs\desktop.log.
 ) else (
   echo Expected dist\Crypto-AI-Master-Intelligence.exe was not produced.
   exit /b 1

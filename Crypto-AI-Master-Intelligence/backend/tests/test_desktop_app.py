@@ -7,6 +7,7 @@ from pathlib import Path
 
 from backend.desktop_app import (
     build_uvicorn_server,
+    close_boot_splash,
     error_html,
     health_timeout_seconds,
     pick_listen_port,
@@ -69,6 +70,10 @@ def test_splash_and_error_html_point_at_ported_url(tmp_path: Path):
     assert "ERR_CONNECTION_REFUSED" in err
     assert "8787" in err
     assert "boom" in err
+
+
+def test_close_boot_splash_is_safe_without_pyinstaller():
+    close_boot_splash("hello")
 
 
 def test_uvicorn_server_disables_signal_handlers():

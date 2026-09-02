@@ -14,3 +14,8 @@ def test_frontend_dist_exists_for_packaging():
     dist = frontend_dist()
     assert dist.exists(), "run npm run build before packaging the EXE"
     assert (dist / "index.html").exists()
+
+
+def test_packaging_splash_exists():
+    assert (BUNDLE_ROOT / "packaging" / "splash.png").exists()
+    assert (BUNDLE_ROOT / "packaging" / "pyi_runtime_hook_stdio.py").exists()

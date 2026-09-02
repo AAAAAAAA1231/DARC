@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -39,10 +40,12 @@ def setup_logging() -> logging.Logger:
     )
     file_handler = logging.FileHandler(log_dir / "cami.log", encoding="utf-8")
     file_handler.setFormatter(formatter)
-    stream_handler = logging.StreamHandler()
-    stream_handler.setFormatter(formatter)
     logger.addHandler(file_handler)
-    logger.addHandler(stream_handler)
+    stream = sys.stdout if sys.stdout is not None else sys.stderr
+    if stream is not None:
+        stream_handler = logging.StreamHandler(stream)
+        stream_handler.setFormatter(formatter)
+        logger.addHandler(stream_handler)
     logger.propagate = False
     return logger
 

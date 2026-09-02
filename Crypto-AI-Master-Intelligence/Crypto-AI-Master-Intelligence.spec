@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from PyInstaller.building.build_main import EXE, PYZ, Analysis
+from PyInstaller.building.splash import Splash
 from PyInstaller.utils.hooks import collect_all, collect_submodules
 
 block_cipher = None
@@ -79,7 +80,7 @@ a = Analysis(
     hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
-    runtime_hooks=[],
+    runtime_hooks=["packaging/pyi_runtime_hook_stdio.py"],
     excludes=["pytest", "tkinter"],
     cipher=block_cipher,
     noarchive=False,
@@ -87,9 +88,21 @@ a = Analysis(
 
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
+splash = Splash(
+    "packaging/splash.png",
+    binaries=a.binaries,
+    datas=a.datas,
+    text_pos=(24, 360),
+    text_size=14,
+    text_color="white",
+    text_default="Starting... first launch may take 1-3 minutes",
+)
+
 exe = EXE(
     pyz,
     a.scripts,
+    splash,
+    splash.binaries,
     a.binaries,
     a.zipfiles,
     a.datas,

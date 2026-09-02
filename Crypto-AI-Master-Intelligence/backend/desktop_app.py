@@ -200,15 +200,44 @@ def error_html(url: str, log_path: Path, detail: str) -> str:
 """
 
 
-def show_windows_error(title: str, text: str) -> None:
+def show_windows_message(title: str, text: str, icon: int = 0x10) -> None:
     if sys.platform != "win32":
         return
     try:
         import ctypes
 
-        ctypes.windll.user32.MessageBoxW(0, text, title, 0x10)
+        ctypes.windll.user32.MessageBoxW(0, text, title, icon)
     except Exception:  # noqa: BLE001
         append_desktop_log(f"messagebox_failed {text}")
+
+
+def show_windows_error(title: str, text: str) -> None:
+    show_windows_message(title, text, 0x10)
+
+
+def close_boot_splash(message: str | None = None) -> None:
+    try:
+        import pyi_splash
+    except Exception:  # noqa: BLE001
+        return
+    try:
+        if message:
+            pyi_splash.update_text(message)
+        pyi_splash.close()
+    except Exception:  # noqa: BLE001
+        return
+
+
+def attach_frozen_stdio() -> None:
+    if sys.stdout is not None and sys.stderr is not None:
+        return
+    path = desktop_log_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    handle = path.open("a", encoding="utf-8", buffering=1)
+    if sys.stdout is None:
+        sys.stdout = handle
+    if sys.stderr is None:
+        sys.stderr = handle
 
 
 def serve_api(host: str, port: int, errors: list[str]) -> None:
@@ -241,60 +270,104 @@ def resolve_bind() -> tuple[str, int]:
     return host, port
 
 
+def _keep_server(thread: threading.Thread) -> None:
+    try:
+        thread.join()
+    except KeyboardInterrupt:
+        return
+
+
+def open_in_browser(url: str) -> None:
+    import webbrowser
+
+    webbrowser.open(url, new=2, autoraise=True)
+
+
 def run() -> None:
+    try:
+        _run_inner()
+    except Exception as exc:  # noqa: BLE001
+        close_boot_splash()
+        detail = f"{exc}\n{traceback.format_exc()}"
+        try:
+            append_desktop_log(f"run_failed {detail}")
+            log_path = desktop_log_path()
+        except Exception:  # noqa: BLE001
+            log_path = Path("logs/desktop.log")
+        show_windows_error(
+            "启动失败",
+            f"{exc}\n\n若双击没有窗口，请看 EXE 同目录：\n{log_path}",
+        )
+        raise
+
+
+def _run_inner() -> None:
     prepare_runtime()
+    attach_frozen_stdio()
     install_crash_hooks()
     log_path = append_desktop_log(
         f"desktop_boot frozen={getattr(sys, 'frozen', False)} exe={sys.executable} data={DATA_ROOT}"
     )
-    try:
-        from backend.core.config import get_settings
-        from backend.core.logging import get_logger
+    from backend.core.config import get_settings
+    from backend.core.logging import get_logger
 
-        get_logger("desktop")
-        host, port = resolve_bind()
-        app_name = get_settings().app_name
-    except Exception as exc:  # noqa: BLE001
-        detail = f"{exc}\n{traceback.format_exc()}"
-        append_desktop_log(f"config_failed {detail}")
-        show_windows_error("启动失败", f"配置加载失败。\n日志：{log_path}\n\n{exc}")
-        raise
-
+    get_logger("desktop")
+    host, port = resolve_bind()
+    app_name = get_settings().app_name
     url = f"http://{host}:{port}"
     errors: list[str] = []
     thread = threading.Thread(target=serve_api, args=(host, port, errors), daemon=True, name="cami-api")
     thread.start()
 
-    splash = splash_html(url, log_path)
-    import webview
+    splash_file = DATA_ROOT / "logs" / "splash.html"
+    splash_file.write_text(splash_html(url, log_path), encoding="utf-8")
 
-    window = webview.create_window(app_name, html=splash, width=1440, height=900)
-
-    def after_gui() -> None:
+    def after_ready(window: Any | None) -> None:
         ok = wait_for_health(
             url,
             timeout_s=health_timeout_seconds(),
             abort=lambda: bool(errors) and not thread.is_alive(),
         )
         if ok:
-            append_desktop_log(f"opening_window {url}")
-            try:
-                window.load_url(url)
-            except Exception as exc:  # noqa: BLE001
-                append_desktop_log(f"load_url_failed {exc}")
+            append_desktop_log(f"engine_ready {url}")
+            if window is not None:
+                try:
+                    window.load_url(url)
+                    return
+                except Exception as exc:  # noqa: BLE001
+                    append_desktop_log(f"load_url_failed {exc}")
+            open_in_browser(url)
             return
         detail = errors[0] if errors else "health check timed out"
         append_desktop_log(f"startup_failed {detail}")
-        try:
-            window.load_html(error_html(url, log_path, detail))
-        except Exception as exc:  # noqa: BLE001
-            append_desktop_log(f"load_html_failed {exc}")
+        if window is not None:
+            try:
+                window.load_html(error_html(url, log_path, detail))
+            except Exception as exc:  # noqa: BLE001
+                append_desktop_log(f"load_html_failed {exc}")
         show_windows_error(
             "本地引擎没有启动",
-            f"浏览器因此会显示「拒绝连接」。\n请打开日志：\n{log_path}\n\n地址必须是 {url}",
+            f"请打开日志：\n{log_path}\n\n地址必须是 {url}",
         )
 
-    webview.start(after_gui)
+    close_boot_splash("正在打开窗口…")
+    try:
+        import webview
+
+        window = webview.create_window(app_name, splash_file.as_uri(), width=1440, height=900)
+        webview.start(lambda: after_ready(window))
+        return
+    except Exception as exc:  # noqa: BLE001
+        append_desktop_log(f"webview_failed {exc}\n{traceback.format_exc()}")
+
+    after_ready(None)
+    if thread.is_alive():
+        show_windows_message(
+            "已在浏览器打开",
+            f"本机窗口组件未能启动，请使用浏览器打开：\n{url}\n\n关闭本对话框不会停止引擎。",
+            0x40,
+        )
+        _keep_server(thread)
 
 
 if __name__ == "__main__":
