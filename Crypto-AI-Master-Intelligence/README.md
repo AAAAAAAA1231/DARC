@@ -99,7 +99,7 @@ Live provider tests hit real endpoints. If a vendor is down, they assert structu
 
 ## EXE (Windows)
 
-Double-click `dist\Crypto-AI-Master-Intelligence.exe` after building. The window starts the local API and the built UI. SQLite (`data\cami.db`), logs, and `.env` are created **next to the EXE**. Missing API keys do not block launch.
+Double-click `dist\Crypto-AI-Master-Intelligence.exe` after building. The window starts a **splash page**, then the local API, then the built UI at `http://127.0.0.1:8787` (port is required — opening `127.0.0.1` alone is `ERR_CONNECTION_REFUSED`). First launch can take 1–3 minutes while PyInstaller unpacks. If the engine fails, the window stays on an error page and `logs\desktop.log` is written **next to the EXE**. SQLite (`data\cami.db`), logs, and `.env` are also created there. Missing API keys do not block launch.
 
 ```bat
 build_exe.bat

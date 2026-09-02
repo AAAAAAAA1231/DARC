@@ -30,6 +30,7 @@ hiddenimports = [
     "uvicorn.lifespan",
     "uvicorn.lifespan.on",
     "uvicorn.lifespan.off",
+    "uvicorn.server",
     "webview.platforms.winforms",
     "webview.platforms.edgechromium",
     "webview.platforms.mshtml",
