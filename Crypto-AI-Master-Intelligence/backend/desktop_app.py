@@ -9,6 +9,7 @@ Hold the listen port with a stdlib boot page, then hand it to uvicorn.
 from __future__ import annotations
 
 import html
+import json
 import multiprocessing
 import os
 import socket
@@ -306,8 +307,8 @@ def splash_html(url: str, log_path: Path) -> str:
   <script>
     async function poll() {{
       try {{
-        const res = await fetch("/api/ready", {{ cache: "no-store" }});
-        if (res.ok) {{ location.replace("/"); return; }}
+        const res = await fetch({json.dumps(url.rstrip("/") + "/api/ready")}, {{ cache: "no-store" }});
+        if (res.ok) {{ location.replace({json.dumps(url.rstrip("/") + "/")}); return; }}
       }} catch (e) {{}}
       setTimeout(poll, 400);
     }}
@@ -389,26 +390,26 @@ def attach_frozen_stdio() -> None:
         sys.stderr = handle
 
 
-def serve_api(host: str, port: int, errors: list[str], before_bind: Callable[[], None] | None = None) -> None:
+def serve_api(host: str, port: int, errors: list[str], bound: list[int]) -> None:
     try:
         append_desktop_log(f"importing_app host={host} port={port}")
         from backend.main import app
 
-        if before_bind:
-            before_bind()
         last_err: Exception | None = None
-        for attempt in range(40):
+        for candidate in [port, *range(port + 1, port + 20)]:
             try:
-                server = build_uvicorn_server(app, host, port)
-                append_desktop_log(f"uvicorn_starting {host}:{port} attempt={attempt}")
+                server = build_uvicorn_server(app, host, candidate)
+                bound.append(candidate)
+                append_desktop_log(f"uvicorn_starting {host}:{candidate}")
                 server.run()
                 append_desktop_log("uvicorn_exited")
                 errors.append("uvicorn exited before the window closed")
                 return
             except OSError as exc:
                 last_err = exc
-                append_desktop_log(f"uvicorn_bind_retry {exc}")
-                time.sleep(0.1)
+                append_desktop_log(f"uvicorn_bind_retry port={candidate} {exc}")
+                if bound:
+                    bound.clear()
         raise RuntimeError(f"uvicorn bind failed: {last_err}")
     except Exception as exc:  # noqa: BLE001
         text = f"{exc}\n{traceback.format_exc()}"
@@ -453,15 +454,16 @@ def run() -> None:
             log_path = Path("logs/desktop.log")
         show_windows_error(
             "启动失败",
-            f"{exc}\n\n若双击没有窗口，请看 EXE 同目录：\n{log_path}",
+            f"{exc}\n\n请把 EXE 同目录的日志发给开发者：\n{log_path}",
         )
-        raise
+        # Do not re-raise: PyInstaller would show a second English traceback dialog.
 
 
 def _run_inner() -> None:
     prepare_runtime()
     attach_frozen_stdio()
     install_crash_hooks()
+    configure_loopback_access()
     log_path = append_desktop_log(
         f"desktop_boot frozen={getattr(sys, 'frozen', False)} exe={sys.executable} data={DATA_ROOT}"
     )
@@ -469,78 +471,61 @@ def _run_inner() -> None:
     from backend.core.logging import get_logger
 
     get_logger("desktop")
-    configure_loopback_access()
     host, preferred = resolve_host_port()
     app_name = get_settings().app_name
-    httpd, port = start_boot_http(host, preferred, splash_html(window_url(host, preferred), log_path))
-    url = window_url(host, port)
-    if port != preferred:
-        append_desktop_log(f"port_in_use preferred={preferred} using={port}")
-        httpd.RequestHandlerClass.page = splash_html(url, log_path).encode("utf-8")  # type: ignore[attr-defined]
-    tcp_ok = tcp_is_open(host, port, timeout_s=1)
-    http_ok = wait_for_http_ok(url + "/", timeout_s=8)
-    append_desktop_log(f"boot_probe tcp={tcp_ok} http={http_ok}")
-    if not tcp_ok and not http_ok:
-        stop_boot_http(httpd)
-        raise RuntimeError(
-            f"无法在 {url} 上启动本地页。\n"
-            "若开了 Clash / V2Ray 系统代理，请开启「绕过局域网 / 回环地址」。\n"
-            f"日志：{log_path}"
-        )
-    if tcp_ok and not http_ok:
-        append_desktop_log("boot_tcp_open_http_failed continuing")
-
+    url = window_url(host, preferred)
     errors: list[str] = []
-    boot_holder: dict[str, ThreadingHTTPServer | None] = {"httpd": httpd}
-
-    def _release_boot() -> None:
-        stop_boot_http(boot_holder.get("httpd"))
-        boot_holder["httpd"] = None
-
+    bound: list[int] = []
     thread = threading.Thread(
         target=serve_api,
-        args=(host, port, errors, _release_boot),
+        args=(host, preferred, errors, bound),
         daemon=True,
         name="cami-api",
     )
     thread.start()
 
+    def live_url() -> str:
+        return window_url(host, bound[0] if bound else preferred)
+
     def after_ready(window: Any | None) -> None:
+        target = live_url()
         ok = wait_for_health(
-            url,
+            target,
             timeout_s=health_timeout_seconds(),
             abort=lambda: bool(errors) and not thread.is_alive(),
         )
         if ok:
-            append_desktop_log(f"engine_ready {url}")
+            append_desktop_log(f"engine_ready {target}")
             if window is not None:
                 try:
-                    window.load_url(url + "/")
+                    window.load_url(target + "/")
                     return
                 except Exception as exc:  # noqa: BLE001
                     append_desktop_log(f"load_url_failed {exc}")
-            open_in_browser(url + "/")
+            open_in_browser(target + "/")
             return
         detail = errors[0] if errors else "health check timed out"
         append_desktop_log(f"startup_failed {detail}")
         if window is not None:
             try:
-                window.load_html(error_html(url, log_path, detail))
+                window.load_html(error_html(target, log_path, detail))
             except Exception as exc:  # noqa: BLE001
                 append_desktop_log(f"load_html_failed {exc}")
         show_windows_error(
             "本地引擎没有启动",
-            f"请打开日志：\n{log_path}\n\n地址必须是 {url} （必须带端口）",
+            f"请打开日志：\n{log_path}\n\n地址必须是 {target} （必须带端口）\n"
+            "若开了 Clash / V2Ray，请开启「绕过局域网 / 回环地址」。",
         )
 
     close_boot_splash("opening window")
     try:
         import webview
 
-        # Explicit http://127.0.0.1:PORT — never html= / file:// / bare 127.0.0.1.
+        # Embedded HTML only — never navigate to HTTP until /api/ready succeeds.
         window = webview.create_window(
-            f"{app_name} ({host}:{port})",
-            url + "/",
+            f"{app_name} ({host}:{preferred})",
+            url=None,
+            html=splash_html(url, log_path),
             width=1440,
             height=900,
         )
@@ -552,8 +537,8 @@ def _run_inner() -> None:
     after_ready(None)
     if thread.is_alive():
         show_windows_message(
-            "已在浏览器打开",
-            f"本机窗口组件未能启动，请使用浏览器打开：\n{url}\n\n关闭本对话框不会停止引擎。",
+            "请在浏览器打开",
+            f"本机窗口组件未能启动。引擎若已就绪，请打开：\n{live_url()}\n\n日志：{log_path}",
             0x40,
         )
         _keep_server(thread)
