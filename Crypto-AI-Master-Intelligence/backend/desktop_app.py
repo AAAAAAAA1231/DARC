@@ -1,14 +1,14 @@
 """Desktop entry: local API + pywebview window. No live trading.
 
-Windows + PyInstaller note: never call ``uvicorn.run()`` from a background
-thread. That helper installs signal handlers, which fails or hangs off the
-main thread and leaves Edge on ERR_CONNECTION_REFUSED.
+Windows + PyInstaller: never call ``uvicorn.run()`` from a background thread
+(it installs signal handlers). Never open WebView2 on bare ``127.0.0.1``
+(port 80) — that is ERR_CONNECTION_REFUSED even when :8787 is healthy.
+Hold the listen port with a stdlib boot page, then hand it to uvicorn.
 """
 
 from __future__ import annotations
 
 import html
-import json
 import multiprocessing
 import socket
 import sys
@@ -18,6 +18,7 @@ import traceback
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any, Callable
 
@@ -63,6 +64,11 @@ def health_timeout_seconds(frozen: bool | None = None) -> float:
     return FROZEN_HEALTH_TIMEOUT_S if is_frozen else DEV_HEALTH_TIMEOUT_S
 
 
+def window_url(host: str, port: int) -> str:
+    """Always include the port. Bare 127.0.0.1 is port 80 and will refuse."""
+    return f"http://{host}:{int(port)}"
+
+
 def pick_listen_port(host: str, preferred: int, span: int = 20) -> int:
     candidates = [preferred, *range(preferred + 1, preferred + span)]
     for port in candidates:
@@ -93,9 +99,81 @@ def build_uvicorn_server(app: Any, host: str, port: int) -> Any:
         lifespan="on",
     )
     server = Server(config)
-    # Background thread must not touch process-wide signal handlers.
     server.install_signal_handlers = lambda: None
     return server
+
+
+class _BootHandler(BaseHTTPRequestHandler):
+    page: bytes = b""
+
+    def do_GET(self) -> None:  # noqa: N802
+        path = self.path.split("?", 1)[0]
+        if path == "/api/ready":
+            body = b'{"ok":false,"booting":true}'
+            self.send_response(503)
+            self.send_header("Content-Type", "application/json; charset=utf-8")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("Content-Length", str(len(body)))
+            self.end_headers()
+            self.wfile.write(body)
+            return
+        body = type(self).page
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, _format: str, *args: object) -> None:
+        return
+
+
+def start_boot_http(host: str, preferred: int, page: str, span: int = 20) -> tuple[ThreadingHTTPServer, int]:
+    handler = type("BootHandler", (_BootHandler,), {"page": page.encode("utf-8")})
+    last_err: Exception | None = None
+    ports = [preferred, *range(preferred + 1, preferred + span)] if preferred else [0]
+    for port in ports:
+        try:
+            httpd = ThreadingHTTPServer((host, port), handler)
+        except OSError as exc:
+            last_err = exc
+            continue
+        bound = int(httpd.server_address[1])
+        thread = threading.Thread(target=httpd.serve_forever, daemon=True, name="cami-boot-http")
+        thread.start()
+        append_desktop_log(f"boot_http_listening {host}:{bound}")
+        return httpd, bound
+    raise RuntimeError(f"boot http bind failed: {last_err}")
+
+
+def stop_boot_http(httpd: ThreadingHTTPServer | None) -> None:
+    if httpd is None:
+        return
+    append_desktop_log("boot_http_stopping")
+    try:
+        httpd.shutdown()
+    except Exception as exc:  # noqa: BLE001
+        append_desktop_log(f"boot_http_shutdown {exc}")
+    try:
+        httpd.server_close()
+    except Exception as exc:  # noqa: BLE001
+        append_desktop_log(f"boot_http_close {exc}")
+
+
+def wait_for_http_ok(url: str, timeout_s: float, interval_s: float = 0.1) -> bool:
+    deadline = time.monotonic() + timeout_s
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=2) as response:
+                if 200 <= response.status < 300:
+                    return True
+        except (urllib.error.URLError, TimeoutError, OSError, ValueError):
+            time.sleep(interval_s)
+            continue
+        time.sleep(interval_s)
+    return False
 
 
 def wait_for_health(
@@ -128,7 +206,6 @@ def wait_for_health(
 
 def splash_html(url: str, log_path: Path) -> str:
     safe_url = html.escape(url, quote=True)
-    js_url = json.dumps(url.rstrip("/"))
     safe_log = html.escape(str(log_path))
     return f"""<!DOCTYPE html>
 <html lang="zh-CN">
@@ -147,19 +224,18 @@ def splash_html(url: str, log_path: Path) -> str:
 <body>
   <div class="card">
     <h1>正在启动本地引擎</h1>
-    <p>首次打开可能需要 1–3 分钟（解压模型库）。就绪后会自动进入终端。</p>
-    <p>请等待本窗口跳转。不要在 Edge 里单独打开 <code>127.0.0.1</code>（没有端口会连不上）。正确地址是 <code>{safe_url}</code>。</p>
+    <p>首次打开可能需要 1–3 分钟。请留在本页，不要改地址、不要只打开 <code>127.0.0.1</code>（那是 80 端口，会显示拒绝连接）。</p>
+    <p>本窗口地址必须是 <code>{safe_url}</code>。</p>
     <p>日志：<code>{safe_log}</code></p>
-    <p id="st">正在检测 /api/ready …</p>
+    <p id="st">引擎加载中…</p>
   </div>
   <script>
-    const base = {js_url};
     async function poll() {{
       try {{
-        const res = await fetch(base + "/api/ready", {{ cache: "no-store" }});
-        if (res.ok) {{ location.replace(base + "/"); return; }}
+        const res = await fetch("/api/ready", {{ cache: "no-store" }});
+        if (res.ok) {{ location.replace("/"); return; }}
       }} catch (e) {{}}
-      setTimeout(poll, 500);
+      setTimeout(poll, 400);
     }}
     poll();
   </script>
@@ -190,8 +266,7 @@ def error_html(url: str, log_path: Path, detail: str) -> str:
 <body>
   <div class="card">
     <h1>本地引擎没有启动</h1>
-    <p>这就是 Edge 提示「127.0.0.1 拒绝连接 / ERR_CONNECTION_REFUSED」的原因：本机没有进程在监听。</p>
-    <p>预期地址：<code>{safe_url}</code>（必须带端口，不要只打开 127.0.0.1）。</p>
+    <p>Edge 提示「127.0.0.1 拒绝连接」通常是窗口打开了 <code>127.0.0.1</code>（80 端口）而引擎在 <code>{safe_url}</code>。</p>
     <p>请把下面的日志发给开发者：<code>{safe_log}</code></p>
     <pre>{safe_detail}</pre>
   </div>
@@ -240,23 +315,34 @@ def attach_frozen_stdio() -> None:
         sys.stderr = handle
 
 
-def serve_api(host: str, port: int, errors: list[str]) -> None:
+def serve_api(host: str, port: int, errors: list[str], before_bind: Callable[[], None] | None = None) -> None:
     try:
         append_desktop_log(f"importing_app host={host} port={port}")
         from backend.main import app
 
-        server = build_uvicorn_server(app, host, port)
-        append_desktop_log(f"uvicorn_starting {host}:{port}")
-        server.run()
-        append_desktop_log("uvicorn_exited")
-        errors.append("uvicorn exited before the window closed")
+        if before_bind:
+            before_bind()
+        last_err: Exception | None = None
+        for attempt in range(40):
+            try:
+                server = build_uvicorn_server(app, host, port)
+                append_desktop_log(f"uvicorn_starting {host}:{port} attempt={attempt}")
+                server.run()
+                append_desktop_log("uvicorn_exited")
+                errors.append("uvicorn exited before the window closed")
+                return
+            except OSError as exc:
+                last_err = exc
+                append_desktop_log(f"uvicorn_bind_retry {exc}")
+                time.sleep(0.1)
+        raise RuntimeError(f"uvicorn bind failed: {last_err}")
     except Exception as exc:  # noqa: BLE001
         text = f"{exc}\n{traceback.format_exc()}"
         append_desktop_log(f"uvicorn_failed {text}")
         errors.append(text)
 
 
-def resolve_bind() -> tuple[str, int]:
+def resolve_host_port() -> tuple[str, int]:
     from backend.core.config import get_settings
 
     settings = get_settings()
@@ -264,10 +350,7 @@ def resolve_bind() -> tuple[str, int]:
     if host in {"0.0.0.0", "::"}:
         host = DEFAULT_HOST
     preferred = int(settings.port or DEFAULT_PORT)
-    port = pick_listen_port(host, preferred)
-    if port != preferred:
-        append_desktop_log(f"port_in_use preferred={preferred} using={port}")
-    return host, port
+    return host, preferred
 
 
 def _keep_server(thread: threading.Thread) -> None:
@@ -312,15 +395,31 @@ def _run_inner() -> None:
     from backend.core.logging import get_logger
 
     get_logger("desktop")
-    host, port = resolve_bind()
+    host, preferred = resolve_host_port()
     app_name = get_settings().app_name
-    url = f"http://{host}:{port}"
-    errors: list[str] = []
-    thread = threading.Thread(target=serve_api, args=(host, port, errors), daemon=True, name="cami-api")
-    thread.start()
+    httpd, port = start_boot_http(host, preferred, splash_html(window_url(host, preferred), log_path))
+    url = window_url(host, port)
+    if port != preferred:
+        append_desktop_log(f"port_in_use preferred={preferred} using={port}")
+        httpd.RequestHandlerClass.page = splash_html(url, log_path).encode("utf-8")  # type: ignore[attr-defined]
+    if not wait_for_http_ok(url + "/", timeout_s=5):
+        stop_boot_http(httpd)
+        raise RuntimeError(f"boot page did not listen on {url}")
 
-    splash_file = DATA_ROOT / "logs" / "splash.html"
-    splash_file.write_text(splash_html(url, log_path), encoding="utf-8")
+    errors: list[str] = []
+    boot_holder: dict[str, ThreadingHTTPServer | None] = {"httpd": httpd}
+
+    def _release_boot() -> None:
+        stop_boot_http(boot_holder.get("httpd"))
+        boot_holder["httpd"] = None
+
+    thread = threading.Thread(
+        target=serve_api,
+        args=(host, port, errors, _release_boot),
+        daemon=True,
+        name="cami-api",
+    )
+    thread.start()
 
     def after_ready(window: Any | None) -> None:
         ok = wait_for_health(
@@ -332,11 +431,11 @@ def _run_inner() -> None:
             append_desktop_log(f"engine_ready {url}")
             if window is not None:
                 try:
-                    window.load_url(url)
+                    window.load_url(url + "/")
                     return
                 except Exception as exc:  # noqa: BLE001
                     append_desktop_log(f"load_url_failed {exc}")
-            open_in_browser(url)
+            open_in_browser(url + "/")
             return
         detail = errors[0] if errors else "health check timed out"
         append_desktop_log(f"startup_failed {detail}")
@@ -347,14 +446,20 @@ def _run_inner() -> None:
                 append_desktop_log(f"load_html_failed {exc}")
         show_windows_error(
             "本地引擎没有启动",
-            f"请打开日志：\n{log_path}\n\n地址必须是 {url}",
+            f"请打开日志：\n{log_path}\n\n地址必须是 {url} （必须带端口）",
         )
 
-    close_boot_splash("正在打开窗口…")
+    close_boot_splash("opening window")
     try:
         import webview
 
-        window = webview.create_window(app_name, splash_file.as_uri(), width=1440, height=900)
+        # Explicit http://127.0.0.1:PORT — never html= / file:// / bare 127.0.0.1.
+        window = webview.create_window(
+            f"{app_name} ({host}:{port})",
+            url + "/",
+            width=1440,
+            height=900,
+        )
         webview.start(lambda: after_ready(window))
         return
     except Exception as exc:  # noqa: BLE001

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import socket
 import threading
+import urllib.error
+import urllib.request
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 
@@ -12,7 +14,11 @@ from backend.desktop_app import (
     health_timeout_seconds,
     pick_listen_port,
     splash_html,
+    start_boot_http,
+    stop_boot_http,
     wait_for_health,
+    wait_for_http_ok,
+    window_url,
 )
 
 
@@ -60,6 +66,33 @@ def test_wait_for_health_true_then_false(tmp_path: Path):
     assert wait_for_health("http://127.0.0.1:1", timeout_s=0.4, interval_s=0.1) is False
 
 
+def test_window_url_always_includes_port():
+    assert window_url("127.0.0.1", 8787) == "http://127.0.0.1:8787"
+    assert ":8787" in window_url("127.0.0.1", 8787)
+    assert window_url("127.0.0.1", 8787) != "http://127.0.0.1"
+
+
+def test_boot_http_serves_splash_and_not_ready():
+    page = splash_html("http://127.0.0.1:8787", Path("desktop.log"))
+    httpd, port = start_boot_http("127.0.0.1", 0, page)
+    try:
+        assert port > 0
+        url = f"http://127.0.0.1:{port}"
+        assert wait_for_http_ok(url + "/", timeout_s=3)
+        with urllib.request.urlopen(url + "/") as response:
+            body = response.read().decode("utf-8")
+            assert "正在启动" in body
+            assert "8787" in body
+        try:
+            urllib.request.urlopen(url + "/api/ready")
+            raise AssertionError("boot /api/ready should be 503")
+        except urllib.error.HTTPError as exc:
+            assert exc.code == 503
+        assert wait_for_health(url, timeout_s=0.4, interval_s=0.1) is False
+    finally:
+        stop_boot_http(httpd)
+
+
 def test_splash_and_error_html_point_at_ported_url(tmp_path: Path):
     log = tmp_path / "desktop.log"
     splash = splash_html("http://127.0.0.1:8787", log)
@@ -67,7 +100,7 @@ def test_splash_and_error_html_point_at_ported_url(tmp_path: Path):
     assert "/api/ready" in splash
     assert "127.0.0.1" in splash
     err = error_html("http://127.0.0.1:8787", log, "boom")
-    assert "ERR_CONNECTION_REFUSED" in err
+    assert "拒绝连接" in err
     assert "8787" in err
     assert "boom" in err
 
