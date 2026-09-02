@@ -38,7 +38,8 @@ jobs:
       - name: PyInstaller
         run: pyinstaller --noconfirm --clean Crypto-AI-Master-Intelligence.spec
       - name: Stage Chinese download name
-        run: copy /Y dist\Crypto-AI-Master-Intelligence.exe dist\CAMI-zhongwen.exe
+        shell: pwsh
+        run: Copy-Item -Force -Path dist\Crypto-AI-Master-Intelligence.exe -Destination dist\CAMI-zhongwen.exe
       - name: Publish Crypto-AI-Master-Intelligence.exe
         uses: softprops/action-gh-release@v2
         with:
