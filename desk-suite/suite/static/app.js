@@ -30,7 +30,7 @@ $("refitWeights").addEventListener("click", () => startAnalyze("fit"));
 $("contractFilter").addEventListener("input", () => filterTable("contractRows", $("contractFilter").value));
 $("airdropScan").addEventListener("click", () => startAirdrops());
 $("airdropFilter").addEventListener("input", () => filterTable("airdropRows", $("airdropFilter").value));
-$("launchScan").addEventListener("click", () => startLaunches());
+$("launchScan").addEventListener("click", () => startLaunches(true));
 $("launchFilter").addEventListener("input", () => filterTable("launchRows", $("launchFilter").value));
 
 function showView(name) {
@@ -43,7 +43,7 @@ function showView(name) {
   if (name === "football") pollFootball();
   if (name === "contracts") loadContracts();
   if (name === "airdrops") startAirdrops();
-  if (name === "launches") startLaunches();
+  if (name === "launches") openLaunches();
 }
 
 async function api(path, opts = {}) {
@@ -392,9 +392,33 @@ function launchRow(a) {
   </tr>`;
 }
 
-async function startLaunches() {
+async function openLaunches() {
+  try {
+    const data = await api("/api/launches/status");
+    if (data.status === "running") {
+      setStatus(data.phase || "正在检索…");
+      pollLaunches();
+      return;
+    }
+    if ((data.items || []).length) {
+      $("launchRows").innerHTML = data.items.map(launchRow).join("");
+      filterTable("launchRows", $("launchFilter").value);
+      setStatus(data.phase || "就绪");
+      return;
+    }
+  } catch (err) {
+    setStatus("打新查询失败：" + err.message);
+  }
+  startLaunches(true);
+}
+
+async function startLaunches(force) {
+  if (!force) return openLaunches();
   setStatus("正在搜近一个月的发射 / launch / 预售…");
-  $("launchRows").innerHTML = `<tr><td colspan="8" class="muted">正在检索 X，并按机构、名人、VC 关注排序…</td></tr>`;
+  const existing = $("launchRows").querySelectorAll("tr").length;
+  if (!existing || $("launchRows").innerText.includes("点「刷新打新」") || $("launchRows").innerText.includes("正在检索")) {
+    $("launchRows").innerHTML = `<tr><td colspan="8" class="muted">正在检索 X，并按机构、名人、VC 关注排序…</td></tr>`;
+  }
   try {
     await api("/api/launches/scan", { method: "POST", body: {} });
     pollLaunches();

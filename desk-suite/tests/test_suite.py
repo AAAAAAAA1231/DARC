@@ -80,6 +80,33 @@ class HubHttpTests(unittest.TestCase):
         self.assertIn(payload["status"], {"idle", "running", "done", "error"})
         self.assertEqual(payload.get("lookback_days"), 30)
 
+    def test_empty_launch_scan_keeps_previous_rows(self):
+        from unittest.mock import patch
+
+        from suite import launch_api
+
+        sample = [{"rank": 1, "id": "keep", "score": 40, "handle": "alpha", "text": "crypto presale"}]
+        with launch_api._lock:
+            launch_api._job.update(items=sample, count=1, status="done")
+
+        async def empty_hunt(lookback_days: int = 30):
+            return {
+                "count": 0,
+                "items": [],
+                "errors": [],
+                "sources": [],
+                "since": "2026-08-01",
+                "lookback_days": lookback_days,
+                "disclaimer": "",
+            }
+
+        with patch("suite.launch_api.hunt_launches", empty_hunt):
+            launch_api._run()
+        payload = launch_api.status()
+        self.assertEqual(payload["status"], "done")
+        self.assertEqual(payload["items"][0]["id"], "keep")
+        self.assertIn("上次", payload["phase"])
+
     def test_contract_module_is_mounted(self):
         payload = self.client.get("/chain/api/health").json()
         self.assertEqual(payload["app"], "链上雷达")

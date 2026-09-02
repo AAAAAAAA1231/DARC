@@ -37,13 +37,25 @@ def _run() -> None:
             loop.close()
         count = payload.get("count") or 0
         with _lock:
+            prev_items = list(_job.get("items") or [])
+            items = payload.get("items") or []
+            kept = False
+            if not items and prev_items:
+                items = prev_items
+                count = len(items)
+                kept = True
+            phase = (
+                f"来源暂时没新帖，仍显示上次 {count} 条"
+                if kept
+                else f"完成，近一个月 {count} 条（机构/名人优先）"
+            )
             _job.update(
                 status="done",
-                phase=f"完成，近一个月 {count} 条（机构/名人优先）",
-                items=payload.get("items") or [],
+                phase=phase,
+                items=items,
                 count=count,
                 errors=payload.get("errors") or [],
-                sources=payload.get("sources") or [],
+                sources=payload.get("sources") or _job.get("sources") or [],
                 since=payload.get("since") or "",
                 lookback_days=payload.get("lookback_days") or 30,
                 disclaimer=payload.get("disclaimer") or "",
