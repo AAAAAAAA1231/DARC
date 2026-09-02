@@ -1,0 +1,16 @@
+---
+description: Frontend coding standards
+globs: frontend/**/*.{ts,tsx,css}
+alwaysApply: false
+---
+
+# Frontend
+
+- React + TypeScript + Vite + TailwindCSS + ECharts.
+- Professional quant-terminal aesthetic. Dark and light themes are first-class.
+- Every list supports search, filter, sort, pagination.
+- Source status, data quality, and UNKNOWN fields must be visible. Never fill blanks with fake numbers.
+- Recommendations must show explanation, risk, confidence, and invalidation.
+- Distinguish model recommendation vs user action vs actual result in every tracking view.
+- Do not call vendor APIs from the browser. All data goes through the local backend.
+- Portfolio PnL must show Gross PnL, Total Cost, Net PnL, ROI — including fees, funding, gas, slippage where recorded.

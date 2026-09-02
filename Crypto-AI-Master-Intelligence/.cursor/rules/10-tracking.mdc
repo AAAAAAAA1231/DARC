@@ -1,0 +1,23 @@
+---
+description: Portfolio, tracking, and learning-loop rules
+globs: backend/services/**/*.py
+alwaysApply: false
+---
+
+# Tracking & Learning Loop
+
+Always keep these three ledgers separate:
+
+1. Model recommendation (version, scores, signal, time)
+2. User action (buy/sell/bet/ignore, size, fees, venue)
+3. Actual result (fill, settlement, PnL)
+
+Crypto PnL includes trading fee, funding, gas, slippage, other costs.
+Football PnL uses stake, odds, actual payout.
+Lottery PnL uses ticket cost and prize.
+
+Positions: multiple buys, add, reduce, full exit. Compute average cost, invested, current value, realized/unrealized/total PnL, ROI, holding time.
+
+When a held asset is re-scanned, show current price, user cost, invested, value, floating PnL, ROI, original vs current model score, current signal, risk.
+
+Model review records every prediction and computes win rate, profit factor, Sharpe, max DD, expectancy, precision, recall, calibration — then writes a new model version rather than overwriting.

@@ -1,0 +1,17 @@
+---
+description: Python coding standards
+globs: **/*.py
+alwaysApply: false
+---
+
+# Python
+
+- Python 3.12+, type hints on public functions, Pydantic v2 for API/provider schemas.
+- Async HTTP via httpx. Async IO for I/O-bound work. NumPy/Numba/multiprocessing for CPU-bound simulations.
+- Never `for i in range(1_000_000_000)` over simulation paths. Vectorize, chunk, cache.
+- Decimal (not float) for money, quantity, fees, PnL. Float is allowed for indicators and probabilities.
+- Parse timestamps with the shared parser. Do not assume ISO-8601 or millisecond epoch.
+- Do not write `response["price"]` against raw vendor JSON. Validate with a Provider schema first.
+- Catch provider/network/database/model errors at service boundaries. The process must not crash.
+- GPU (CUDA) is optional acceleration. CPU fallback is mandatory.
+- Secrets only from environment / config files, never literals in source.

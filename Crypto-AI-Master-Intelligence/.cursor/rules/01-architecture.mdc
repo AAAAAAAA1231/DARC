@@ -1,0 +1,38 @@
+---
+description: Architecture and module boundaries
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# Architecture
+
+Layering (strict):
+
+```
+API routers → services → providers / strategies / simulations / backtest → database
+```
+
+- `api/` is HTTP only: validation, auth-less local app, pagination. No scoring math.
+- `services/` owns business workflows and orchestration.
+- `data_sources/` owns HTTP, schema parsing, rate limits, quality tags.
+- `strategies/` are plugins. Each returns direction, score, confidence, signal, reasons.
+- `simulations/` and `backtest/` never block the UI thread; they run as jobs.
+- `database/` is the only persistence. SQLite default; engine URL must allow PostgreSQL later.
+
+## Identity
+
+Project ID format: `PROJECT-{CHAIN}-{CONTRACT}` or `PROJECT-WEB-{stable_hash}`.
+
+Dedup key: lowercase chain + checksum address, else normalized website + X handle + name.
+
+## Status vs position
+
+`Project.status` ∈ PENDING, FOLLOWING, HIGH_PRIORITY, WATCHING, PARTICIPATED, COMPLETED, ABANDONED, REJECTED, EXPIRED.
+
+`Position.status` ∈ NO_POSITION, OPEN, PARTIAL_EXIT, CLOSED.
+
+Search hides ABANDONED/REJECTED/COMPLETED/EXPIRED by default, but never deletes rows. Major-change alerts can resurface them.
+
+## Desktop packaging
+
+Prefer a Python launcher (FastAPI + static UI + pywebview) packaged with PyInstaller into `Crypto-AI-Master-Intelligence.exe`. Tauri is optional if the Python backend remains the source of truth.

@@ -1,0 +1,15 @@
+---
+description: Security scanning and secret handling
+globs: backend/**/*.py
+alwaysApply: false
+---
+
+# Security
+
+- 50X candidates are security-scanned before scoring for recommendation. Scan failure → UNKNOWN → excluded from recommendation pool.
+- Check mint/burn/blacklist/whitelist/freeze/pause/tax/maxTx/maxWallet/trading restriction/honeypot/anti-sell/owner/proxy/LP lock/verification/hidden mint.
+- Wallet risk: top holders, team, insider, whale clusters, known scam addresses when the source provides them.
+- Verdicts: SAFE, LOW_RISK, MEDIUM_RISK, HIGH_RISK, MALICIOUS, UNKNOWN, NATIVE_PROTOCOL.
+- No private keys or mnemonics in DB. Public address only. Future signing must use an external wallet.
+- No live order routing. Analysis / simulation / tracking / alert only.
+- Secrets from env. Redact secrets in logs.

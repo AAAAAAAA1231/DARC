@@ -1,0 +1,13 @@
+---
+description: Windows EXE packaging rules
+globs: "{scripts,*.bat,backend/desktop_app.py}"
+alwaysApply: false
+---
+
+# EXE
+
+- `build_exe.bat` must produce `dist/Crypto-AI-Master-Intelligence.exe` (PyInstaller).
+- The EXE starts the local API, serves the built UI, and opens the desktop window.
+- Missing GPU, missing API keys, or missing optional packages must not prevent launch.
+- Bundle the React build output and the SQLite schema bootstrap. Do not require users to run Vite in production.
+- Never bake API keys into the binary. Read `.env` next to the EXE.

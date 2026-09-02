@@ -1,0 +1,14 @@
+---
+description: Backtest and simulation integrity
+globs: backend/{backtest,simulations}/**/*.py
+alwaysApply: false
+---
+
+# Backtest & Simulation
+
+- Forbid look-ahead bias, survivorship bias, overfitting, and data leakage.
+- Point-in-time features only. No future bars, no future labels in training folds.
+- Walk-forward and out-of-sample are required for any weight update that is persisted as a new model version.
+- Monte Carlo uses vectorized NumPy (optional Numba/GPU). Jobs support start/pause/resume/cancel/progress/ETA and persist to SQLite.
+- Lottery simulations must state that lottery outcomes are random. Never claim guaranteed winning.
+- BTC cycle output is probability + time window + confidence. Never "will top on date D".
