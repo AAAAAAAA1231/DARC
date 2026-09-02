@@ -8,7 +8,10 @@ from unittest.mock import patch
 from radar.__main__ import build_parser, run, use_browser_ui
 from radar.report import render_scanning_html
 from radar.models import TokenSnapshot
+from radar.models import SecurityReport
+from radar.report import render_html
 from radar.scoring import score_many, score_token, summarize_venues
+from radar.security import apply_security, parse_goplus_evm, parse_goplus_solana
 from radar.sources import pools_to_snapshots
 
 
@@ -112,6 +115,70 @@ class ScoringTests(unittest.TestCase):
         strong = make_token()
         ranked = score_many([weak, strong])
         self.assertEqual(ranked[0].token.symbol, "PONS")
+
+
+class SecurityTests(unittest.TestCase):
+    def test_honeypot_and_hidden_owner_are_backdoors(self):
+        report = parse_goplus_evm(
+            {
+                "is_honeypot": "1",
+                "hidden_owner": "1",
+                "buy_tax": "0",
+                "sell_tax": "0",
+                "owner_address": "0xabc",
+            }
+        )
+        self.assertTrue(report.has_backdoor)
+        self.assertEqual(report.verdict, "backdoor")
+        self.assertTrue(any("蜜罐" in f for f in report.findings))
+
+    def test_mint_authority_not_renounced_is_backdoor(self):
+        report = parse_goplus_evm(
+            {
+                "is_mintable": "1",
+                "owner_address": "0x1111111111111111111111111111111111111111",
+                "is_honeypot": "0",
+            }
+        )
+        self.assertTrue(report.has_backdoor)
+        self.assertTrue(any("增发" in f for f in report.findings))
+
+    def test_clean_renounced_token(self):
+        report = parse_goplus_evm(
+            {
+                "is_honeypot": "0",
+                "is_mintable": "0",
+                "owner_address": "0x0000000000000000000000000000000000000000",
+                "buy_tax": "3",
+                "sell_tax": "3",
+            }
+        )
+        self.assertFalse(report.has_backdoor)
+        self.assertEqual(report.verdict, "clean")
+
+    def test_solana_freeze_authority_is_backdoor(self):
+        report = parse_goplus_solana({"freezable": {"status": "1", "authority": [{"address": "So1"}]}})
+        self.assertTrue(report.has_backdoor)
+        self.assertTrue(any("冻结" in f for f in report.findings))
+
+    def test_backdoor_token_is_removed_from_recommendations(self):
+        ranked = score_many([make_token()])
+        self.assertTrue(ranked[0].score.watch)
+        reports = {
+            ("robinhood", "0xabc"): SecurityReport(
+                checked=True,
+                has_backdoor=True,
+                verdict="backdoor",
+                source="test",
+                findings=["管理员可改地址余额"],
+            )
+        }
+        apply_security(ranked, reports)
+        self.assertFalse(ranked[0].score.watch)
+        self.assertEqual(ranked[0].score.priority, "skip")
+        page = render_html([], [], datetime(2026, 9, 1, tzinfo=timezone.utc), rejected=ranked)
+        self.assertIn("因合约后门剔除", page)
+        self.assertIn("管理员可改地址余额", page)
 
 
 class SourceParseTests(unittest.TestCase):

@@ -11,7 +11,7 @@ from suite.boot import repo_root, setup_sys_path
 
 setup_sys_path()
 
-from suite import football_api, radar_api  # noqa: E402
+from suite import airdrop_api, football_api, launch_api, radar_api  # noqa: E402
 from web3_radar.api import app as chain_app  # noqa: E402
 from web3_radar.config import ensure_dirs  # noqa: E402
 
@@ -46,7 +46,16 @@ def create_app() -> FastAPI:
 
     @app.get("/api/health")
     async def health() -> dict:
-        return {"ok": True, "app": "工作台", "modules": ["radar", "football", "contracts"]}
+        return {"ok": True, "app": "工作台", "modules": ["radar", "football", "contracts", "airdrops", "launches"]}
+
+    @app.get("/api/cycle")
+    async def cycle() -> dict:
+        from web3_radar.engine.cycle import current_cycle
+
+        try:
+            return current_cycle().to_dict()
+        except Exception as exc:
+            raise HTTPException(502, f"四年周期数据暂时拉不到：{exc}") from exc
 
     @app.post("/api/radar/scan")
     async def radar_scan() -> dict:
@@ -78,6 +87,22 @@ def create_app() -> FastAPI:
     @app.get("/api/football/status")
     async def football_status() -> JSONResponse:
         return JSONResponse(football_api.status())
+
+    @app.post("/api/airdrops/scan")
+    async def airdrop_scan() -> dict:
+        return airdrop_api.start()
+
+    @app.get("/api/airdrops/status")
+    async def airdrop_status() -> JSONResponse:
+        return JSONResponse(airdrop_api.status())
+
+    @app.post("/api/launches/scan")
+    async def launch_scan() -> dict:
+        return launch_api.start()
+
+    @app.get("/api/launches/status")
+    async def launch_status() -> JSONResponse:
+        return JSONResponse(launch_api.status())
 
     app.mount("/assets", StaticFiles(directory=STATIC_DIR), name="assets")
     app.mount("/chain", chain_app)

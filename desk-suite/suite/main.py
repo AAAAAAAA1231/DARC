@@ -47,7 +47,7 @@ def _wait_and_open(host: str, port: int, url: str) -> None:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="工作台：50倍雷达 / 三大联赛 / 合约分析")
+    parser = argparse.ArgumentParser(description="工作台：50倍雷达 / 三大联赛 / 合约分析 / 空投推荐 / 打新")
     parser.add_argument("--host", default=DEFAULT_HOST)
     parser.add_argument("--port", type=int, default=DEFAULT_PORT)
     parser.add_argument("--no-browser", action="store_true")

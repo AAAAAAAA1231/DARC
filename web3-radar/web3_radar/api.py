@@ -12,9 +12,11 @@ from pydantic import BaseModel, Field
 from web3_radar import copytrade
 from web3_radar import db
 from web3_radar.collectors.airdrop import scan_airdrops
+from web3_radar.collectors.airdrop_recommend import recommend_airdrops
 from web3_radar.collectors.ambassador import scan_ambassadors
 from web3_radar.collectors.binance import BinanceClient
 from web3_radar.collectors.launch import scan_launches
+from web3_radar.collectors.launch_hunt import hunt_launches
 from web3_radar.collectors.meme import scan_meme_coins
 from web3_radar.config import INITIAL_INDICATOR_SHARES, STATIC_DIR, load_settings, save_settings
 from web3_radar.engine.risk import RiskConfig, apply_portfolio_overlay, path_expectancy
@@ -100,6 +102,17 @@ async def get_marks(category: str | None = None) -> list[dict[str, Any]]:
 @app.post("/api/marks")
 async def post_mark(body: MarkBody) -> dict[str, Any]:
     return await db.upsert_mark(body.category, body.item_key, body.status, body.note, body.extra)
+
+
+@app.get("/api/contracts/cycle")
+async def contract_cycle() -> dict[str, Any]:
+    from web3_radar.engine.cycle import current_cycle
+
+    try:
+        view = await asyncio.to_thread(current_cycle)
+    except Exception as exc:
+        raise HTTPException(502, f"四年周期数据暂时拉不到：{exc}") from exc
+    return view.to_dict()
 
 
 @app.get("/api/contracts/universe")
@@ -454,6 +467,17 @@ async def ambassadors(refresh: bool = Query(False)) -> dict[str, Any]:
     )
 
 
+@app.get("/api/launches/hunt")
+async def launches_hunt(refresh: bool = Query(False)) -> dict[str, Any]:
+    return await _scan_or_cache(
+        "launch_hunt_v1",
+        "launch",
+        300,
+        refresh,
+        hunt_launches,
+    )
+
+
 @app.get("/api/launches")
 async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
     settings = load_settings()
@@ -463,6 +487,17 @@ async def launches(refresh: bool = Query(False)) -> dict[str, Any]:
         180,
         refresh,
         lambda: scan_launches(twitter_bearer=str(settings.get("twitter_bearer_token") or ""), lookback_days=7),
+    )
+
+
+@app.get("/api/airdrops/recommend")
+async def airdrop_recommend(refresh: bool = Query(False)) -> dict[str, Any]:
+    return await _scan_or_cache(
+        "airdrop_recommend_v1",
+        "airdrop",
+        600,
+        refresh,
+        recommend_airdrops,
     )
 
 
